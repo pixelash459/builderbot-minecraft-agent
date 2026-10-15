@@ -530,3 +530,11 @@ One death. normal2, 17:24Z: `BuilderBot fell from a high place` at (444, 13, 10)
 `python -u tests/integration.py`, model off. Exit 0, 1081 s. `All in-game integration tests passed`.
 
 `Reflex paused the gather: Reflex: preempted by Mob Defense`. `PASS: A4 escaped the lava trench (hp 18.8, at [1648, -60, 1648])`.
+
+## 2026-10-16 04:51–04:56 IST — combat (`1f81a24`, bot code `ad5f0a0`)
+
+`python -u tests/combat_integration.py`, model off, same services. Exit 0, 306 s. `All combat acceptance tests passed`. No second run.
+
+`4_creeper` (lane): ttk 7.3 s, hits 5, `damage_taken=0`, end health 20, killed, no crater at the spawn, the midpoint, or the bot start.
+
+`4b_creeper_roofed`: ttk 5.3 s, hits 2, `damage_taken=0`, end health 20, killed, no crater. Both creepers stayed at 0 damage.
