@@ -522,3 +522,11 @@ No bed and no `[night] sleep`. No `sealing a 1x1 pod` and no night-pillar timeou
 ### Deaths
 
 One death. normal2, 17:24Z: `BuilderBot fell from a high place` at (444, 13, 10). The iron pickaxe left the inventory with 103 uses left, along with the wooden and stone tools and the iron sword. The soak counter is 1, and that is the only death line in the window. The bot respawned and the run ended still holding an iron pickaxe.
+
+## 2026-10-16 04:32–04:50 IST — integration (`3f4db59`, bot code `ad5f0a0`)
+
+`git pull --rebase` landed on `3f4db59`, which only strips machine-specific paths from docs and `bootstrap.py`. Bot source is still the round-10 tip `ad5f0a0`. Unit tests, run on that bot code before the pause: 509 passed, 0 failed (`--test-skip-pattern resources`, 41.3 s). The cloud note expected 500/500; nothing failed. An earlier integration attempt was stopped mid-suite while the machine was in use and is not a result. Services were down when testing resumed; `Start-Agent.ps1 -NoBrowser` with `AGENT_MODEL=off`. Supervisor log: `model server disabled`.
+
+`python -u tests/integration.py`, model off. Exit 0, 1081 s. `All in-game integration tests passed`.
+
+`Reflex paused the gather: Reflex: preempted by Mob Defense`. `PASS: A4 escaped the lava trench (hp 18.8, at [1648, -60, 1648])`.
