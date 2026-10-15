@@ -7,7 +7,7 @@ Work phase by phase. After each phase: run `node --test tests/*.test.js`, run `p
 ## Ground rules
 
 - Code lives in `src/`. Use the portable Node in `runtime/node-v22.23.3-win-x64` for npm and tests (`runtime\node-v22.23.3-win-x64\npm.cmd`). Pin exact dependency versions in package.json.
-- Do not touch anything outside `minecraft-agent`. Never connect to or modify the Home (25567) or SGSMP (25565) servers or Crafty. All testing happens on the private test server (25569).
+- Do not touch anything outside `minecraft-agent`. Never connect to or modify the user's other servers or tools (LOCAL_RULES.md). All testing happens on the private test server (25569).
 - Keep the existing security: loopback only, token auth, origin check, JSON-only. Never add arbitrary code execution (no eval, no LLM-generated code).
 - Keep current behaviour working: the existing integration suite must keep passing.
 - Match the existing style: ES modules, compact code, zod schemas in `src/schema.js`.

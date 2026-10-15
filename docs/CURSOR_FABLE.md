@@ -9,7 +9,7 @@ BuilderBot should play survival on the user's behalf like a competent human: sta
 - Never kill processes by name. Stop only via `Stop-Agent.ps1`/supervisor `/stop`, PIDs in `data/processes.json`, or a PID on a project port (8765, 8766, 8081, 25569) after verifying its command line is inside `minecraft-agent`.
 - Every node run: `--max-old-space-size=2048`; `node --test` also `--test-timeout=60000`; everything has a timeout. A guard kills minecraft-agent node processes above 4 GB.
 - **Memory is tight: the user games on this PC.** Do NOT start the local model (llama-server on 8081); tests and soaks do not need it. A guard stops it while the game runs.
-- Never touch Crafty (8443), Nitrous (25567), SGSMP (25565), Geyser, playit, or the `crafty`, `MCSERVER`, `geyser`, `playit`, `andy-comparison`, `reference` folders (`reference/altoclef` is read-only source).
+- Never touch the user's other servers, tools or folders (listed in `LOCAL_RULES.md`, kept out of git); `reference/` is read-only source.
 - Test server (`test-server/`, 25569) stays `server-ip=0.0.0.0`. SG-1 may spectate: never kick/teleport/gamemode/target players; every `@e` selector has a `type=` filter; no `@a`/`@p`.
 - Never run two soaks at once. Do not run `tests/resources.test.js` until its unbounded growth is fixed (that fix is in scope; add a bounded-heap test).
 - No new dependencies without a strong reason; never install the third-party 26.3 mineflayer fork.

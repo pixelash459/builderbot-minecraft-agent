@@ -26,7 +26,7 @@ Before every run, also reset vitals so each run starts equal: full health and fo
 3. Then run the 3-run soak and report every run from data/soak-results*.json: peak milestones, deaths, interventions, stuck points, per-job evidence.
 4. STOP and report: files changed by each subagent, unit and integration output, the 3 soak runs.
 
-Never touch D:\Usefu Shi\Epic\SGSMP\andy-comparison, the Home/SGSMP servers or Crafty. The user (SG-1) may be connected to the test server as a spectator: do not kick, teleport or change their gamemode, and do not use @a/@p selectors.
+Never touch the user's other servers, tools or folders listed in LOCAL_RULES.md. The user (SG-1) may be connected to the test server as a spectator: do not kick, teleport or change their gamemode, and do not use @a/@p selectors.
 
 ## HARD RULE: never kill processes by name
-A cleanup that killed every java/node/python process by name took down the user's real Crafty panel and real Minecraft servers (forced, unsaved). NEVER kill processes by name — in scripts, inline, or in subagent code. Only stop processes this project started: Stop-Agent.cmd / the supervisor's /stop, PIDs from minecraft-agent/data/processes.json, or a PID from a project-owned port (8765, 8766, 8081, 25569) after confirming that PID's command line runs from inside D:\Usefu Shi\Epic\SGSMP\minecraft-agent.
+A cleanup that killed every java/node/python process by name took down the user's other servers and their control panel (see LOCAL_RULES.md) (forced, unsaved). NEVER kill processes by name — in scripts, inline, or in subagent code. Only stop processes this project started: Stop-Agent.cmd / the supervisor's /stop, PIDs from minecraft-agent/data/processes.json, or a PID from a project-owned port (8765, 8766, 8081, 25569) after confirming that PID's command line runs from inside D:\Usefu Shi\Epic\SGSMP\minecraft-agent.

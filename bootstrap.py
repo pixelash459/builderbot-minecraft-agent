@@ -41,7 +41,12 @@ def model():
     archive.replace(destination)
     print('Qwen3 model ready',flush=True)
 def server():
-    source=ROOT.parent/'crafty/servers/d7ae358a-b113-433f-b87a-4f9c1d951384'
+    # Paper + ViaVersion/ViaBackwards are copied from an existing server folder on this machine:
+    # set PAPER_SOURCE or paperSource in config.local.json (kept out of git).
+    local=ROOT/'config.local.json'
+    source=os.environ.get('PAPER_SOURCE') or (json.loads(local.read_text())['paperSource'] if local.exists() else None)
+    if not source:raise SystemExit('Set PAPER_SOURCE or paperSource in config.local.json to a Paper server folder')
+    source=pathlib.Path(source)
     target=ROOT/'test-server'
     shutil.copy2(source/'paper.jar',target/'paper.jar')
     for name in ['libraries','versions','cache']:

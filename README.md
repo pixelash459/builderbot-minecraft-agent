@@ -1,6 +1,6 @@
 # BuilderBot Minecraft agent
 
-Everything installed for this project lives in this folder. Your existing Crafty servers, Java installation, worlds, Geyser and playit are used only for inspection; their settings and worlds are not changed.
+Everything installed for this project lives in this folder. Other Minecraft servers, Java installations and worlds on the machine are not modified.
 
 ## Start and use
 
@@ -35,18 +35,16 @@ The test world contains a demonstration chest and platform after validation. Pro
 
 These routines are a starting agent, with bounded tasks. Complex structures with stairs, orientation, redstone or temporary scaffolding are not supported by the current blueprint format. `obtain` explains what it cannot get and why (silk touch, Nether/End, loot-only items) and refuses once instead of looping; farming crops from seeds, eggs, trading and lava handling are not supported. Gathering is limited to a 64-block radius around the job's starting point and accessible blocks. It refuses many structural/container blocks, lava-adjacent targets, digging under itself and unsuitable harvesting tools. Travel does not dig through terrain. It pauses for low health/food, a nearly full inventory or the job time limit.
 
-## Connect to your existing Home server
+## Connect to another server
 
-The default private world lets you test first. To target Home:
+The default private world lets you test first. To target another server you run:
 
 1. Stop the agent services.
-2. In `config.json`, keep host `127.0.0.1` and change server port from **25569** to **25567**.
-3. Home has a whitelist. Add **BuilderBot** using its existing server console: `whitelist add BuilderBot`. The bot uses a separate offline identity and does not require your account or operator permissions.
-4. Start the agent and Connect. Supply tools and materials and choose the intended mining area, chest and build origin before running jobs.
+2. In `config.json`, set `host` and `port` to that server.
+3. If it has a whitelist, add **BuilderBot** from its console (`whitelist add BuilderBot`). The bot uses a separate offline identity and does not need your account or operator permissions.
+4. Start the agent and Connect. Supply tools and materials and choose the mining area, chest and build origin before running jobs.
 
-The setup does not edit Home's whitelist or plugins. The private test server uses ViaVersion/ViaBackwards **5.12.1**; Home currently has **5.12.0**, so inventory operations need to be rechecked there. The client protocol is set to **1.21.4** for the tested compatibility path. The local compatibility hook sends the required movement tick boundaries on Minecraft 26.3. Never open an existing 26.3 world with an older server.
-
-SGSMP uses **25565** and was stopped when inspected. Start it through your existing Crafty controls before choosing that port.
+The private test server uses ViaVersion/ViaBackwards **5.12.1** with client protocol **1.21.4**; recheck inventory operations on servers with other plugin versions. The local compatibility hook sends the required movement tick boundaries on Minecraft 26.3. Never open an existing 26.3 world with an older server.
 
 ## Optional chat companion
 

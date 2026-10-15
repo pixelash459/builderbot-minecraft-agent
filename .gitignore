@@ -22,3 +22,6 @@ data/*
 
 # Run logs
 *.log
+
+# Machine-specific rules and paths (servers, ports, folders)
+LOCAL_RULES.md

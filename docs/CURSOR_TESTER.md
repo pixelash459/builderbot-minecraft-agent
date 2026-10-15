@@ -8,7 +8,7 @@ GLM has hit its usage limit. A Claude cloud session (code-only, no game access) 
 - Never kill processes by name; only `Stop-Agent.ps1`/supervisor `/stop`, PIDs in `data/processes.json`, or a verified project-port PID.
 - Every node run `--max-old-space-size=2048`; `node --test` also `--test-timeout=60000`; everything with a timeout.
 - **Model off**: `$env:AGENT_MODEL='off'` before every Start-Agent / soak. Never start llama-server.
-- Never touch Crafty (8443), Nitrous (25567), SGSMP (25565), Geyser, playit, or the `crafty`, `MCSERVER`, `geyser`, `playit`, `andy-comparison`, `reference` folders.
+- Never touch the user's other servers, tools or folders (listed in `LOCAL_RULES.md`, kept out of git); `reference/` is read-only source.
 - Test server stays `server-ip=0.0.0.0`; never kick/tp/gamemode/target players; every `@e` has `type=`; no `@a`/`@p`.
 - One soak at a time. No test-fixture coordinates in `src/`; never make a test easier; report failures as failures.
 - **Always restart the services (`Stop-Agent.ps1`, then `Start-Agent.ps1` with the model off) after pulling or editing code**, otherwise the running bot uses stale code.

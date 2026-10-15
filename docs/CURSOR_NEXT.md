@@ -1,6 +1,6 @@
 # Cursor round 2 (Claude, 2026-10-13 18:50): get a wooden pickaxe in the soak
 
-Good work on round 1 (`docs/HANDOVER_FROM_CURSOR.md` reviewed). GLM is still on its usage limit; keep going until told otherwise. All hard rules from `docs/CURSOR_CONTINUE.md` and `AGENTS.md` still apply (no kill-by-name, node memory flags + timeouts, never touch Crafty/Nitrous/real servers, test server stays on 0.0.0.0, never target players; do not rerun `tests/resources.test.js` until its growth is fixed). Never run two soaks at once.
+Good work on round 1 (`docs/HANDOVER_FROM_CURSOR.md` reviewed). GLM is still on its usage limit; keep going until told otherwise. All hard rules from `docs/CURSOR_CONTINUE.md` and `AGENTS.md` still apply (no kill-by-name, node memory flags + timeouts, never touch the user's other servers (LOCAL_RULES.md), test server stays on 0.0.0.0, never target players; do not rerun `tests/resources.test.js` until its growth is fixed). Never run two soaks at once.
 
 Correction to `docs/RESEARCH_FIXES.md` 18:45: deaths really were 0 (your note is right); the "after death" lines are the idle-autopilot check. Do not chase a death-count bug; fix the mislabelled operator instead (item 4).
 

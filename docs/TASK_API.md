@@ -110,7 +110,7 @@ AltoClef's Baritone actions are non-blocking processes, but Mineflayer actions (
 5. Unit tests: interrupt during an in-flight action; late settlement after stop is ignored; a failed action is visible to the parent.
 
 ## HARD RULE: memory limits (added by Claude after two incidents on 2026-10-10)
-Runs of tests/resources.test.js and the dashboard node process grew to 17-140 GB, exhausted the page file and crashed the user's real Nitrous server with players online. A guard now stops any minecraft-agent node process above 4 GB.
+Runs of tests/resources.test.js and the dashboard node process grew to 17-140 GB, exhausted the page file and crashed one of the user's other servers with players online. A guard now stops any minecraft-agent node process above 4 GB.
 - Every node test or script: `--max-old-space-size=2048`; `node --test` also gets `--test-timeout=60000`. Never run anything without a timeout.
 - Before running tests/resources.test.js again, find and fix its unbounded growth (likely recursion/looping in the resource tasks or howto chain, the runner/ActionTask, or a fake clock that never advances) and the dashboard growth. Add a unit test that runs the runner for 10k ticks and asserts heap stays bounded.
 - Re-read the "Async actions" section at the end of docs/TASK_API.md.

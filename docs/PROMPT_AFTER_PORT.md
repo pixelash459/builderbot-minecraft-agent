@@ -24,13 +24,13 @@ The enclosed arena fixtures and the measured tests listed in COMBAT_SPEC.md 7e (
 3. Restart services, run unit tests, the existing integration suite, then tests/combat_integration.py. Fix failures (delegate file-scoped fixes back to the owning subagent where possible).
 4. STOP and report with measured numbers: per mob, time to kill, damage taken, crits vs non-crits, blocked arrows, and the baseline comparison.
 
-Same restrictions: never touch andy-comparison, the real servers or Crafty; the user (SG-1) may spectate on the test server, so no kicks, teleports, gamemode changes or @a/@p selectors.
+Same restrictions: never touch the user's other servers, tools or folders listed in LOCAL_RULES.md; the user (SG-1) may spectate on the test server, so no kicks, teleports, gamemode changes or @a/@p selectors.
 
 ## HARD RULE: never kill processes by name
-A cleanup that killed every java/node/python process by name took down the user's real Crafty panel and real Minecraft servers (forced, unsaved). NEVER kill processes by name — in scripts, inline, or in subagent code. Only stop processes this project started: Stop-Agent.cmd / the supervisor's /stop, PIDs from minecraft-agent/data/processes.json, or a PID from a project-owned port (8765, 8766, 8081, 25569) after confirming that PID's command line runs from inside D:\Usefu Shi\Epic\SGSMP\minecraft-agent.
+A cleanup that killed every java/node/python process by name took down the user's other servers and their control panel (see LOCAL_RULES.md) (forced, unsaved). NEVER kill processes by name — in scripts, inline, or in subagent code. Only stop processes this project started: Stop-Agent.cmd / the supervisor's /stop, PIDs from minecraft-agent/data/processes.json, or a PID from a project-owned port (8765, 8766, 8081, 25569) after confirming that PID's command line runs from inside D:\Usefu Shi\Epic\SGSMP\minecraft-agent.
 
 ## HARD RULE: memory limits (added by Claude after two incidents on 2026-10-10)
-Runs of tests/resources.test.js and the dashboard node process grew to 17-140 GB, exhausted the page file and crashed the user's real Nitrous server with players online. A guard now stops any minecraft-agent node process above 4 GB.
+Runs of tests/resources.test.js and the dashboard node process grew to 17-140 GB, exhausted the page file and crashed one of the user's other servers with players online. A guard now stops any minecraft-agent node process above 4 GB.
 - Every node test or script: `--max-old-space-size=2048`; `node --test` also gets `--test-timeout=60000`. Never run anything without a timeout.
 - Before running tests/resources.test.js again, find and fix its unbounded growth (likely recursion/looping in the resource tasks or howto chain, the runner/ActionTask, or a fake clock that never advances) and the dashboard growth. Add a unit test that runs the runner for 10k ticks and asserts heap stays bounded.
 - Re-read the "Async actions" section at the end of docs/TASK_API.md.

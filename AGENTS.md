@@ -2,16 +2,16 @@
 
 ## HARD RULE: never kill processes by name
 
-Stopping processes by name (`Get-Process node,java | Stop-Process -Force`, `taskkill /IM java.exe`, ...) has already killed the user's real Crafty panel and real Minecraft servers, forced and unsaved. NEVER kill processes by name — not in scripts, not inline, not in subagent code. The only allowed ways to stop anything:
+Stopping processes by name (`Get-Process node,java | Stop-Process -Force`, `taskkill /IM java.exe`, ...) has already killed the user's other servers and their control panel (see LOCAL_RULES.md), forced and unsaved. NEVER kill processes by name — not in scripts, not inline, not in subagent code. The only allowed ways to stop anything:
 - `Stop-Agent.cmd` / `Stop-Agent.ps1` (this project's supervisor `/stop`), or the supervisor's `/stop` endpoint directly;
 - a PID listed in `minecraft-agent/data/processes.json` (written by this project's own start scripts);
 - a PID taken from a port this project owns (8765, 8766, 8081, 25569) — only AFTER confirming that PID's command line runs from inside `D:\Usefu Shi\Epic\SGSMP\minecraft-agent`.
 
-Everything else on this PC (other java/node/python processes, the real servers, Crafty) is off-limits even when it looks orphaned.
+Everything else on this PC (other java/node/python processes, the user's other servers and tools listed in LOCAL_RULES.md) is off-limits even when it looks orphaned.
 
 ## HARD RULE: the private test server is LAN-visible; spectators are untouchable
 
-`test-server/server.properties` has `server-ip=0.0.0.0` at the user's request (LAN address 192.168.0.13:25569) — keep it that way, including through the soak's world swaps (its `edit_props` only rewrites level-name/seed/type/difficulty). The bot and every test script still connect via 127.0.0.1:25569. Any player other than BuilderBot is a spectator with SG-1's protections: never kick, never teleport, never change gamemode, never target with selectors — `@a`/`@p` are forbidden and every `@e` selector must carry a `type=` filter for the fixture mob.
+`test-server/server.properties` has `server-ip=0.0.0.0` at the user's request — keep it that way, including through the soak's world swaps (its `edit_props` only rewrites level-name/seed/type/difficulty). The bot and every test script still connect via 127.0.0.1:25569. Any player other than BuilderBot is a spectator with SG-1's protections: never kick, never teleport, never change gamemode, never target with selectors — `@a`/`@p` are forbidden and every `@e` selector must carry a `type=` filter for the fixture mob.
 
 You control a Minecraft bot named BuilderBot through the `minecraft_*` MCP tools. When the user asks for something in the game, do it with these tools. Do not edit project files, run shell commands or write code unless the user explicitly asks for development work.
 
@@ -78,7 +78,7 @@ Not supported: silk touch, Nether/End portals, trading, collecting eggs, and han
 - New bot abilities are added only as reviewed code with tests during development work - never written and executed on the fly while playing.
 
 ## HARD RULE: memory limits (added by Claude after two incidents on 2026-10-10)
-Runs of tests/resources.test.js and the dashboard node process grew to 17-140 GB, exhausted the page file and crashed the user's real Nitrous server with players online. A guard now stops any minecraft-agent node process above 4 GB.
+Runs of tests/resources.test.js and the dashboard node process grew to 17-140 GB, exhausted the page file and crashed one of the user's other servers with players online. A guard now stops any minecraft-agent node process above 4 GB.
 - Every node test or script: `--max-old-space-size=2048`; `node --test` also gets `--test-timeout=60000`. Never run anything without a timeout.
 - Before running tests/resources.test.js again, find and fix its unbounded growth (likely recursion/looping in the resource tasks or howto chain, the runner/ActionTask, or a fake clock that never advances) and the dashboard growth. Add a unit test that runs the runner for 10k ticks and asserts heap stays bounded.
 - Re-read the "Async actions" section at the end of docs/TASK_API.md.

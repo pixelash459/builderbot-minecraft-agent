@@ -6,7 +6,7 @@ Cursor (Fable 5.1, then Grok 4.6) owned the project from 00:50 to 09:05 and has 
 - Never kill processes by name; only `Stop-Agent.ps1`/supervisor `/stop`, PIDs in `data/processes.json`, or a verified project-port PID.
 - Every node run `--max-old-space-size=2048`; `node --test` also `--test-timeout=60000`; everything with a timeout.
 - **Keep the local model off**: set `$env:AGENT_MODEL='off'` before every Start-Agent / soak (the user games on this PC; a guard stops llama-server while the game runs).
-- Never touch Crafty (8443), Nitrous (25567), SGSMP (25565), Geyser, playit, or the `crafty`, `MCSERVER`, `geyser`, `playit`, `andy-comparison`, `reference` folders.
+- Never touch the user's other servers, tools or folders (listed in `LOCAL_RULES.md`, kept out of git); `reference/` is read-only source.
 - Test server stays `server-ip=0.0.0.0`; never kick/tp/gamemode/target players; every `@e` has `type=`; no `@a`/`@p`.
 - One soak at a time. No test-fixture coordinates or names in `src/` (see CLAUDE_REVIEW). Do not make tests easier to pass; if you change a fixture, keep the old case and report both.
 - Report honestly with evidence.
