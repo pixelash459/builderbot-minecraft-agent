@@ -89,3 +89,42 @@ test('autopilot: a remembered chest that is gone is forgotten, and a new one is 
   assert.deepEqual(t.submitted[0],{type:'place',block:'chest',position:{x:3,y:64,z:2}});
  }finally{t.done();}
 });
+// ---- round 11: `Inventory nearly full; deposit items first` twice, never a chest or a deposit ----
+test('surplus when full: what the ladder does not use is surplus too; its materials never are',()=>{
+ const bag={raw_copper:20,redstone:9,bone:3,leather:2,coal:12,raw_iron:6,iron_ingot:4,oak_log:20,stick:9,torch:16,cooked_beef:5,beef:3,stone_pickaxe:1,iron_helmet:1,string:8,white_wool:2,diamond:1};
+ assert.deepEqual(surplus(bag),[],'not full: only the junk list');
+ assert.deepEqual(surplus(bag,true).map(x=>x.item),['raw_copper','redstone','bone','leather']);
+ assert.ok(surplus(bag,true).every(x=>x.keep===0));
+});
+test('inventoryJob: full with no home chest - a chest where the bot stands, even with no home',()=>{
+ const bag={raw_copper:30,iron_ingot:5,oak_planks:16,crafting_table:1};
+ const here={x:7,y:64,z:2};
+ assert.deepEqual(inventoryJob(bag,{slotsFull:0.95,chestSpotHere:here}),{type:'craft',item:'chest',count:1},'no home: craft one');
+ const j=inventoryJob({...bag,chest:1},{slotsFull:0.95,chestSpotHere:here});
+ assert.deepEqual(j,{type:'place',block:'chest',position:here});
+ assert.ok(jobSchema.safeParse(j).success);
+ assert.deepEqual(inventoryJob({...bag,chest:1},{slotsFull:0.95,homeDistance:200,chestSpotHere:here}),{type:'place',block:'chest',position:here},'home out of range: here');
+ assert.deepEqual(inventoryJob({...bag,chest:1},{slotsFull:0.95,homeDistance:10,chestSpot:{x:1,y:64,z:0},chestSpotHere:here}).position,{x:1,y:64,z:0},'home in range: beside home');
+ // a far home chest: junk is dropped first; with nothing droppable, a new chest here
+ const far={slotsFull:0.95,chestAt:{x:300,y:64,z:0},chestDistance:300,homeDistance:300,chestSpotHere:here};
+ assert.equal(inventoryJob({...bag,chest:1,gravel:30},far).type,'drop');
+ assert.deepEqual(inventoryJob({...bag,chest:1},far),{type:'place',block:'chest',position:here});
+ // and once a chest is in reach, the copper goes in
+ assert.deepEqual(inventoryJob(bag,{slotsFull:0.95,chestAt:here,chestDistance:2}),{type:'deposit',position:here,item:'raw_copper',keep:0});
+});
+test('autopilot: full with no home - a chest is placed, becomes home, and the surplus goes in',()=>{
+ const t=autopilot({items:{...KIT,...fill(26),raw_copper:40,chest:1},blocks:{'1,64,0':'air','1,63,0':'grass_block'}});
+ const logs=[];t.worker.log=m=>logs.push(m);
+ try{
+  t.ap.start();t.ap.tick();
+  assert.deepEqual(t.submitted[0],{type:'place',block:'chest',position:{x:1,y:64,z:0}});
+  assert.equal(t.ap.currentStep,'inventory');
+  t.jobs[0].status='complete';t.items.chest=0;
+  t.worker.bot.blockAt=p=>p.x===1&&p.y===64&&p.z===0?{name:'chest',boundingBox:'block'}:null;
+  t.ap.tick();
+  assert.deepEqual(t.ap.homeChestAt,{x:1,y:64,z:0});
+  assert.deepEqual(t.ap.home,{x:1,y:64,z:0},'the chest is home');
+  assert.ok(logs.some(l=>/home chest placed at 1,64,0/.test(l)));
+  assert.deepEqual(t.submitted[1],{type:'deposit',position:{x:1,y:64,z:0},item:'raw_copper',keep:0});
+ }finally{t.done();}
+});

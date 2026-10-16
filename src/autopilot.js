@@ -430,12 +430,19 @@ const SAPLING=/_sapling$/,FLOWER=/^(dandelion|poppy|blue_orchid|allium|azure_blu
 export const JUNK_KEEP={dirt:32,cobblestone:64,cobbled_deepslate:32,netherrack:16,wheat_seeds:16,gravel:0,andesite:0,diorite:0,granite:0,tuff:0,calcite:0,rotten_flesh:0,sand:0,red_sand:0,pointed_dripstone:0,poisonous_potato:0,spider_eye:0};
 const JUNK_DROP=new Set(['gravel','andesite','diorite','granite','tuff','calcite','rotten_flesh','poisonous_potato','dirt','cobblestone','cobbled_deepslate','netherrack','wheat_seeds']);
 const keepOf=name=>JUNK_KEEP[name]??(SAPLING.test(name)?2:FLOWER.test(name)?0:null);
-// Surplus items, largest first: [{item, extra, keep}].
-export function surplus(counts){
+// Round 11 (`Inventory nearly full; deposit items first` and never a deposit): what the ladder
+// still uses - tools, armour, food, fuel, the iron/diamond kit's materials, the bed's - stays on
+// the bot. When the inventory is full, everything else is surplus too (copper, redstone, bones,
+// leather...), so a full bag always has something to put in the chest.
+const LADDER_ITEM=/(_pickaxe|_axe|_shovel|_hoe|_sword|_helmet|_chestplate|_leggings|_boots|_log|_planks|_wool|_bed|_ore)$|^(stick|coal|charcoal|torch|crafting_table|furnace|chest|iron_ingot|raw_iron|iron_nugget|diamond|bucket|water_bucket|shield|bow|arrow|flint|feather|string|shears|wheat|wheat_seeds|hay_block|bone_meal|cobblestone|cobbled_deepslate|dirt|netherrack)$/;
+const FOOD_ITEM=/^(cooked_)?(beef|porkchop|chicken|mutton|rabbit|cod|salmon)$|^(bread|apple|golden_apple|carrot|potato|baked_potato|beetroot|melon_slice|sweet_berries|glow_berries|cookie|pumpkin_pie|mushroom_stew|rabbit_stew|beetroot_soup|dried_kelp|golden_carrot|tropical_fish)$/;
+// Surplus items, largest first: [{item, extra, keep}]. full: the rest of the bag too.
+export function surplus(counts,full=false){
  const out=[];
  for(const [name,n] of Object.entries(counts||{})){
   if(name.startsWith('_'))continue;
-  const keep=keepOf(name);
+  let keep=keepOf(name);
+  if(keep==null&&full&&!LADDER_ITEM.test(name)&&!FOOD_ITEM.test(name))keep=0;
   if(keep==null||n<=keep)continue;
   out.push({item:name,extra:n-keep,keep});
  }
@@ -443,21 +450,24 @@ export function surplus(counts){
 }
 const droppable=s=>JUNK_DROP.has(s.item)||SAPLING.test(s.item)||FLOWER.test(s.item);
 // ctx: {slotsFull, homeDistance, chestAt, chestDistance, chestSpot, worldTable, planksTotal}.
+// Round 11: no home chest yet, full: one goes beside home, or where the bot stands when home
+// is out of range or unset (ctx.chestSpotHere; it becomes home). A home chest that is far:
+// junk is dropped first, and only a bag with nothing droppable gets a new chest here.
 export function inventoryJob(counts,ctx){
  const c=countFactory(counts);
  ctx=woodTotals(counts,{...ctx});
- const extra=surplus(counts);
- if(!extra.length)return null;
  const full=(ctx.slotsFull||0)>INV_FULL;
+ const extra=surplus(counts,full);
+ if(!extra.length)return null;
  const top=extra[0];
  if(ctx.chestAt&&(ctx.chestDistance??Infinity)<=(full?HOME_DEPOSIT_RANGE:INV_PASS)&&(full||top.extra>=INV_PASS_MIN))return {type:'deposit',position:ctx.chestAt,item:top.item,keep:top.keep};
  if(!full)return null;
- if(!ctx.chestAt&&(ctx.homeDistance??Infinity)<=HOME_DEPOSIT_RANGE){
-  if(c('chest')>=1&&ctx.chestSpot)return {type:'place',block:'chest',position:ctx.chestSpot};
-  if(c('chest')<1&&ctx.planksTotal>=8+(c('crafting_table')>=1||ctx.worldTable?0:4))return {type:'craft',item:'chest',count:1};
- }
+ const chestJob=spot=>c('chest')>=1?(spot?{type:'place',block:'chest',position:spot}:null)
+  :ctx.planksTotal>=8+(c('crafting_table')>=1||ctx.worldTable?0:4)?{type:'craft',item:'chest',count:1}:null;
+ if(!ctx.chestAt){const j=chestJob((ctx.homeDistance??Infinity)<=HOME_DEPOSIT_RANGE?ctx.chestSpot:ctx.chestSpotHere);if(j)return j;}
  const junk=extra.find(droppable);
- return junk?{type:'drop',item:junk.item,count:junk.extra}:null;
+ if(junk)return {type:'drop',item:junk.item,count:junk.extra};
+ return ctx.chestAt?chestJob(ctx.chestSpotHere):null;
 }
 // The progression ladder. Each entry: name, done(counts) and next(counts, ctx) producing the
 // next job spec (ctx: {slotsFull, animalsNearby, huntPhase, home, homeChest, chestSpot,
@@ -972,6 +982,13 @@ export class Autopilot{
    else this.state='retry: '+step+' ('+this.failures[step]+'/3)';
   }else{
    if(this.current.spec?.type==='gather'&&this.current.spec.block==='coal_ore')this.coalFails=0;
+   // Round 11: the inventory step's placed chest is the home chest (and home, when none is set).
+   const sp=this.current.spec;
+   if(this.current.step==='inventory'&&sp?.type==='place'&&sp.block==='chest'&&sp.position){
+    this.homeChestAt={x:sp.position.x,y:sp.position.y,z:sp.position.z};this.homeChest=true;
+    if(!this.home)this.home={...this.homeChestAt};
+    this.save();this.log('Autopilot: home chest placed at '+sp.position.x+','+sp.position.y+','+sp.position.z);
+   }
    this.failures[this.currentStep]=0;
    this.coolUntil=0;
    this.state='step done: '+this.currentStep;
@@ -1078,7 +1095,7 @@ export class Autopilot{
   for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1],[2,0],[-2,0],[0,2],[0,-2]]){
    const point=origin.offset(dx,0,dz);
    const top=b.blockAt(point),ground=b.blockAt(point.offset(0,-1,0));
-   if(top?.boundingBox==='empty'&&ground?.boundingBox==='block')return {x:point.x,y:point.y,z:point.z};
+   if(top?.boundingBox==='empty'&&!/water|lava/.test(top.name||'')&&ground?.boundingBox==='block')return {x:point.x,y:point.y,z:point.z};
   }
   return null;
  }
@@ -1252,8 +1269,9 @@ export class Autopilot{
  // (broken, or the soak reset the world) is forgotten when its cell is loaded and not a chest.
  homeCtx(b){
   const me=b.entity&&b.entity.position,h=this.home;
-  if(!me||!h)return {};
-  const out={homeDistance:me.distanceTo(new Vec3(h.x+0.5,h.y,h.z+0.5))};
+  if(!me)return {};
+  if(!h)return {chestSpotHere:this.chestSpotNear(b)};
+  const out={homeDistance:me.distanceTo(new Vec3(h.x+0.5,h.y,h.z+0.5)),chestSpotHere:this.chestSpotNear(b)};
   const at=this.homeChestAt;
   if(at){
    const block=b.blockAt(new Vec3(at.x,at.y,at.z));
