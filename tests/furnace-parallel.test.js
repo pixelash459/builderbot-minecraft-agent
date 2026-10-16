@@ -197,3 +197,82 @@ test('autopilot: exposed coal in arm\'s reach is a short pickup between jobs, on
   });
  }finally{fs.rmSync(root,{recursive:true,force:true});}
 });
+// ---- round 11: normal2 loaded three batches it never collected (`take queued twice`, then the
+// next smelt placed a new furnace) ----------------------------------------------------------
+import {FURNACE_TAKE_TRIES} from '../src/worker.js';
+test('a new smelt walks back and collects the left batch first, in the same furnace',async()=>{
+ const t=smeltFake();
+ await withClock(t.clk,async()=>{
+  await Worker.prototype.smelt.call(t.w,{spec:{type:'smelt',item:'raw_iron',count:3,leave:true}},0);
+  t.clk.advance(40000);
+  t.inv.raw_iron=3;
+  t.w.bot.findBlock=()=>({position:new Vec3(2,64,0),name:'furnace'});
+  const real=globalThis.setTimeout;globalThis.setTimeout=(fn,ms)=>{t.clk.advance(ms);return real(fn,0);};
+  try{await Worker.prototype.smelt.call(t.w,{spec:{type:'smelt',item:'raw_iron',count:3}},0);}
+  finally{globalThis.setTimeout=real;}
+ });
+ assert.ok(t.w.logs.some(l=>/Smelt: collecting the iron_ingot at 2,64,0 before a new batch/.test(l)),t.w.logs.join('\n'));
+ assert.ok(t.w.logs.some(l=>/took 3 iron_ingot .*\(left standing\)/.test(l)));
+ assert.equal(t.inv.iron_ingot,6,'both batches');
+ assert.equal(t.calls.filter(c=>c[0]==='place').length,1,'no second furnace');
+ assert.deepEqual(t.calls.filter(c=>c[0]==='pickUp'),[['pickUp','furnace']],'the kept furnace comes back with the last batch');
+ assert.equal(t.w.furnaceRun,null);
+});
+test('the take walks back with the explore moves when the plain walk fails',async()=>{
+ const t=smeltFake();let walks=0,navs=0;t.w.epoch=0;
+ t.w.bot.pathfinder={movements:'normal',setMovements(m){this.movements=m;}};
+ t.w.exploreMovements=()=>'explore';
+ t.w.walk=async()=>{walks++;throw Error('No path to the goal!');};
+ t.w.navigate=async goal=>{navs++;assert.equal(t.w.bot.pathfinder.movements,'explore');assert.equal(goal.rangeSq,9);};
+ await withClock(t.clk,async()=>{
+  t.w.furnaceRun={x:2,y:64,z:0,item:'raw_iron',output:'iron_ingot',count:3,readyAt:t.clk.now(),placed:true,started:1};
+  t.state.output=3;t.state.input=0;
+  await Worker.prototype.smelt.call(t.w,{spec:{type:'smelt',item:'raw_iron',count:3,take:true}},0);
+ });
+ assert.ok(navs>=1);
+ assert.equal(t.w.bot.pathfinder.movements,'normal','movements restored');
+ assert.equal(t.inv.iron_ingot,3);
+});
+test('a furnace the bot cannot get back to is given up after FURNACE_TAKE_TRIES walks; then a new one',async()=>{
+ const t=smeltFake();
+ t.w.bot.pathfinder={movements:'normal',setMovements(m){this.movements=m;}};
+ t.w.exploreMovements=()=>'explore';
+ await withClock(t.clk,()=>Worker.prototype.smelt.call(t.w,{spec:{type:'smelt',item:'raw_iron',count:3,leave:true}},0));
+ t.w.walk=async()=>{throw Error('No path to the goal!');};
+ t.w.navigate=async()=>{throw Error('Navigation timed out');};
+ for(let i=1;i<FURNACE_TAKE_TRIES;i++){
+  await assert.rejects(Worker.prototype.smelt.call(t.w,{spec:{type:'smelt',item:'raw_iron',count:3}},0),/The batch at 2,64,0 is not collected yet: Could not get back/);
+  assert.ok(t.w.furnaceRun,'kept after '+i+' failed walks');
+ }
+ t.inv.furnace=1;t.inv.coal=1;let walked=0;
+ const realNav=t.w.navigate;t.w.navigate=async(...a)=>{if(walked++<1)return realNav(...a);};
+ const realWalk=t.w.walk;t.w.walk=async(...a)=>{if(t.w.furnaceRun)return realWalk(...a);};
+ await withClock(t.clk,()=>Worker.prototype.smelt.call(t.w,{spec:{type:'smelt',item:'raw_iron',count:3,leave:true}},0));
+ assert.ok(t.w.logs.some(l=>/gave up on the batch at 2,64,0 after 3 failed walks/.test(l)),t.w.logs.join('\n'));
+ assert.equal(t.calls.filter(c=>c[0]==='place').length,2,'only now a new furnace');
+});
+test('autopilot: two failed takes keep the run for the next smelt instead of dropping it',async()=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'furnace-take-'));
+ const clk=clock(),submitted=[],jobs=[],logs=[];
+ const items={oak_planks:8,stick:10,crafting_table:1,wooden_pickaxe:1,wooden_sword:1,wooden_axe:1,cobblestone:32,stone_pickaxe:2,stone_sword:1,stone_axe:1,stone_shovel:1,furnace:1,cooked_beef:8,coal:16};
+ const worker={ready:true,userStopped:false,deathResume:false,jobs,log(m){logs.push(m);},furnaceRun:null,
+  submit(spec){jobSchema.parse(spec);submitted.push(spec);const job={id:'j'+submitted.length,status:'running',spec};jobs.push(job);return job;},
+  cancel(){},
+  bot:{time:{timeOfDay:3000,day:3},inventory:{items:()=>Object.entries(items).filter(([,n])=>n>0).map(([name,count])=>({name,count})),slots:[]},entities:{},
+   registry:{blocksByName:{},foodsByName:{cooked_beef:{}},itemsByName:{}},findBlock(){return null;},blockAt(){return null;},
+   entity:{position:new Vec3(0.5,64,0.5)}}};
+ const ap=new Autopilot(worker,root);
+ try{
+  await withClock(clk,()=>{
+   ap.start();
+   const run={x:1,y:64,z:0,item:'raw_iron',output:'iron_ingot',count:6,readyAt:clk.now()-1,placed:true,started:clk.now()};
+   worker.furnaceRun=run;
+   for(let i=0;i<2;i++){ap.coolUntil=0;ap.tick();assert.equal(submitted.at(-1).take,true);jobs.at(-1).status='failed';}
+   ap.coolUntil=0;ap.tick();
+   assert.equal(worker.furnaceRun,run,'the batch is still remembered');
+   assert.ok(!submitted.at(-1).take||submitted.length>2&&submitted.filter(j=>j.take).length===2,'no third take');
+   assert.ok(logs.some(l=>/next smelt collects it first/.test(l)),logs.join('\n'));
+   assert.notEqual(ap.currentStep,'furnace','the ladder goes on');
+  });
+ }finally{fs.rmSync(root,{recursive:true,force:true});}
+});

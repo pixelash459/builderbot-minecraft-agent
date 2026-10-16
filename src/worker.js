@@ -91,6 +91,10 @@ export const SMELT_TAKE=8;
 export const JUNK_IGNORE_MS=10*60000;
 // A take job waits at most this long past the batch's ready time (a slow or cold furnace).
 export const SMELT_TAKE_GRACE=15000;
+// Round 11 (normal2: three loads never collected, `take queued twice`, then the next smelt
+// placed a new furnace): a left batch is collected before any new smelt starts, and only
+// FURNACE_TAKE_TRIES failed walks back to it give it up.
+export const FURNACE_TAKE_TRIES=3;
 // Jobs that climb out of a stranded tunnel before they start (surface work).
 const STRANDED_CLIMB=new Set(['goto','explore','hunt','collect','shear','breed','deposit','build','place']);
 // Stops that are not the user's: they pause the queue but leave the autopilot running. A
@@ -828,6 +832,18 @@ export class Worker extends EventEmitter {
  async smelt(job,token){
   const b=this.bot,s=job.spec;
   if(s.take)return this.takeSmelt(job,token);
+  // Round 11: the batch left in a furnace comes first - walk back, collect it, and keep that
+  // furnace standing for this batch (the nearest furnace below is the one just emptied).
+  const run=this.furnaceRun;
+  if(run){
+   this.log('Smelt: collecting the '+run.output+' at '+run.x+','+run.y+','+run.z+' before a new batch');
+   try{await this.takeSmelt({spec:{type:'smelt',item:run.item,count:run.count,take:true,keepFurnace:true}},token);}
+   catch(e){
+    this.check(token);
+    if(this.furnaceRun===run)throw Error('The batch at '+run.x+','+run.y+','+run.z+' is not collected yet: '+e.message);
+    this.log('Smelt: '+e.message+'; smelting a new batch');
+   }
+  }
   const input=b.registry.itemsByName[s.item];if(!input)throw Error('Unknown item '+s.item);
   const outputName=SMELTING[s.item]||(s.item.endsWith('_log')?'charcoal':null);
   if(!outputName)throw Error('Unknown smelting output for '+s.item);
@@ -838,7 +854,7 @@ export class Worker extends EventEmitter {
   let fuel=null,fuelErr=null;
   try{fuel=await this.fuelPlan(s.count,s.fuel);}catch(e){fuelErr=e;if(!b.findBlock({matching:b.registry.blocksByName.furnace.id,maxDistance:16}))throw e;}
   const before=this.count(outputName);
-  let block=null,placedAt=null,placedFurnace=null,left=false;
+  let block=null,placedAt=null,placedFurnace=null,left=false,kept=null;
   try{
    block=b.findBlock({matching:b.registry.blocksByName.furnace.id,maxDistance:16});
    if(!block){
@@ -853,6 +869,8 @@ export class Worker extends EventEmitter {
     }
     block=b.blockAt(placedFurnace=await this.placeBlockNear(token,'furnace'));
    }
+   // A furnace the bot placed for an earlier batch and kept standing: this batch picks it up.
+   if(!placedFurnace&&this.ownFurnaces?.has(block.position.x+','+block.position.y+','+block.position.z))kept=block.position;
    await this.walk(block.position,token,2);
    this.check(token);
    const furnace=await b.openFurnace(block);
@@ -907,6 +925,9 @@ export class Worker extends EventEmitter {
    // A furnace this job placed goes back into the inventory like the table: left standing,
    // the ladder's stone step (furnace held or within 16) regressed as soon as the bot
    // walked on, and re-mined 8 cobblestone for a new one.
+   if(kept&&!left&&b.inventory.items().some(i=>/_pickaxe$/.test(i.name))){
+    try{await this.pickUp(kept,'furnace',token);this.ownFurnaces.delete(kept.x+','+kept.y+','+kept.z);}catch(e){this.log('Left the furnace at '+kept+': '+e.message);}
+   }
    if(placedFurnace&&!left){
     // A bare hand breaks a furnace so slowly the drop never lands in the inventory
     // (integration smelt, no pickaxe: block gone, furnace count 0, 2026-10-14).
@@ -927,7 +948,7 @@ export class Worker extends EventEmitter {
   const b=this.bot,run=this.furnaceRun;
   if(!run)throw Error('No furnace run to collect');
   const at=new Vec3(run.x,run.y,run.z);
-  await this.walk(at,token,2);this.check(token);
+  await this.walkToFurnace(run,token);
   const block=b.blockAt(at);
   if(block?.name!=='furnace'){this.furnaceRun=null;throw Error('The furnace at '+at+' is gone');}
   const before=this.count(run.output);
@@ -947,6 +968,24 @@ export class Worker extends EventEmitter {
   }
   if(this.count(run.output)<=before)throw Error('The furnace gave no '+run.output);
   if(b.registry.foodsByName&&b.registry.foodsByName[run.output])this.meals.cooked+=taken;
+ }
+ // Back to a loaded furnace: the plain walk, then the explore movements (a side job may have
+ // left the bot in a pit or up a slope), then anywhere within reach of it. A run whose walks
+ // failed FURNACE_TAKE_TRIES times is given up (the batch stays in the world).
+ async walkToFurnace(run,token){
+  const b=this.bot,at=new Vec3(run.x,run.y,run.z);
+  try{await this.walk(at,token,2);this.check(token);return;}
+  catch(e){this.check(token);this.log('Smelt: walk back to the furnace at '+run.x+','+run.y+','+run.z+' failed ('+String(e.message).slice(0,60)+'); trying the explore moves');}
+  const prev=b.pathfinder?.movements;
+  try{
+   if(typeof this.exploreMovements==='function')b.pathfinder.setMovements(this.exploreMovements());
+   await this.navigate(new goals.GoalNear(at.x,at.y,at.z,3),token,45);this.check(token);return;
+  }catch(e){
+   this.check(token);
+   run.fails=(run.fails||0)+1;
+   if(run.fails>=FURNACE_TAKE_TRIES&&this.furnaceRun===run){this.furnaceRun=null;this.log('Smelt: gave up on the batch at '+run.x+','+run.y+','+run.z+' after '+run.fails+' failed walks');}
+   throw Error('Could not get back to the furnace at '+run.x+','+run.y+','+run.z+': '+e.message);
+  }finally{if(prev&&token===this.epoch)b.pathfinder.setMovements(prev);}
  }
  async sleep(job,token){
   const b=this.bot;

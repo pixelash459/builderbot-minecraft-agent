@@ -1088,8 +1088,14 @@ export class Autopilot{
    moreCooking:meat||(this.animalsNearby(b)&&this.currentStep==='food')});
   if(!job){this.state='furnace: working ('+Math.max(0,Math.ceil((run.readyAt-Date.now())/1000))+' s left)';return true;}
   if(job.take){
-   // Two takes that did not clear the run: abandon it (the ladder smelts again from the inventory).
-   if(++this.furnace.takes>2){this.worker.furnaceRun=null;this.log('Autopilot: gave up on the furnace at '+run.x+','+run.y+','+run.z);return false;}
+   // Round 11: two takes that did not clear the run no longer drop it (normal2 then placed a
+   // new furnace three times with the batch still in the old one): the ladder goes on and the
+   // next smelt job walks back and collects it first (worker.smelt).
+   if(this.furnace.takes>=2){
+    if(!this.furnace.parked){this.furnace.parked=true;this.log('Autopilot: two takes at the furnace '+run.x+','+run.y+','+run.z+' did not collect it; the next smelt collects it first');}
+    return false;
+   }
+   this.furnace.takes++;
   }else this.furnace.side++;
   this.submit('furnace',job);
   return true;
