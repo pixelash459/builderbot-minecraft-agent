@@ -597,3 +597,47 @@ Bucket was crafted on the iron step (23:39Z, 00:23Z, 01:04Z) and `use bucket` ra
 `4_creeper` (lane): ttk 7.3 s, hits 5, `damage_taken=0`, end health 20, killed, no crater at the spawn, the midpoint, or the bot start.
 
 `4b_creeper_roofed`: ttk 6.2 s, hits 2, `damage_taken=0`, end health 20, killed, no crater. Both creepers stayed at 0 damage.
+
+## 2026-10-16 12:49–15:58 IST — dual soak (`fc1a171`, bot code `4410d99`)
+
+`AGENT_MODEL=off`, one soak, exit 0, 11331 s. `SOAK DONE (clean)`, promoted to `data/soak-results.json`. Flat world restored (`level-name=agent-test-world`, `server-ip=0.0.0.0`, peaceful). Model stayed off. Anchors: hard [140, 130, 32], normal [310, 131, 30]. No second soak.
+
+| Run | Wood | Stone pick | Furnace | Iron pick | Torches | Armour worn | Bed | Diamonds | Food | Deaths |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| normal1a1 | 90 | 211 | 271 | 362 | 16 | 1 at 663 | — | 0 | no food held (bar min 5) | 0 |
+| normal2a2 | 90 | 150 | 241 | 361 | 16 | 3 at 752 | — | 0 | ate 3 | 1 |
+| normal3a3 | 120 | 181 | 241 | 391 | 16 | 2 at 692 | — | 0 | not hungry (bar min 18) | 0 |
+| hard1a1 | 120 | 451 | 512 | — | 0 | 0 | — | 0 | not hungry (bar 20) | 0 |
+| hard2a2 | 181 | 361 | 421 | — | 0 | 0 | — | 0 | not hungry (bar 20) | 0 |
+| hard3a3 | 90 | 452 | 512 | — | 0 | 0 | — | 0 | not hungry (bar 20) | 0 |
+
+Diamond pick never. No bed on any run. All three hard runs got wood, a stone pickaxe, and a furnace. None reached iron.
+
+### Night mine
+
+- hard1, 09:34Z: sealed at (147, 127, 32), 16 blocks, then `Night mine: down from the shelter`. A cave opening turned the strip east. `could not climb` was not logged. `walking the tunnel back by hand` then `pillaring up the sump from y=125`, then `Night mine: back in the shelter`. No later `not in the box`. Dawn hold at 09:44Z (tod 1) was still sealed when the run ended.
+- hard2, 09:55Z: sealed a 6-block box at (143, 119, 40). The mine opened a cave, the pathfinder climb failed, and the hand walk did not finish. `Night mine: not back in the shelter (...); bot at (143, 116, 39), the box is at (143, 119, 40)`. `Shelter: not in the box ... sealing where it stands`, then `Shelter: sealed at (143, 116, 39)` (7 blocks). Dawn hold at 10:05Z (tod 12).
+- hard3, 10:17Z: sealed at (134, 121, 37), 14 blocks. The strip bridged a gap (`Tunnel: bridged a gap under (128, 113, 32) with cobblestone`), the pathfinder climb failed, the hand walk ran, then `pillaring up the sump from y=119` and `Night mine: back in the shelter`. Dawn hold at 10:26Z (tod 1) was still up at the bell. No `holding the box and re-sealing` and no night-pillar timeout.
+
+### Diamond descent
+
+Both diamond trips stopped at y=60 on water and never reached y=-53. No `Digging a branch mine`, no `bridged a gap` on a diamond trip, no `moved 3`, diamonds 0.
+
+- normal2, 08:18Z and again 08:19Z: `diamond-rung` `targetY -53`. The second job died immediately: `Tunnel stopped: water under 458,60,212` (and the two neighbours) `no safe way on`. At 08:22Z `BuilderBot drowned` at (473, 56, 210). That is the only death. The soak counter is 1. End armour worn is 0 after the respawn; the rung had recorded 3 worn at 752 s.
+- normal3, 09:00Z: the same stop, `water under 318,60,160` and the two neighbours. A bucket use at (316, 62, 160) is the line just before it.
+
+### Furnace, bucket, bed, chest
+
+`Smelt: took N` did happen, including `took 2 cooked_chicken ... (left standing)` and later iron from the same furnace at (159, 161, -24). There is no `Smelt: collecting the ... before a new batch` and no `gave up on the batch`.
+
+The bucket was crafted and used. Fills failed out of reach: (317, 113, 18) at 15.4 blocks (07:31Z, twice) and (172, 133, -36) at 14.6 blocks (08:39Z, twice). No `water_bucket`.
+
+Sheep were found and killed. 08:30Z `[bed-rung] hunt sheep` finished in 3 hits, and 08:57Z the same after an explore `south` for 39. No `craft white_bed`, no `Home set`, no sleep. `no sheep after 3 search legs; bed set aside for 10 min` still fired at 08:18Z and 09:00Z.
+
+08:38Z: `home chest placed at 162,145,-21`, then three `Completed deposit` lines (cobblestone keep 64, cobblestone again, dirt keep 32).
+
+### Food and canopy
+
+The food step was set aside on every normal run before it stuck: 07:38Z and 08:08Z `6 explore legs without food`, 08:48Z `failed 3 times`. The explore failures in the log are `Cannot gather safely: nearby trunks could not be reached` (07:36Z) and `Navigation climbed above the graze cap` (08:07Z and 08:48Z). normal1's bar fell to 5 with nothing held, and `Health or food is low` repeated from 07:38Z to 08:03Z. normal2, after the set-aside, did hunt: pig, then chickens, and ate 3 (`porkchop` bar 13 to 16, raw `chicken` bar 14 to 16, `cooked_chicken` bar 14 to 20).
+
+No `pillaring N up to the canopy log`. All three hard runs still gathered wood (120 s, 181 s, 90 s).
