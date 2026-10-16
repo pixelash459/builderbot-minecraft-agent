@@ -701,3 +701,49 @@ No night mine. The hard runs did not start.
 `4b_creeper_roofed`: ttk 5.3 s, hits 2, `damage_taken=0`, end health 20, killed, no crater. Both creepers stayed at 0 damage.
 
 Zombie trio: ttk 15.8 s, hits 11, `damage_taken=5.0`, all three killed.
+
+## 2026-10-16 17:36–20:44 IST — dual soak (`0cd08c8`, bot code `383e021`)
+
+`AGENT_MODEL=off`, one soak, exit 0, 11286 s. `SOAK DONE (clean)`, promoted to `data/soak-results.json`. Dashboard window used below is 12:08:14Z–15:14:12Z (join through the soak stop). After the stop, the flat world was restored (`level-name=agent-test-world`, `server-ip=0.0.0.0`, `difficulty=peaceful`). Supervisor log: `model server disabled`. Anchors: hard [141, 131, 30], normal [310, 131, 30]. No second soak.
+
+The wood column is the first sample that held a wooden pickaxe. At the end of every normal run the wooden pickaxe was still held and the crafting table was gone, so the end predicate `wood` is no. hard1 and hard3 show a furnace or stone pick in this table that was gone by the bell, so their end `stone` predicate is no.
+
+| Run | Wood | Stone pick | Furnace | Iron pick | Torches | Armour worn | Bed | Diamonds | Food | Deaths |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| normal1a1 | 90 | 211 | 271 | 361 | 18 | 4 at 753 | — | 0 | ate 4 (1 meal failed: Promise timed out) | 0 |
+| normal2a2 | 90 | 181 | 241 | 482 | 19 | 2 at 1234 | — | 0 | ate 1 | 0 |
+| normal3a3 | 90 | 150 | 241 | 421 | 16 | 2 at 722 | — | 0 | not hungry (bar min 19) | 0 |
+| hard1a1 | 90 | 211 | 301 | — | 0 | 0 | — | 0 | not hungry (bar 20) | 0 |
+| hard2a2 | 602 | — | — | — | 0 | 0 | — | 0 | not hungry (bar 20) | 0 |
+| hard3a3 | 271 | 331 | — | — | 0 | 0 | — | 0 | not hungry (bar 20) | 0 |
+
+Deaths 0. No death line in the dashboard window (`drowned`, `was slain`, `blew up`, and the rest). Interventions 3: normal1 returned from y=74; hard2 unstuck at [146, 132, 34] and [155, 138, 20].
+
+### Drops
+
+The round-12 loop did not return. In the window: `Dropped N item` 4, `No room to toss` 9, `came back into the inventory` 4, `dropped twice in 3 min` 0.
+
+The four tosses that landed: 12:39:04Z `Dropped 415 cobblestone (toward -1,0, open 8)`, 12:39:07Z `Dropped 57 dirt (toward -1,0, open 8)`, 12:39:11Z `Dropped 37 diorite (toward 1,0, open 8)`, 13:04:51Z `Dropped 73 cobblestone (toward -1,0, open 8)`. Came-back failures: cobblestone at 12:33:55Z, dirt at 12:39:14Z (the 57-dirt toss), dirt at 12:44:34Z, dirt at 13:05:23Z. No 256-stack repeating for minutes. The bot left the cell after each refusal.
+
+A different loop did run, after a toss was refused in a full inventory. `Job: No room for crafting result` fired 167 times, in two clusters, paired with `Autopilot [light] craft torch`: 46 lines from 13:23:44Z to 13:29:55Z (about 6 min, end of normal2 at y=-48) and 121 lines from 13:53:47Z to 14:10:12Z (about 16 min, rest of normal3). Same line, about every 8 s.
+
+### Diamond, bucket, bed
+
+Four `[diamond-rung]` gathers, all `targetY -53`, `strip:true`. Diamonds held 0. No `Digging a branch mine`. No `filled a hole`. No water-fill line and no `water_bucket`.
+
+- normal1, 12:25:33Z. `Gather: descent stopped at y=48 (Tunnel stopped: water at (359, 47, 130))` at 12:26:45Z, and that stop line repeated six times in four seconds. Soak sample lowest y=47. Did not reach y=-53.
+- normal2, 13:13:41Z. The staircase kept going. Deepest dashboard block is `Tunnel: mined deepslate_gold_ore in the wall at 457,-48,99` at 13:23:40Z. Soak sample lowest y=-49 at [458, -49, 99] (t=2046). At 13:23:41Z the gather hit `Job time limit reached`, then `No room to toss cobblestone (open run 0)`, then the torch craft loop above. No water stop on this trip. Did not reach y=-53.
+- normal3, 13:48:46Z. `descent stopped at y=20 (Tunnel stopped: water at (579, 19, -30))` at 13:53:14Z. Soak sample lowest y=22. Then `Inventory nearly full` and `No room to toss cobblestone (open run 1)`.
+- A fourth submit at 12:49:21Z (tail of normal1) died in the same second on `Inventory nearly full` and did not dig.
+
+An earlier iron descent (13:01Z, not a diamond trip) logged five `Tunnel: bridged a gap` lines between y=62 and y=50. Nothing like that on a diamond trip.
+
+Bucket was crafted three times (12:17Z, 13:04Z, 13:40Z) and `use bucket` ran. Fills that logged a failure: (317, 113, 18) out of reach 15.6, (316, 114, 15) out of reach 15.5, (574, 100, 69) no change after the use. No `water_bucket`.
+
+Bed: `craft shears` at 12:40:07Z, two `Completed shear`, then `Shearing produced no wool` at 12:41:35Z. No `white_wool` line, no `white_bed`, no `Home set`, no `Sleeping`. `no sheep after 3 search legs; bed set aside for 10 min` at 12:25:27Z, 13:13:06Z, and 13:48:41Z.
+
+### Food and hard runs
+
+Lowest bar in the dashboard is 8, on `Food: ate porkchop (bar 8 -> 11)` at 12:37:48Z. Soak sample mins are 9, 15, 19, 20, 20, 20. Eat lines: three raw porkchop (one of those did not move the bar) and one `cooked_porkchop` 11 to 19 on normal1; one `cooked_porkchop` 14 to 20 on normal2 at 13:11:28Z. normal1 also logged `Food: meal failed - Promise timed out. (2 tries)` while a furnace place was refused holding porkchop. Food hunts that connected: normal1 one pig (3 hits), normal2 three pigs, normal3 one chicken. The food step was still set aside first on every normal run (12:14Z failed 3 times, 13:35Z 6 explore legs, 14:18Z failed 3 times).
+
+No hard run reached an iron pick or an ingot. hard1's iron-ore peak is 3 and it ended holding 1 raw iron; furnace was in a sample at 301 s and gone at the end. hard3 held a stone pick at 331 s and never a furnace. hard2 got a wooden pick at 602 s and nothing past it. No `WorldSurvival: drowning`, no swim-up, no roof dig. Night: hard1 sealed at (153, 127, 30), mined, `could not climb`, walked back, `pillaring up the sump from y=125`, `back in the shelter`. hard2 sealed at (153, 139, 18) and held until dawn with no night-mine line. hard3 sealed at (126, 134, -7), mined, walked back, `pillaring up the sump from y=132`, `back in the shelter`. Hard pig fights timed out with the pig still standing (14:17Z, 14:18Z, 15:01Z, 15:02Z) while the bar stayed at 20.
