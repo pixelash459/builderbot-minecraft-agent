@@ -581,3 +581,11 @@ Bucket was crafted on the iron step (23:39Z, 00:23Z, 01:04Z) and `use bucket` ra
 - hard1 sealed at 01:40Z at (163, 121, 34), 11 blocks. `Night mine: down from the shelter` at 01:41Z (tod 12602), three coal wall digs. At 01:42Z: `could not climb back into (163, 121, 34): No path to the goal!` and, in the same second, `Night mine: back in the shelter (done; 19 steps...)`. The bot was not in the box: re-seal from 01:43Z through 01:50Z kept reporting `open cells 163,120,34=air (bot at 163.50,18.34)`.
 - hard2 never got a log. From 02:00Z, `Gather: no diggable target left` at (141, 131, 30) while the remaining logs sat at y=136–137. At 02:02Z: `6 blocks held, 10 for the box; sealing a 1x1 pod (6)` at (141, 128, 30), then sealed. Dawn hold at 02:11Z (tod 14); opened at 02:12Z (tod 1014, hostile 17.7 away).
 - hard3 got wood at 301 s after `searching further afield` on refused canopy logs (3 columns / 10 blocks, then 2/10, then 1/10). At 02:23Z a night crowd of 2 hostiles started a pillar at (190, 151, 55). At 02:24Z the shelter failed (`1 open cells`, bot at y=55.55) and the pillar `timed out at 0/3; rose 0.00, 0 clicks, holding cobblestone, on grass_block`. No later seal, and no death.
+
+## 2026-10-16 12:24–12:42 IST — integration (`d0ca751`, bot code `4410d99`)
+
+`git pull --rebase` landed on `d0ca751`, which only adds the commit-authorship rule. Bot source is the round-11 tip `4410d99`. Unit tests: 541 passed, 0 failed (`--test-skip-pattern resources`, 41.4 s). The cloud note expected 532/532; nothing failed. Services restarted with `AGENT_MODEL=off`. Supervisor log: `model server disabled`.
+
+`python -u tests/integration.py`, model off. Exit 0, 1067 s. `All in-game integration tests passed`.
+
+`Reflex paused the gather: Reflex: preempted by Mob Defense`. `PASS: A4 escaped the lava trench (hp 18.8, at [1653, -59, 1652])`.
