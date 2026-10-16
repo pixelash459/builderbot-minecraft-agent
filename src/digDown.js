@@ -93,6 +93,10 @@ export const BRIDGE_WIDTH=2;
 export function stepFooting(blockAt,next,dir=null){
  const floor=blockAt(next.x,next.y-1,next.z),under=blockAt(next.x,next.y-2,next.z);
  if(!floor)return {turn:'unloaded floor under '+fmt(next)};
+ // A one-deep water floor on solid ground (a puddle, a lake edge, a flooded cave floor) is
+ // filled like a hole - a block placed into water replaces it. Round 11: both diamond trips
+ // stopped at y=60 on 'water under ...' next to a lake and never went down.
+ if(floor.name==='water'&&solid(under)&&!isFluid(under))return {fill:{x:next.x,y:next.y-1,z:next.z},support:{x:next.x,y:next.y-2,z:next.z},face:{x:0,y:1,z:0},water:true};
  if(isFluid(floor))return {turn:floor.name+' under '+fmt(next)};
  if(solid(floor)){
   if(isFluid(under)&&under.name==='lava')return {turn:'lava two below '+fmt(next)};

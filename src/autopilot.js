@@ -181,6 +181,9 @@ export function bedJob(c,ctx){
  // The dusk prep (needPlanks) has no time for a log trip: only wool it can turn into a bed.
  if(ctx.needPlanks&&ctx.planksTotal+4*ctx.logsTotal<planks)return null;
  if(c('shears')>=1)return {type:'shear'};
+ // Shears (2 ingots) before killing: a kill drops 1 wool, a shear 1-3 and the sheep stays for
+ // the next one (round 11 killed 2 sheep in two runs and never reached 3 wool of one colour).
+ if(c('iron_ingot')>=2)return {type:'craft',item:'shears',count:1};
  if(Object.keys(PLATE).concat(['wooden','stone']).some(t=>c(t+'_sword')>=1))return {type:'hunt',entity:'sheep',count:Math.max(1,Math.min(3-c(wool),ctx.sheepNear))};
  return null;
 }
@@ -317,12 +320,15 @@ function replacementJob(c,ctx){
 // Done at FOOD_ENOUGH edible held, or that many held + eaten this run (`_eaten`), unless the
 // bot is hungry (bar <= FOOD_HUNGRY) with nothing to eat. A food step that keeps failing is
 // set aside (ctx.foodOff, FOOD_OFF_MS) and comes back only on that hunger (ctx.foodDeferred).
-export const FOOD_ENOUGH=4,FOOD_HUNGRY=14,FOOD_LEGS=6,FOOD_OFF_MS=8*60000,FOOD_BATCH=6;
+export const FOOD_CRITICAL=6,FOOD_ENOUGH=4,FOOD_HUNGRY=14,FOOD_LEGS=6,FOOD_OFF_MS=8*60000,FOOD_BATCH=6;
 export function foodDone(c,ctx){
  if(COOKABLE_MEAT.some(m=>c(m)>=1&&c('furnace')>=1))return false; // smelting it takes seconds
  const edible=c('_edible');
  if(edible>=FOOD_ENOUGH)return true;
  const starving=edible<1&&Number.isFinite(ctx?.foodBar)&&ctx.foodBar<=FOOD_HUNGRY;
+ // Round 11 normal1: the bar fell to 5 with no food held while the step sat set aside for its
+ // 8 minutes. A nearly empty bar always brings the food step back.
+ if(edible<1&&Number.isFinite(ctx?.foodBar)&&ctx.foodBar<=FOOD_CRITICAL)return false;
  if(ctx?.foodOff)return true;
  if(starving)return false;
  return edible+c('_eaten')>=FOOD_ENOUGH||!!ctx?.foodDeferred;
@@ -767,6 +773,11 @@ export class Autopilot{
    // Respawned in the dark: shelter at the spawn point before anything else, even while
    // the death holds the ladder (round 4 hard3 respawned at night and was shot again).
    if(!w.userStopped&&this.respawnNight(b))return;
+   // A world threat (drowning, lava, fire, a wall, a fall) owns the bot: submitting the next
+   // ladder job meanwhile pulled a drowning bot back into its gather (round 11 normal2:
+   // swim-up at 08:22:32, a fresh coal gather a second later, drowned 14 s after).
+   const rs=w.taskRunner&&w.taskRunner.status&&w.taskRunner.status();
+   if(rs&&/World Survival|MLG/i.test(rs.chain||'')){this.state='waiting: '+rs.chain;return;}
    if(w.deathResume){this.state='paused: died - resume to continue';return;}
   if(w.userStopped){this.enabled=false;this.state='idle';this.current=null;w.cobbleReserve=0;this.log('Autopilot stopped (Stop all)');return;}
   const active=w.jobs.find(j=>['running','queued'].includes(j.status));
@@ -971,6 +982,10 @@ export class Autopilot{
    if(step==='diamond-rung')this.diamondOffUntil=Date.now()+DIAMOND_OFF_MS;
    if(step==='inventory')this.invOffUntil=Date.now()+INV_OFF_MS; // a full chest, no spot: later
    if(step==='farm')this.farmOffUntil=Date.now()+FARM_OFF_MS;
+   // A water source the bucket could not fill from (out of reach on a cliff, ray blocked) is
+   // skipped for 10 min, so the next try picks another source (round 11: the same out-of-reach
+   // source was retried 3 jobs in a row).
+   if(job.spec?.type==='use'&&job.spec.item==='bucket'&&job.spec.position){const q=job.spec.position;(this.badWater||(this.badWater=new Map())).set(q.x+','+q.y+','+q.z,Date.now()+600000);}
    // Habit 7: a coal dig that failed twice: charcoal from logs for COAL_OFF_MS instead.
    if(this.current.spec?.type==='gather'&&this.current.spec.block==='coal_ore'&&(this.coalFails=(this.coalFails||0)+1)>=2){this.coalFails=0;this.coalOffUntil=Date.now()+COAL_OFF_MS;this.log('Autopilot: no coal found twice; charcoal from logs for '+COAL_OFF_MS/60000+' min');}
    // Round 9: a food step that failed 3 times is set aside, not blocked - the blocked
@@ -1215,6 +1230,9 @@ export class Autopilot{
   }
   if(choice.step==='food'&&this.foodTrack(counts,choice.job))return; // set aside: next tick moves on
   if(choice.step==='food'&&choice.job?.type==='explore'&&this.lastSurfaceY==null&&this.foodAnchorY==null)this.foodAnchorY=standY;
+  // A food-step explore is a survival trip: it must run with the bar low (worker.check refuses
+  // other jobs below minFood, so round 11 normal1 starved in a 'Health or food is low' loop).
+  if(choice.step==='food'&&choice.job?.type==='explore')choice.job={...choice.job,forFood:true};
   if(choice.step==='food'||choice.step==='bed')this.huntPhase=!this.huntPhase;
   this.currentStep=choice.step;
   if(!choice.job){this.state=choice.step+': satisfied';return;}
@@ -1334,10 +1352,15 @@ export class Autopilot{
    if(!b.inventory.items().some(i=>i.name==='bucket')||b.inventory.items().some(i=>i.name==='water_bucket'))return null;
    const id=b.registry.blocksByName.water?.id;
    if(id==null||typeof b.findBlocks!=='function')return null;
-   for(const p of b.findBlocks({matching:id,maxDistance:WATER_NEAR,count:32})){
+   // Sources near the bot's own height first (a source 15 up a cliff is "near" but out of
+   // reach), skipping ones the bucket already failed at.
+   const me=b.entity?.position,now=Date.now(),bad=this.badWater||new Map();
+   const ok=b.findBlocks({matching:id,maxDistance:WATER_NEAR,count:64}).filter(p=>{
     const bl=b.blockAt(p),up=b.blockAt(p.offset(0,1,0));
-    if(bl&&(bl.metadata??0)===0&&up&&up.boundingBox==='empty'&&up.name!=='water')return {x:p.x,y:p.y,z:p.z};
-   }
+    return bl&&(bl.metadata??0)===0&&up&&up.boundingBox==='empty'&&up.name!=='water'&&!((bad.get(p.x+','+p.y+','+p.z)||0)>now);
+   });
+   if(me)ok.sort((a,c)=>(Math.abs(a.y-me.y)>4)-(Math.abs(c.y-me.y)>4)||a.distanceTo(me)-c.distanceTo(me));
+   if(ok.length)return {x:ok[0].x,y:ok[0].y,z:ok[0].z};
   }catch{}
   return null;
  }

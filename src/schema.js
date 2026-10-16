@@ -15,7 +15,7 @@ export const jobSchema=z.discriminatedUnion('type',[
  // surface/surfaceY: the ladder's unblock explore after a surface gather stays on the stand
  // (worker.explore honours them; they were rejected by this schema until 2026-10-14, so the
  // "exploring before retry" leg never ran and a blocked step retried in place forever).
- z.object({type:z.literal('explore'),direction:z.enum(['north','south','east','west','random']).optional(),distance:z.number().int().min(16).max(256),surface:z.boolean().optional(),surfaceY:z.number().int().min(-64).max(320).optional(),surfaceCeiling:z.number().int().min(-64).max(320).optional(),surfaceFloor:z.number().int().min(-64).max(320).optional()}).strict(),
+ z.object({type:z.literal('explore'),direction:z.enum(['north','south','east','west','random']).optional(),distance:z.number().int().min(16).max(256),surface:z.boolean().optional(),surfaceY:z.number().int().min(-64).max(320).optional(),surfaceCeiling:z.number().int().min(-64).max(320).optional(),surfaceFloor:z.number().int().min(-64).max(320).optional(),forFood:z.boolean().optional()}).strict(),
  z.object({type:z.literal('place'),block:item,position}).strict(),
  z.object({type:z.literal('eat')}).strict(),
  z.object({type:z.literal('equip')}).strict(),

@@ -208,8 +208,27 @@ export class SwimUpTask extends Task{
    if(b&&b.boundingBox!=='block'&&!/water|lava/.test(b.name)){dir=[dx,dz];break;}
   }
   if(dir){look(bot,yawToward(dir[0],dir[1]),0.6);setControl(bot,'forward',true);}
-  else{look(bot,bot.entity.yaw||0,Math.PI/2);setControl(bot,'forward',false);}
+  else{
+   look(bot,bot.entity.yaw||0,Math.PI/2);setControl(bot,'forward',false);
+   // Flooded tunnel or cave with a solid roof (round 11 normal2 drowned at y=56 holding
+   // jump under stone): no side opens to air, so dig the roof over the head cell.
+   const roof=SwimUpTask.roofToDig(bot);
+   if(roof)digSafe(bot,roof);
+  }
   return null;
+ }
+ // The solid, diggable block right above the head cell, when there is one; null when the
+ // way up is open water or air, or the block must not be broken.
+ static roofToDig(bot){
+  const me=bot.entity&&bot.entity.position;if(!me||!bot.blockAt)return null;
+  const b=bot.blockAt(me.offset(0,2,0));
+  if(!b||b.boundingBox!=='block'||/water|lava/.test(b.name))return null;
+  if(/bedrock|barrier|obsidian|end_portal|spawner/.test(b.name))return null;
+  for(const[dx,dy,dz]of[[1,0,0],[-1,0,0],[0,0,1],[0,0,-1],[0,1,0]]){
+   const n=bot.blockAt(me.offset(dx,2+dy,dz));
+   if(n&&/lava/.test(n.name))return null;
+  }
+  return b;
  }
  onStop(bot){forget(bot,'jump','forward','sprint');}
  isEqual(o){return o&&o.constructor===this.constructor;}

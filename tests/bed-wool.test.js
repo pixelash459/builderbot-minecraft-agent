@@ -175,3 +175,9 @@ test('the rung heads for a sheep it can see 60 blocks off, and widens its blind 
   assert.equal(u.submitted.at(-1).distance,BED_SEARCH_DIST[1]);
  }finally{u.done();}
 });
+test('with 2 iron ingots and a sheep in reach, shears come before killing sheep for wool',()=>{
+ const c=o=>(n=>o[n]||0);
+ assert.deepEqual(bedJob(c({iron_ingot:2,iron_sword:1}),{planksTotal:8,logsTotal:0,sheepNear:3}),{type:'craft',item:'shears',count:1});
+ assert.deepEqual(bedJob(c({shears:1,iron_sword:1}),{planksTotal:8,logsTotal:0,sheepNear:3}),{type:'shear'});
+ assert.equal(bedJob(c({iron_ingot:1,iron_sword:1}),{planksTotal:8,logsTotal:0,sheepNear:3}).type,'hunt','no ingots spare: hunt');
+});

@@ -105,3 +105,14 @@ test('drowning takes the tree from a running Mob Defense flee, and hands it back
  bot.oxygen=19;runner.tick();
  assert.equal(runner.status().chain,'Mob Defense');
 });
+test('SwimUpTask digs a solid roof over a flooded tunnel, never lava-side or bedrock',async()=>{
+ const {SwimUpTask}=await import('../src/chains/fallbackTasks.js');
+ const mk=(cells)=>({entity:{position:new Vec3(0.5,10,0.5),isInWater:true,yaw:0},
+  blockAt:p=>{const n=cells[`${Math.floor(p.x)},${Math.floor(p.y)},${Math.floor(p.z)}`]||'stone';return {name:n,position:p,boundingBox:/^(air|water|lava)$/.test(n)?'empty':'block'};}});
+ // feet and head cells are water, everything around is stone: dig the stone at y=12
+ const flooded={'0,10,0':'water','0,11,0':'water'};
+ assert.equal(SwimUpTask.roofToDig(mk(flooded)).name,'stone');
+ assert.equal(SwimUpTask.roofToDig(mk({...flooded,'0,12,0':'water'})),null,'open water above: just swim');
+ assert.equal(SwimUpTask.roofToDig(mk({...flooded,'0,12,0':'bedrock'})),null);
+ assert.equal(SwimUpTask.roofToDig(mk({...flooded,'1,12,0':'lava'})),null,'never open a cell beside lava');
+});

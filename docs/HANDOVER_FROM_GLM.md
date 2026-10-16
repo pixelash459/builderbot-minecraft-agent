@@ -1705,3 +1705,12 @@ dashboard logs in the sandbox, so several root causes are best guesses, marked a
 - The abandoned box (when the shelter re-seals elsewhere) is not taken down at dawn.
 - A canopy pillar and a pillared-up sump are left standing (player-made dirt or cobble columns).
 - A chest placed far from home replaces the remembered home chest. Only one chest is remembered.
+
+## Round 12 (2026-10-16, local fixes from the round-11 live soak)
+Unit tests: **534 passed, 0 failed**. Not yet live-verified.
+
+1. **Drowned in a flooded tunnel** (normal2, (473,56,210)): the swim-up held jump under a stone roof, and the ladder submitted a new coal gather a second after the drowning escape started. Now `SwimUpTask` digs a solid roof over the head cell (never bedrock or beside lava), and the autopilot submits nothing while a World Survival or MLG chain owns the bot. Look for `waiting: Misc World Survival Chain` in the state.
+2. **Diamond trips stopped on water at y=60**: a one-deep water floor on solid ground is now filled like a hole (`stepFooting` returns `water:true`), and a `Tunnel stopped: water ...` leg can sidestep instead of failing the job. Look for `Tunnel: filled a hole` near water and `moved N` sidesteps.
+3. **Bucket fills out of reach** (15 blocks up a cliff, retried 3 jobs in a row): water sources within 4 blocks of the bot's height come first, and a source the bucket failed at is skipped for 10 minutes.
+4. **No bed after killing sheep**: with 2 iron ingots and a sheep in reach, shears are crafted before any kill (a shear gives 1-3 wool and the sheep stays). Look for `craft shears`, then `shear`.
+5. **Starved at a bar of 5** (normal1, `Health or food is low` for 25 min): a nearly empty bar (<= 6) with no food held brings the food step back even while it is set aside, and food trips (`hunt`, `collect`, food-step `explore` with `forFood`) run on a low bar instead of being refused.

@@ -215,7 +215,7 @@ export function planTunnelStep(b,job,dir,dy,noTurn=false){
 // Round 11: a leg with no safe way on (every direction opens onto a cave) first moves
 // sideways - SIDESTEP_LEN level tunnel cells to a side, checked like any step - and starts a
 // new staircase there, up to SIDESTEPS times, before it hands back to the gather.
-const DESCENT_STOP=/^Tunnel stopped: (cave opening|a hole|hole|a gap|loose|lava two below|unloaded|turn limit|dropped)/;
+const DESCENT_STOP=/^Tunnel stopped: (cave opening|a hole|hole|a gap|loose|lava two below|unloaded|turn limit|dropped|water)/;
 export async function descendLeg(w,job,token,targetY){
  let dir=null;
  for(let side=0;;side++){
@@ -560,7 +560,7 @@ export class Worker extends EventEmitter {
   const job=this.jobs.find(j=>j.status==='queued'&&SURVIVAL_JOBS.has((j.spec||{}).type))||this.jobs.find(j=>j.status==='queued');if(!job)return;
   this.busy=true;job.status='running';job.message='Working';this.save();const token=this.epoch;
   const minutes=['sleep','shelter'].includes(job.spec.type)?this.config.limits.nightMinutes??13:this.config.limits.jobMinutes;
-  this.deadline=Date.now()+minutes*60000;this.survivalJob=['eat','equip','smelt','sleep','shelter','fight'].includes(job.spec.type);
+  this.deadline=Date.now()+minutes*60000;this.survivalJob=['eat','equip','smelt','sleep','shelter','fight','hunt','collect'].includes(job.spec.type)||!!job.spec.forFood; // getting food must run on an empty bar
   const watchdog=setInterval(()=>{if(Date.now()>this.deadline)this.stop('Job time limit reached','timeout');},1000);
   // runSettled resolves only once run(job) has FULLY unwound (every inner finally). A stop
   // resolves the race below while run is still unwinding; reflexes await runSettled before

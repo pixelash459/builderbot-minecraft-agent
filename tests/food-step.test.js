@@ -21,7 +21,10 @@ test('foodDone: enough held, or held + eaten this run, unless hungry with none h
  assert.equal(foodDone(c({_edible:0,_eaten:4}),{foodBar:20}),true,'ate its 4 porkchops, not hungry: on to iron');
  assert.equal(foodDone(c({_edible:0,_eaten:4}),{foodBar:14}),false,'hungry with none held: back to food');
  assert.equal(foodDone(c({_edible:4,porkchop:1,furnace:1}),{}),false,'raw meat still cooks first');
- assert.equal(foodDone(c({_edible:0}),{foodOff:true,foodBar:5}),true,'set aside: never loops');
+ assert.equal(foodDone(c({_edible:0}),{foodOff:true,foodBar:12}),true,'set aside: never loops');
+ // Round 11 normal1 starved at a bar of 5 while the step sat set aside: a nearly empty bar
+ // with nothing held always brings it back.
+ assert.equal(foodDone(c({_edible:0}),{foodOff:true,foodBar:5}),false,'starving overrides the set-aside');
  assert.equal(foodDone(c({_edible:0}),{foodDeferred:true,foodBar:18}),true,'deferred: only hunger brings it back');
  assert.equal(foodDone(c({_edible:0}),{foodDeferred:true,foodBar:12}),false);
 });

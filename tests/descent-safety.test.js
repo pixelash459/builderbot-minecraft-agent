@@ -52,8 +52,13 @@ test('stepFooting: solid floor ok, a shallow hole is filled, a deep opening or l
  assert.match(stepFooting(lava.blockAt,{x:1,y:129,z:0}).turn,/lava two below/);
  const loose=world({'1,128,0':'gravel','1,127,0':'air'});
  assert.match(stepFooting(loose.blockAt,{x:1,y:129,z:0}).turn,/loose gravel over a hollow/);
- const water=world({'1,128,0':'water'});
- assert.match(stepFooting(water.blockAt,{x:1,y:129,z:0}).turn,/water under/);
+ // One-deep water on solid ground (a lake edge): filled like a hole (round 11 diamond trips).
+ const puddle=world({'1,128,0':'water'});
+ const wf=stepFooting(puddle.blockAt,{x:1,y:129,z:0});
+ assert.deepEqual([wf.fill,wf.support,wf.water],[{x:1,y:128,z:0},{x:1,y:127,z:0},true]);
+ // Deep water (water under water) still turns.
+ const lake=world({'1,128,0':'water','1,127,0':'water'});
+ assert.match(stepFooting(lake.blockAt,{x:1,y:129,z:0}).turn,/water under/);
 });
 test('turnOrder: straight on, then the two sides, never back',()=>{
  assert.deepEqual(turnOrder({x:1,z:0}).map(d=>[d.x,d.z]),[[1,0],[0,-1],[0,1]]);
