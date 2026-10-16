@@ -641,3 +641,11 @@ Sheep were found and killed. 08:30Z `[bed-rung] hunt sheep` finished in 3 hits, 
 The food step was set aside on every normal run before it stuck: 07:38Z and 08:08Z `6 explore legs without food`, 08:48Z `failed 3 times`. The explore failures in the log are `Cannot gather safely: nearby trunks could not be reached` (07:36Z) and `Navigation climbed above the graze cap` (08:07Z and 08:48Z). normal1's bar fell to 5 with nothing held, and `Health or food is low` repeated from 07:38Z to 08:03Z. normal2, after the set-aside, did hunt: pig, then chickens, and ate 3 (`porkchop` bar 13 to 16, raw `chicken` bar 14 to 16, `cooked_chicken` bar 14 to 20).
 
 No `pillaring N up to the canopy log`. All three hard runs still gathered wood (120 s, 181 s, 90 s).
+
+## 2026-10-16 16:09–16:26 IST — integration (`1721cd6`)
+
+`git pull --rebase` already at `1721cd6`. Unit tests: 543 passed, 0 failed (`--test-skip-pattern resources`, 41.5 s). The note expected 534/534; nothing failed. Services restarted with `AGENT_MODEL=off`. Supervisor log: `model server disabled`.
+
+`python -u tests/integration.py`, model off. Exit 0, 1066 s. `All in-game integration tests passed`.
+
+`Reflex paused the gather: Reflex: preempted by Mob Defense`. `PASS: A4 escaped the lava trench (hp 18.8, at [1649, -60, 1649])`.
