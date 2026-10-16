@@ -755,3 +755,70 @@ No hard run reached an iron pick or an ingot. hard1's iron-ore peak is 3 and it 
 `python -u tests/integration.py`, model off. Exit 0, 1067 s (15:41:11Z–15:58:58Z). `All in-game integration tests passed`.
 
 `Reflex paused the gather: Reflex: preempted by Mob Defense`. `PASS: A4 escaped the lava trench (hp 19.8, at [1656, -59, 1654])`.
+
+## 2026-10-16 21:30 IST – 2026-10-17 00:38 IST — dual soak (`4be8d67`, bot code `bde4fb6`)
+
+`AGENT_MODEL=off`, one soak, exit 0, 11288 s (16:00:18Z–19:08:27Z). `SOAK DONE (clean)`, promoted to `data/soak-results.json`. Dashboard window used below is 16:00:20Z–19:08:13Z. After the stop, the flat world was restored (`level-name=agent-test-world`, `server-ip=0.0.0.0`, `difficulty=peaceful`). Supervisor log: `model server disabled`. Anchors: hard [141, 131, 30], normal [310, 131, 30]. No second soak.
+
+The wood / stone-pick / furnace columns are the first sample that held the item. End predicates differ where the item was gone at the bell: normal1 `stone` no (stone pickaxe 0, furnace still 1, diamond pickaxe still 1), normal3 `wood` no and `stone` no (table and furnace gone, iron pickaxe still 1), hard2 `wood` no and `stone` no (empty inventory), hard3 `stone` no.
+
+| Run | Wood | Stone pick | Furnace | Iron pick | Torches | Armour worn | Bed | Diamonds | Food | Deaths |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| normal1a1 | 90 | 181 | 271 | 602 | 17 | 2 at 1084 | — | 3 | ate 2 | 0 |
+| normal2a2 | 120 | 211 | 301 | 452 | 18 | 2 at 722 | — | 0 | not hungry (bar min 17) | 0 |
+| normal3a3 | 90 | 181 | 271 | 542 | 19 | 1 at 1114 | — | 0 | ate 2 | 0 |
+| hard1a1 | 90 | 331 | 512 | — | 0 | 0 | — | 0 | not hungry (bar 20) | 0 |
+| hard2a2 | 181 | 391 | — | — | 0 | 0 | — | 0 | not hungry (bar min 17) | 3 |
+| hard3a3 | 271 | — | — | — | 0 | 0 | — | 0 | not hungry (bar 20) | 0 |
+
+Deaths 3, all hard2. Interventions 11, resumes 3. normal3 was returned from y=61, y=81, and y=82. hard1 unstuck at [144, 129, 32]. hard2 resumed after each death and was returned from y=60 and y=48. hard3 unstuck at [128, 127, 36] and was returned from y=62.
+
+### Deaths
+
+Three `Bot died at` lines, matching the soak counter.
+
+- 18:37:05Z `BuilderBot drowned` at 119, 53, 39.
+- 18:38:55Z `BuilderBot was slain by Zombie` at 132, 127, 34.
+- 18:39:49Z `BuilderBot drowned` at 119, 53, 39.
+
+### Diamond trips
+
+Three `[diamond-rung]` gathers, all `targetY -53`, `strip:true`. No `Digging a branch mine`.
+
+- normal1, 16:21:57Z, count 3. Samples walked y=56, 37, 30, 23, 17, 8, 1, -5, -10 (2 diamonds), -15, -52. `Tunnel: mined deepslate_diamond_ore in the wall at 402,-8,176` at 16:26:51Z. Nine `filled a hole` lines on this descent, from `(400, 31, 138)` through `(401, -23, 191)`. No `water beside`, no `bridged a gap`, no `start a new staircase`, no `descent stopped`. A second submit at 16:28:50Z (count 1) then `craft diamond_pickaxe` at 16:29:02Z. Sample t=1535 still on diamond-rung at y=-51 holding 3 diamonds; t=1565 at y=-53 already held the diamond pick (step iron). Later iron samples reached y=-59. Diamonds held peaked at 3, then 0 once the pick was crafted. Two `Tool left the inventory: diamond_pickaxe` lines followed (1561 uses left, then 1491); the end inventory still held one.
+- normal2, 16:58:37Z, count 3. Two `filled a hole` lines under `(277, 106, 12)` and `(277, 105, 13)`. Then `moved 3 north to start a new staircase` at (278, 75, 39) and again at (278, 73, 34), four `bridged a gap` lines from y=73 to y=68, and `Gather: descent stopped at y=68 (Tunnel stopped: cave opening under 278,67,28 ...)`. Sample lowest y=60 at [278, 60, 39]. Diamonds held 0. Did not reach y=-53.
+- normal3 submitted no diamond gather. Diamonds held 0. Sample lowest y=22 was a wood gather at the bell, not a diamond trip.
+
+The one `water beside` line is not on a diamond trip: 17:46:25Z `Tunnel: water beside (341, 48, 87); turning south`, during normal3's iron descent (sample y=38 on iron just before). One later `bridged a gap` and one `filled a hole` on that same iron descent.
+
+### Full bag
+
+The torch craft loop did not return. `No room for crafting result` 3, `the bag is full; no crafting for 5 min` 3 (16:34:45Z, 16:39:48Z, 17:04:49Z). No craft-fail every 8 s.
+
+`Dropped N item (toward` 10, `came back into the inventory` 6, `No room to toss` 2 (`open run 1` at 17:04:27Z, `open run 0` at 17:09:53Z), `dropped twice in 3 min` 1 (dirt, 17:58:11Z). Landed tosses were 130 cobblestone, two single spruce saplings, 113 cobblestone, then 115 cobblestone / 52 dirt / 29 andesite / 14 diorite / 3 spruce sapling, then 52 dirt. No 256-stack repeating.
+
+After the second pause, normal1 stood at [452, -58, 270] on `waiting: bag full (stone craft)` from t=1897 to t=2408 (511 s). The dashboard in that slice has no line repeating 6 times. The pause stopped the craft spam, and the run then ended still waiting.
+
+### Bed
+
+No `shears`, no `shear`, no `No unshorn sheep`, no wool line, no `white_bed` or other bed, no `Home set`, no `Sleeping`. One bed line: 16:57:33Z `no sheep after 3 search legs; bed set aside for 10 min` (start of normal2). Bed 0 on every run.
+
+### Bucket
+
+No `water_bucket` line in the window, so none was logged as held. Three fill failures, all out of reach, one second apart at 17:10Z: (276, 61, 46) at 21.3, (283, 60, 44) at 22.4, (273, 59, 38) at 22.1. A bucket was crafted at 16:15Z, 16:53Z, and 17:35Z. Uses at 16:16Z and 17:20Z–17:21Z logged no `produced no water bucket` line.
+
+### Food
+
+Lowest bar on a meal line is 14. Soak sample mins are 15, 17, 15, 20, 17, 20. Meals: `Food: ate cooked_beef (bar 14 -> 20)` at 16:27:45Z, 17:45:02Z, and 17:57:30Z. Hunts that connected: normal1 four cow fights (hits 3, 4, 3, 2) at 16:08Z–16:10Z; normal3 three cow fights (hits 2, 2, 4) at 17:28Z–17:30Z. hard1 submitted a chicken fight at 18:25:23Z as the run ended; no `Fight result` line. normal2 ate nothing. Its bar stayed at least 17 while health sat at 9.
+
+### Hard runs
+
+No hard run reached an iron pick or an ingot.
+
+- hard1 furthest rung is the furnace (512 s; stone pick 331 s). It sealed at (161, 112, 29), mined (`Night mine: down from the shelter`, `walking the tunnel back by hand`, `pillaring up the sump from y=110`, `back in the shelter`), and held that shelter from about t=632 to t=993. The 18:10Z–18:30Z slice has no job line repeating inside a few minutes. It ended on the chicken fight above. Ore 0.
+- hard2 furthest rung is the stone pick (391 s). No furnace. It stood on `working: gather` at [119, 63, 38] from t=391 to t=572. At 18:36:33Z `WorldSurvival: drowning (air 4), swimming up` started, and `swimming up` then ran 31 times through 18:39:18Z (air down to -1). No roof-dig line. In the same two minutes `Reflex: resumed the shelter job` 46 times against `Reflex: preempted by Misc World Survival Chain` 29 times, until the drown at 18:37:05Z and the zombie kill at 18:38:55Z, then the second drown. After that, `Short of shelter blocks` at (97, 144, -27) and (95, 123, -14), `Night: pillar-up failed (left the column at 0/3)`, and `night: no shelter; holding for morning` at [95, 123, -14]. It ended gathering wood at [103, 48, 11] with an empty inventory.
+- hard3 furthest rung is the wooden pick (271 s). No stone. From 18:50:34Z to 18:52:48Z, `Explore stopped early at (141, 132, 30)` 12 times, and `Gather: pillaring 4 up to the canopy log at (142, 137, 31)` 7 times in 64 s with `no diggable target left`. Then `Short of shelter blocks: 0 held, 23 needed at (135, 138, 21)` and `night: no shelter; holding for morning` at [135, 141, 21] from t=632 to t=1173. It ended `backing off (6s): wood`.
+
+### Other loop
+
+normal2, after the y=68 stop, stood at [278, 60, 39] with health 9 from t=1625 to the bell (t=2407). From 17:10:32Z to 17:23:54Z the same lines repeat: `Job: Health or food is low` 66 times, `gather coal_ore` count 13 `targetY 32` 37 times, and `iron failed 3 times; exploring before retry` 21 times.
