@@ -131,6 +131,21 @@ export function creeperThreat(bot){
  return best;
 }
 const WORLD_CHAIN='Misc World Survival Chain';
+// Round 11: the bucket's eye ray from `from` to `to` (the fluid surface): the first solid
+// block it passes through (blocked) or the first water source it meets (fluid). Fine steps.
+export const BUCKET_TRIES=3,BUCKET_REACH=4.4;
+export function rayToFluid(blockAt,from,to){
+ const d=to.minus(from),len=d.norm(),n=Math.ceil(len/0.05),seen=new Set();
+ for(let i=1;i<=n;i++){
+  const p=from.plus(d.scaled(i/n)),x=Math.floor(p.x),y=Math.floor(p.y),z=Math.floor(p.z),k=x+','+y+','+z;
+  if(seen.has(k))continue;seen.add(k);
+  const bl=blockAt(x,y,z);
+  if(!bl)continue;
+  if(bl.name==='water'&&(bl.metadata??0)===0)return {fluid:bl};
+  if(bl.boundingBox==='block')return {blocked:bl};
+ }
+ return {};
+}
 // Round 11: a level tunnel that starts at a staircase's foot carries on the stairs' heading.
 // A hashed heading could turn it back under the stairs (the strip's head cell is the stair's
 // floor), leaving each stair a 2-high climb the way home.
@@ -1764,16 +1779,8 @@ export class Worker extends EventEmitter {
   }
   if(s.item==='bucket'){
    if(before.name!=='water')throw Error('Aim the bucket at a water block (never lava); '+before.name+' is not water');
-   const buckets=this.count('water_bucket');
    await hold('bucket');
-   // Scooping a fluid is an air-use for the server, not a block click.
-   await b.lookAt(before.position.offset(.5,.5,.5),true).catch(()=>{});
-   await sleep(400);this.check(token);
-   b.activateItem();
-   for(let tries=0;tries<10&&this.count('water_bucket')<=buckets;tries++){await sleep(300);this.check(token);}
-   if(this.count('water_bucket')<=buckets)throw Error('Filling the bucket at '+target+' produced no water bucket');
-   await this.settleBlockChange(target,'water',token);
-   return;
+   return this.fillBucket(target,token);
   }
   if(s.item==='water_bucket'){
    if(before.boundingBox!=='empty')throw Error(target+' is occupied by '+before.name+'; aim at the air cell to fill');
@@ -1840,6 +1847,50 @@ export class Worker extends EventEmitter {
    after=await verify(bl=>bl?.name!==beforeName||bl?.properties?.age!==beforeAge);
    if(!after)throw Error('Using '+s.item+' on '+beforeName+' changed nothing');
   }
+ }
+ // Round 11 (6x `use bucket ... produced no water bucket`): a bucket fills only from a water
+ // SOURCE (level 0) that the server's eye ray reaches within reach. The fill is an air-use
+ // the 26.3 server applies at the next client tick boundary, so the use is flushed (like the
+ // hoe and seed uses) and the bot hops while it waits. Each try aims at the source's surface
+ // from a stance whose ray meets no solid block first (else it walks closer: 3, 2, 1).
+ async fillBucket(target,token){
+  const b=this.bot,at=p=>b.blockAt(p);
+  const isSource=bl=>!!bl&&bl.name==='water'&&(bl.metadata??0)===0;
+  let src=at(target);
+  if(!isSource(src)){
+   // flowing water: the nearest source within 2 of it, open above
+   const near=[];
+   for(let dx=-2;dx<=2;dx++)for(let dy=-1;dy<=1;dy++)for(let dz=-2;dz<=2;dz++){const bl=at(target.offset(dx,dy,dz));if(isSource(bl)&&at(bl.position.offset(0,1,0))?.boundingBox==='empty')near.push(bl);}
+   near.sort((a,c)=>a.position.distanceTo(target)-c.position.distanceTo(target));
+   if(!near.length)throw Error('The water at '+target+' is flowing (level '+(src?.metadata??'?')+') and no source is beside it');
+   this.log('Bucket: '+target+' is flowing water; filling at the source '+near[0].position);
+   src=near[0];
+  }
+  const buckets=this.count('water_bucket');
+  let why='';
+  for(let attempt=0;attempt<BUCKET_TRIES;attempt++){
+   this.check(token);
+   const aim=src.position.offset(.5,.9,.5),eye=()=>b.entity.position.offset(0,b.entity.eyeHeight||1.62,0);
+   const ray=()=>rayToFluid((x,y,z)=>b.blockAt(new Vec3(x,y,z)),eye(),aim);
+   if(attempt||eye().distanceTo(aim)>BUCKET_REACH||ray().blocked){
+    try{await this.walk(src.position,token,Math.max(1,3-attempt));}catch(e){this.check(token);}
+   }
+   const r=ray();
+   if(eye().distanceTo(aim)>BUCKET_REACH){why='out of reach ('+eye().distanceTo(aim).toFixed(1)+')';continue;}
+   if(r.blocked){why=r.blocked.name+' at '+r.blocked.position+' in the way';continue;}
+   await b.lookAt(aim,true).catch(()=>{});
+   await sleep(250);this.check(token);
+   b.activateItem();
+   await this.flushTick();
+   for(let tries=0;tries<10&&this.count('water_bucket')<=buckets;tries++){
+    this.check(token);
+    if(tries%3===2){b.setControlState('jump',true);await sleep(350);if(token===this.epoch)b.clearControlStates();}
+    await sleep(300);
+   }
+   if(this.count('water_bucket')>buckets){await this.settleBlockChange(src.position,'water',token);return;}
+   why='no change after the use';
+  }
+  throw Error('Filling the bucket at '+src.position+' produced no water bucket ('+BUCKET_TRIES+' tries; '+why+')');
  }
  // mineflayer's useOn omits the hand field the 1.21.4 interact packet needs, so write the
  // entity interaction directly: INTERACT_AT with a hit point on the hitbox, then INTERACT.

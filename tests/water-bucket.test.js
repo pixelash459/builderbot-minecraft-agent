@@ -45,3 +45,67 @@ test('waterSource: a still source with air above, only while an empty bucket is 
   assert.equal(ap.waterSource(bot),null,'already filled');
  }finally{fs.rmSync(root,{recursive:true,force:true});}
 });
+// ---- round 11: 6x `use bucket ... produced no water bucket` at two ponds -----------------------
+import {Worker,rayToFluid} from '../src/worker.js';
+// A pond: a source at (4,63,0) with grass all round at y=63 and air above; the bot on the shore.
+// The fake server applies a use only at the next client tick boundary (the 'flying' packet),
+// and fills the bucket when the bot looks at a water source in reach with nothing solid first.
+function pond(edit={}){
+ const cells=new Map(Object.entries(edit));
+ const blockAt=(x,y,z)=>{const k=x+','+y+','+z;let name=cells.has(k)?cells.get(k):(y<63?'stone':y===63?(x===4&&z===0?'water':'grass_block'):'air');
+  const meta=typeof name==='object'?name.metadata:0;if(typeof name==='object')name=name.name;
+  return {name,metadata:meta,position:new Vec3(x,y,z),boundingBox:/^(air|water|lava|short_grass)$/.test(name)?'empty':'block'};};
+ return {blockAt,cells};
+}
+function bucketBot(w,{start=new Vec3(1.5,64,0.5),walkTo=null}={}){
+ const inv={bucket:1,water_bucket:0},logs=[],walks=[];let pending=false,look=null;
+ const bot={entity:{position:start.clone(),eyeHeight:1.62},heldItem:{name:'bucket'},registry:{itemsByName:{bucket:{id:1},water_bucket:{id:2}}},
+  blockAt:p=>w.blockAt(Math.floor(p.x),Math.floor(p.y),Math.floor(p.z)),
+  inventory:{items:()=>Object.entries(inv).filter(([,n])=>n>0).map(([name,count])=>({name,count}))},
+  async equip(){},async lookAt(p){look=p;},activateItem(){pending=true;},setControlState(){},clearControlStates(){},
+  _client:{write(name){if(name!=='flying'||!pending)return;pending=false;
+   const eye=bot.entity.position.offset(0,1.62,0),r=rayToFluid(w.blockAt,eye,look);
+   if(r.fluid&&eye.distanceTo(look)<=4.5){inv.bucket--;inv.water_bucket++;}}}};
+ const worker=Object.assign(Object.create(Worker.prototype),{bot,epoch:0,logs,check(){},log(m){logs.push(m);},
+  count(n){return inv[n]||0;},async settleBlockChange(){},
+  async walk(p,token,range){walks.push(range);if(walkTo)bot.entity.position=walkTo(range).clone();}});
+ return {bot,worker,inv,logs,walks,pending:()=>pending};
+}
+test('the fill is flushed to the server: a use that waits for a tick boundary still fills',async()=>{
+ const w=pond();
+ const t=bucketBot(w);
+ await t.worker.use({spec:{type:'use',item:'bucket',position:{x:4,y:63,z:0}}},0);
+ assert.equal(t.inv.water_bucket,1);
+ assert.equal(t.pending(),false);
+});
+test('a ray that meets a solid block first walks closer, then fills',async()=>{
+ // a fence-high wall on the shore between the bot and the pond
+ const w=pond({'3,64,0':'oak_fence','3,65,0':'oak_fence'});
+ const t=bucketBot(w,{start:new Vec3(1.5,64,0.5),walkTo:r=>r<=2?new Vec3(4.5,64,1.5):new Vec3(1.5,64,0.5)});
+ await t.worker.use({spec:{type:'use',item:'bucket',position:{x:4,y:63,z:0}}},0);
+ assert.equal(t.inv.water_bucket,1);
+ assert.ok(t.walks.some(r=>r<=2),'walked closer: '+t.walks);
+});
+test('flowing water is not a source: the bucket goes to the source beside it',async()=>{
+ const w=pond({'5,63,0':{name:'water',metadata:1},'4,63,0':'water'});
+ const t=bucketBot(w,{start:new Vec3(5.5,64,1.5)});
+ await t.worker.use({spec:{type:'use',item:'bucket',position:{x:5,y:63,z:0}}},0);
+ assert.equal(t.inv.water_bucket,1);
+ assert.ok(t.logs.some(l=>/\(5, 63, 0\) is flowing water; filling at the source \(4, 63, 0\)/.test(l)),t.logs.join('\n'));
+});
+test('no source anywhere near: a clear error, never a silent use',async()=>{
+ const w=pond({'4,63,0':{name:'water',metadata:3}});
+ const t=bucketBot(w);
+ await assert.rejects(t.worker.use({spec:{type:'use',item:'bucket',position:{x:4,y:63,z:0}}},0),/is flowing \(level 3\) and no source is beside it/);
+ assert.equal(t.pending(),false);
+});
+test('a server that never applies the use: three tries with the reason, then a failure',async()=>{
+ const w=pond();
+ const t=bucketBot(w);t.bot._client.write=()=>{};
+ await assert.rejects(t.worker.use({spec:{type:'use',item:'bucket',position:{x:4,y:63,z:0}}},0),/produced no water bucket \(3 tries; no change after the use\)/);
+});
+test('rayToFluid: the first solid block or water source on the eye ray',()=>{
+ const w=pond({'3,64,0':'stone'});
+ assert.equal(rayToFluid(w.blockAt,new Vec3(1.5,65.62,0.5),new Vec3(4.5,63.9,0.5)).blocked.name,'stone');
+ assert.equal(rayToFluid(pond().blockAt,new Vec3(1.5,65.62,0.5),new Vec3(4.5,63.9,0.5)).fluid.name,'water');
+});
