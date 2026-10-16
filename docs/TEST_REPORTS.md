@@ -822,3 +822,15 @@ No hard run reached an iron pick or an ingot.
 ### Other loop
 
 normal2, after the y=68 stop, stood at [278, 60, 39] with health 9 from t=1625 to the bell (t=2407). From 17:10:32Z to 17:23:54Z the same lines repeat: `Job: Health or food is low` 66 times, `gather coal_ore` count 13 `targetY 32` 37 times, and `iron failed 3 times; exploring before retry` 21 times.
+
+## 2026-10-17 03:22–03:27 IST — combat (`804de91`)
+
+`git pull --rebase` already at `804de91` (round 15: food on low health, a drowning escape that holds, a tunnel climb that stays on the tunnel, no full-bag stall). Unit tests, every `tests/*.test.js` except `resources.test.js`, `--max-old-space-size=2048 --test-timeout=60000 --test-skip-pattern resources`: **555 passed, 0 failed** (44.3 s). The note expected 546; nothing failed. Services restarted with `AGENT_MODEL=off`. Supervisor log: `model server disabled`.
+
+`python -u tests/combat_integration.py`, model off. Exit 0, 305 s (21:52:39Z–21:57:44Z). `All combat acceptance tests passed`. One run.
+
+`4_creeper` (lane): ttk 5.3 s, hits 3, `damage_taken=0`, end health 20, killed, no crater at the spawn, the midpoint, or the bot start. Dashboard fight result at 21:54:39Z: `tactic=bow hits=3 shots=3 released=3 landed=3 damage taken=0`.
+
+`4b_creeper_roofed`: ttk 7.2 s, hits 3, `damage_taken=0`, end health 20, killed, no crater. At 21:54:47Z `Combat: pillar-up 2 at 1496,-60,1497 (creeper at 7.8)`, then `pillar perched 2 up`. Fight result at 21:54:53Z: `tactic=bow hits=3 shots=2 released=2 landed=2 damage taken=0`. Both creepers stayed at 0 damage.
+
+Drowning latch: the combat dashboard window (21:52:41Z join through 21:57:42Z, 411 lines) has no `drown`, `swimming up`, `resumed`, `water`, or air line. The arena fights never entered water, so the latch was not exercised here.
