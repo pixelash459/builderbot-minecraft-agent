@@ -589,3 +589,11 @@ Bucket was crafted on the iron step (23:39Z, 00:23Z, 01:04Z) and `use bucket` ra
 `python -u tests/integration.py`, model off. Exit 0, 1067 s. `All in-game integration tests passed`.
 
 `Reflex paused the gather: Reflex: preempted by Mob Defense`. `PASS: A4 escaped the lava trench (hp 18.8, at [1653, -59, 1652])`.
+
+## 2026-10-16 12:43–12:48 IST — combat (`84ac0e3`, bot code `4410d99`)
+
+`python -u tests/combat_integration.py`, model off, same services. Exit 0, 311 s. `All combat acceptance tests passed`. No second run.
+
+`4_creeper` (lane): ttk 7.3 s, hits 5, `damage_taken=0`, end health 20, killed, no crater at the spawn, the midpoint, or the bot start.
+
+`4b_creeper_roofed`: ttk 6.2 s, hits 2, `damage_taken=0`, end health 20, killed, no crater. Both creepers stayed at 0 damage.
