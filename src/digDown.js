@@ -85,7 +85,12 @@ export function stonePlan({targets,botPos,blockAt,isNatural,isTarget,digDowns=0,
 //   over a hollow, or a hole with nothing to place against: take another direction.
 // The bot never steps onto a cell it could drop more than one block from.
 export const FILL_DEPTH=2;
-export function stepFooting(blockAt,next){
+// Round 11 (normal1 stopped at y=-16 and normal3 at y=84, `three openings, no safe way on`):
+// a deep opening only BRIDGE_WIDTH cells wide along the tunnel's heading (solid ground again
+// at the floor level or one below within that many cells ahead) is bridged like a hole: one
+// block placed against a side of the floor cell, as a player bridges a crack. Pass `dir`.
+export const BRIDGE_WIDTH=2;
+export function stepFooting(blockAt,next,dir=null){
  const floor=blockAt(next.x,next.y-1,next.z),under=blockAt(next.x,next.y-2,next.z);
  if(!floor)return {turn:'unloaded floor under '+fmt(next)};
  if(isFluid(floor))return {turn:floor.name+' under '+fmt(next)};
@@ -97,14 +102,26 @@ export function stepFooting(blockAt,next){
  // Open floor: how deep does it go?
  let depth=1;
  while(depth<=FILL_DEPTH){const bl=blockAt(next.x,next.y-1-depth,next.z);if(!bl||solid(bl)||isFluid(bl))break;depth++;}
- if(depth>FILL_DEPTH)return {turn:'cave opening under '+fmt(next)+' ('+depth+'+ deep)'};
  const fill={x:next.x,y:next.y-1,z:next.z};
+ const deep=depth>FILL_DEPTH;
+ if(deep&&!narrowGap(blockAt,fill,dir))return {turn:'cave opening under '+fmt(next)+' ('+depth+'+ deep)'};
  for(const [dx,dy,dz] of [[0,-1,0],[1,0,0],[-1,0,0],[0,0,1],[0,0,-1]]){
   const p={x:fill.x+dx,y:fill.y+dy,z:fill.z+dz};
   const bl=blockAt(p.x,p.y,p.z);
-  if(solid(bl)&&!isGravity(bl))return {fill,support:p,face:{x:-dx||0,y:-dy||0,z:-dz||0}};
+  if(solid(bl)&&!isGravity(bl))return {fill,support:p,face:{x:-dx||0,y:-dy||0,z:-dz||0},...(deep?{bridge:true}:{})};
  }
+ if(deep)return {turn:'cave opening under '+fmt(next)+' ('+depth+'+ deep) with nothing to bridge from'};
  return {turn:'hole under '+fmt(next)+' with nothing to build on'};
+}
+// The opening under `fill` ends within BRIDGE_WIDTH cells ahead: solid, non-fluid ground at
+// the fill level or one below (a staircase's next floor) in one of the cells along dir.
+function narrowGap(blockAt,fill,dir){
+ if(!dir||!(dir.x||dir.z))return false;
+ for(let k=1;k<=BRIDGE_WIDTH;k++)for(const dy of [0,-1]){
+  const bl=blockAt(fill.x+dir.x*k,fill.y+dy,fill.z+dir.z*k);
+  if(solid(bl)&&!isFluid(bl)&&!isGravity(bl))return true;
+ }
+ return false;
 }
 const fmt=p=>p.x+','+p.y+','+p.z;
 // The directions a blocked staircase may turn to: straight on first, then the two sides;

@@ -183,3 +183,57 @@ test('pickupJob: exposed ore the ladder needs within 6, rate-limited, never at n
  assert.deepEqual(pickupJob({iron_pickaxe:1},{tod:3000,exposed:{diamond:1,coal:2}}),{type:'gather',block:'diamond_ore',count:1,radius:6});
  for(const j of [pickupJob(kit,{tod:3000,exposed:{coal:3}}),pickupJob({stone_pickaxe:1},{tod:3000,exposed:{log:5}})])assert.ok(jobSchema.safeParse(j).success);
 });
+// ---- round 11: normal1 stopped at y=-16 and normal3 at y=84 after three cave openings -------
+import {BRIDGE_WIDTH} from '../src/digDown.js';
+test('stepFooting: a narrow crack along the heading is bridged, a wide cave still turns',()=>{
+ const w=world();
+ carve(w,[1,1],[110,128],[-3,3]); // a 1-wide crack across the way east, 19 deep
+ const next={x:1,y:129,z:0};
+ assert.match(stepFooting(w.blockAt,next).turn,/cave opening/,'no heading: the old answer');
+ const f=stepFooting(w.blockAt,next,{x:1,z:0});
+ assert.equal(f.bridge,true);
+ assert.deepEqual(f.fill,{x:1,y:128,z:0});
+ assert.equal(w.blockAt(f.support.x,f.support.y,f.support.z).boundingBox,'block');
+ assert.notDeepEqual(f.support,{x:1,y:127,z:0},'never against the open cell below');
+ const wide=world();carve(wide,[1,1+BRIDGE_WIDTH],[110,128],[-3,3]);
+ assert.match(stepFooting(wide.blockAt,next,{x:1,z:0}).turn,/cave opening/,'wider than BRIDGE_WIDTH: turn');
+});
+test('a staircase bridges a narrow crack with a held block and never drops',async()=>{
+ const w=world();
+ carve(w,[3,3],[100,127],[-3,3]); // the crack under step 3 (feet y=127)
+ const {worker,placed,drops,logs}=digger(w);
+ const job={id:'dia'};
+ await Worker.prototype.staircase.call(worker,job,0,124,{dir:new Vec3(1,0,0)});
+ assert.ok(drops.every(d=>d===0),'drops '+drops);
+ assert.ok(placed.includes('3,126,0'),'bridged under step 3: '+placed);
+ assert.ok(logs.some(l=>/Tunnel: bridged a gap under \(3, 127, 0\)/.test(l)),logs.join('\n'));
+ assert.equal(job.bridges,1);
+ assert.equal(job.stairTurns||0,0,'straight on, no turn');
+ for(const p of job.tunnel)assert.ok(solidAt(w,p.x,p.y-1,p.z));
+});
+test('no safe way down here: the leg moves sideways and starts a new staircase',async()=>{
+ const w=world();
+ // the bot stands on a stone lid over a 7x7 cave (the stop-where-it-stands case above)
+ carve(w,[-3,3],[110,128],[-3,3]);
+ const {worker,bot,drops,logs}=digger(w);
+ worker.tunnelStep=Worker.prototype.tunnelStep;worker.staircase=Worker.prototype.staircase;
+ worker.digTunnelStep=Worker.prototype.digTunnelStep;worker.clearCells=Worker.prototype.clearCells;
+ const job={id:'dia',tunnel:[{x:-1,y:131,z:0},{x:0,y:130,z:0}]}; // came down heading east
+ await descendLeg(worker,job,0,120);
+ assert.ok(logs.some(l=>/Tunnel: no safe way down; moved 3 (north|south) to start a new staircase/.test(l)),logs.join('\n'));
+ assert.ok(drops.every(d=>d===0),'drops '+drops);
+ assert.ok(bot.entity.position.y<=120,'reached the leg target: y='+bot.entity.position.y);
+ for(const p of job.tunnel.slice(2))assert.ok(solidAt(w,p.x,p.y-1,p.z),'floor under '+JSON.stringify(p));
+ assert.ok(!logs.some(l=>/descent stopped/.test(l)));
+});
+test('sidesteps are capped: a lid with caves everywhere still stops where it is safe',async()=>{
+ const w=world();
+ carve(w,[-12,12],[110,128],[-12,12]);
+ const {worker,bot,drops,logs}=digger(w);
+ const job={id:'dia',tunnel:[{x:-1,y:131,z:0},{x:0,y:130,z:0}]};
+ await descendLeg(worker,job,0,120);
+ assert.ok(drops.every(d=>d===0));
+ assert.equal(bot.entity.position.y,130,'never walked off the lid');
+ assert.ok(logs.some(l=>/descent stopped at y=130/.test(l)),logs.join('\n'));
+ assert.ok(logs.filter(l=>/moved \d/.test(l)).length<=3);
+});

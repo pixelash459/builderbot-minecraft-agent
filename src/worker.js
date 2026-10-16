@@ -150,7 +150,11 @@ const reflexPaused=j=>j.status==='paused'&&/^(Preempted by|Reflex:)/.test(String
 // under the next step; a shallow hole there is filled with a held block, a deep opening (a
 // cave, a ravine), lava under the floor or a loose floor over a hollow turns the tunnel to a
 // side (STAIR_TURNS per job). No safe way on: the tunnel stops - it never walks onto air.
-export const STAIR_TURNS=6;
+export const STAIR_TURNS=12;
+// Round 11: bridged openings per job (digDown BRIDGE_WIDTH), sidesteps per descent leg when no
+// direction is safe (SIDESTEP_LEN level cells, then a new staircase), and descent legs per
+// ore gather (a stopped leg costs one; normal1 ran out of legs at y=-16 on the way to -53).
+export const BRIDGES=8,SIDESTEPS=3,SIDESTEP_LEN=3,DESCENT_LEGS=6;
 // Efficiency 3: ore worth a swing from the tunnel (coal and iron for the ladder, diamonds), and
 // how many such wall digs one job may make.
 const WALL_ORE=/^(deepslate_)?(coal|iron|diamond|copper|gold|redstone|lapis|emerald)_ore$/;
@@ -175,10 +179,13 @@ export function planTunnelStep(b,job,dir,dy,noTurn=false){
  for(const d of noTurn?[{x:dir.x,z:dir.z}]:turnOrder(dir)){
   const turned=d.x!==dir.x||d.z!==dir.z;
   if(turned&&(job.stairTurns||0)>=STAIR_TURNS){why.push('turn limit');break;}
-  const next=here.offset(d.x,dy,d.z),foot=stepFooting(at3,next);
-  if(foot.fill&&!filler){why.push('a hole under '+next+' and no block to fill it');continue;}
+  const next=here.offset(d.x,dy,d.z);
+  let foot=stepFooting(at3,next,d);
+  if(foot.bridge&&(job.bridges||0)>=BRIDGES)foot=stepFooting(at3,next);
+  if(foot.fill&&!filler){why.push((foot.bridge?'a gap':'a hole')+' under '+next+' and no block to fill it');continue;}
   if(foot.turn){why.push(foot.turn);continue;}
   if(turned)job.stairTurns=(job.stairTurns||0)+1;
+  if(foot.bridge)job.bridges=(job.bridges||0)+1;
   return {dir:new Vec3(d.x,0,d.z),next,foot,filler,turned,why};
  }
  return {why};
@@ -186,10 +193,45 @@ export function planTunnelStep(b,job,dir,dy,noTurn=false){
 // An ore gather's descent leg. A leg the footing check stopped (a cave or ravine with no
 // safe way around) ends where the bot stands: the gather scans from there (and the next leg,
 // if one is left, tries again) instead of failing the trip on a safe stop. Lava still fails.
+// Round 11: a leg with no safe way on (every direction opens onto a cave) first moves
+// sideways - SIDESTEP_LEN level tunnel cells to a side, checked like any step - and starts a
+// new staircase there, up to SIDESTEPS times, before it hands back to the gather.
+const DESCENT_STOP=/^Tunnel stopped: (cave opening|a hole|hole|a gap|loose|lava two below|unloaded|turn limit|dropped)/;
 export async function descendLeg(w,job,token,targetY){
- try{await w.staircase(job,token,targetY);}
- catch(e){w.check(token);if(!/^Tunnel stopped: (cave opening|a hole|hole|loose|lava two below|unloaded|turn limit|dropped)/.test(e.message))throw e;w.log('Gather: descent stopped at y='+w.bot.entity.position.floored().y+' ('+e.message+'); searching from here');}
+ let dir=null;
+ for(let side=0;;side++){
+  try{await w.staircase(job,token,targetY,dir?{dir}:{});return;}
+  catch(e){
+   w.check(token);
+   if(!DESCENT_STOP.test(e.message))throw e;
+   if(side<SIDESTEPS&&/no safe way on/.test(e.message)&&w.bot.entity.position.y>targetY){
+    dir=await sidestep(w,job,token);
+    if(dir)continue;
+   }
+   w.log('Gather: descent stopped at y='+w.bot.entity.position.floored().y+' ('+e.message+'); searching from here');
+   return;
+  }
+ }
 }
+// Level tunnel cells to the side of the stopped staircase (then straight on); never back the
+// way it came. The heading of the first side that gives SIDESTEP_LEN-1+ cells, else null.
+export async function sidestep(w,job,token){
+ const b=w.bot,head=tunnelHeading(job.tunnel);
+ const all=[new Vec3(1,0,0),new Vec3(0,0,1),new Vec3(-1,0,0),new Vec3(0,0,-1)];
+ const dirs=head?[new Vec3(head.z,0,-head.x),new Vec3(-head.z,0,head.x),head]:all;
+ if(!job.tunnel)job.tunnel=[];
+ for(const d of dirs){
+  let n=0;
+  for(;n<SIDESTEP_LEN;n++){
+   w.check(token);
+   try{const st=await w.tunnelStep(job,token,d,0,false,undefined,true);job.tunnel.push({x:st.next.x,y:st.next.y,z:st.next.z});w.strandedTunnel={points:job.tunnel,job:job.id};}
+   catch(e){w.check(token);if(/^Tunnel stopped/.test(e.message))break;throw e;}
+  }
+  if(n>=SIDESTEP_LEN-1){w.log('Tunnel: no safe way down; moved '+n+' '+heading(d)+' to start a new staircase at '+b.entity.position.floored());w.save();return d;}
+ }
+ return null;
+}
+const heading=d=>d.x?(d.x>0?'east':'west'):(d.z>0?'south':'north');
 // Efficiency 3: mine wanted ore in the tunnel's side walls (digDown.wallOre) as the tunnel
 // passes, with the right tool held, up to WALL_PICKUPS per job and never with a hostile
 // within 8. Its drop lands in the next cell, inside the pickup reach.
@@ -2026,10 +2068,10 @@ export class Worker extends EventEmitter {
     if(!targets.length){
      // An ore job that names its depth (the ladder's iron/coal/diamond jobs) goes down first:
      // three 48-block surface legs could never see ore that sits at y=32.
-     const deepFirst=s.targetY!=null&&UNDERGROUND.test(s.block)&&b.entity.position.y>s.targetY&&job.descents<3;
+     const deepFirst=s.targetY!=null&&UNDERGROUND.test(s.block)&&b.entity.position.y>s.targetY&&job.descents<DESCENT_LEGS;
      if(s.searchIfMissing&&job.searches<3&&!deepFirst){await searchLeg();continue;}
      const targetY=s.targetY??(s.block.includes('diamond')?-58:48);
-     if(UNDERGROUND.test(s.block)&&b.entity.position.y>targetY&&job.descents<3){
+     if(UNDERGROUND.test(s.block)&&b.entity.position.y>targetY&&job.descents<DESCENT_LEGS){
       const legY=s.targetY!=null?descentTarget(s,b.entity.position.y):targetY;
       job.descents++;this.update(job,Math.max(0,this.count(job.dropName)-job.startDrop),`Digging a staircase down to y=${legY}`);
       await descendLeg(this,job,token,legY);
@@ -2075,7 +2117,7 @@ export class Worker extends EventEmitter {
       // goes down anyway: one undiggable surface match must not skip the staircase.
       // Iron (soak normal2, 2026-10-14 10:53Z) died on an empty column and explored
       // at y=159 instead of digging to targetY.
-      if(s.targetY!=null&&UNDERGROUND.test(s.block)&&b.entity.position.y>s.targetY&&job.descents<3){
+      if(s.targetY!=null&&UNDERGROUND.test(s.block)&&b.entity.position.y>s.targetY&&job.descents<DESCENT_LEGS){
        job.descents++;
        const legY=descentTarget(s,b.entity.position.y);
        this.update(job,Math.max(0,this.count(job.dropName)-job.startDrop),`Digging a staircase down to y=${legY}`);
@@ -2307,7 +2349,7 @@ export class Worker extends EventEmitter {
   await this.digTunnelStep(job,token,next,corner,natural,!!plan.foot.fill);
   if(plan.foot.fill){
    await fillFooting(this,token,plan.foot,plan.filler);
-   this.log('Tunnel: filled a hole under '+next+' with '+plan.filler);
+   this.log('Tunnel: '+(plan.foot.bridge?'bridged a gap':'filled a hole')+' under '+next+' with '+plan.filler);
   }
   const foot=stepFooting((x,y,z)=>b.blockAt(new Vec3(x,y,z)),next);
   if(!foot.ok)throw Error('Tunnel stopped: '+(foot.turn||'a hole under '+next)+' after the dig');
