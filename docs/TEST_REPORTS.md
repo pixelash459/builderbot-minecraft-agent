@@ -687,3 +687,17 @@ Bed: `no sheep after 3 search legs; bed set aside for 10 min` at 11:26:17Z. No `
 Food: bar never left 20, so the empty-bar hunt path was not reached. `food step set aside for 8 min (failed 3 times)` at 11:11:43Z. No `Health or food is low` and no `Food: ate`.
 
 No night mine. The hard runs did not start.
+
+## 2026-10-16 17:30–17:35 IST — combat (`383e021`)
+
+`git pull --rebase` already at `383e021` (round 13: toss junk down an open run). Unit tests: **546 passed, 0 failed** (`--test-skip-pattern resources`, 41.4 s). The note expected 537; nothing failed. Services restarted with `AGENT_MODEL=off`. Supervisor log: `model server disabled`.
+
+`python -u tests/combat_integration.py`, model off. Exit 0, 305 s. `All combat acceptance tests passed`. One run.
+
+`3_skeleton_15` passed. ttk 5.8 s, hits 4, `damage_taken=1.5`, blocked 0, approach melee. The skeleton was summoned and the server confirmed it was defeated. The harness wait completed. Round 12's timeout (fight ended in 4 s with no target) did not repeat.
+
+`4_creeper` (lane): ttk 5.3 s, hits 3, `damage_taken=0`, end health 20, killed, no crater at the spawn, the midpoint, or the bot start.
+
+`4b_creeper_roofed`: ttk 5.3 s, hits 2, `damage_taken=0`, end health 20, killed, no crater. Both creepers stayed at 0 damage.
+
+Zombie trio: ttk 15.8 s, hits 11, `damage_taken=5.0`, all three killed.
