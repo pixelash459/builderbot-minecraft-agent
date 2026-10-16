@@ -329,6 +329,10 @@ export function foodDone(c,ctx){
  // Round 11 normal1: the bar fell to 5 with no food held while the step sat set aside for its
  // 8 minutes. A nearly empty bar always brings the food step back.
  if(edible<1&&Number.isFinite(ctx?.foodBar)&&ctx.foodBar<=FOOD_CRITICAL)return false;
+ // Round 15 (round-14 normal2: health under minHealth with the bar at 7-17 and no food held,
+ // 40 min of `Health or food is low`): health only regenerates at a bar of 18+, so low health
+ // with no food is a food emergency too.
+ if(edible<1&&ctx?.lowHealth&&Number.isFinite(ctx?.foodBar)&&ctx.foodBar<18)return false;
  if(ctx?.foodOff)return true;
  if(starving)return false;
  return edible+c('_eaten')>=FOOD_ENOUGH||!!ctx?.foodDeferred;
@@ -431,7 +435,7 @@ export function pickupJob(counts,ctx){
 // from base. Over INV_FULL the surplus goes into the home chest (placed beside home, crafted
 // when needed) while home is within HOME_DEPOSIT_RANGE; passing within INV_PASS of the chest
 // deposits it too; full and far from home, pure junk is dropped.
-export const NO_ROOM_MS=5*60000;
+export const FORCED_DROP_MS=60000,NO_ROOM_MS=5*60000,BUCKET_FAIL_MS=5*60000,BUCKET_OFF_MS=15*60000;
 export const INV_FULL=0.75,INV_PASS=8,INV_PASS_MIN=16,HOME_DEPOSIT_RANGE=48,INV_OFF_MS=5*60000,DROP_LOOP_MS=3*60000;
 const SAPLING=/_sapling$/,FLOWER=/^(dandelion|poppy|blue_orchid|allium|azure_bluet|.*_tulip|oxeye_daisy|cornflower|lily_of_the_valley|sunflower|lilac|rose_bush|peony|pink_petals|short_grass|tall_grass|fern|dead_bush)$/;
 export const JUNK_KEEP={dirt:32,cobblestone:64,cobbled_deepslate:32,netherrack:16,wheat_seeds:16,gravel:0,andesite:0,diorite:0,granite:0,tuff:0,calcite:0,rotten_flesh:0,sand:0,red_sand:0,pointed_dripstone:0,poisonous_potato:0,spider_eye:0};
@@ -966,6 +970,8 @@ export class Autopilot{
   const min=this.worker.config?.limits?.minHealth??10;
   if(!(b.health<min)){this.lowSince=0;this.recoverAte=false;return false;}
   if(!this.lowSince)this.lowSince=Date.now();
+  // Round 15: no food held and a bar under 18: waiting heals nothing - go and get food.
+  if(b.food<18&&!(this.counts()._edible>0))return false;
   if(Date.now()-this.lowSince>=RECOVER_MS)return false;
   if(b.food<18&&!this.recoverAte&&this.counts()._edible>0){this.recoverAte=true;this.submit('recover',{type:'eat'});return true;}
   this.state='recovering: health '+Math.round(b.health);
@@ -990,7 +996,11 @@ export class Autopilot{
    // A water source the bucket could not fill from (out of reach on a cliff, ray blocked) is
    // skipped for 10 min, so the next try picks another source (round 11: the same out-of-reach
    // source was retried 3 jobs in a row).
-   if(job.spec?.type==='use'&&job.spec.item==='bucket'&&job.spec.position){const q=job.spec.position;(this.badWater||(this.badWater=new Map())).set(q.x+','+q.y+','+q.z,Date.now()+600000);}
+   if(job.spec?.type==='use'&&job.spec.item==='bucket'&&job.spec.position){const q=job.spec.position;(this.badWater||(this.badWater=new Map())).set(q.x+','+q.y+','+q.z,Date.now()+600000);
+    // Round 15 (round-14 normal2: three pools in a row `out of reach (21-22)` below a cliff):
+    // two failed fills in BUCKET_FAIL_MS set the bucket aside for BUCKET_OFF_MS.
+    const now=Date.now();this.bucketFails=(this.bucketFails||[]).filter(t=>now-t<BUCKET_FAIL_MS);this.bucketFails.push(now);
+    if(this.bucketFails.length>=2){this.bucketFails=[];this.bucketOffUntil=now+BUCKET_OFF_MS;this.log('Autopilot: the bucket failed twice; no water fills for '+BUCKET_OFF_MS/60000+' min');}}
    // Habit 7: a coal dig that failed twice: charcoal from logs for COAL_OFF_MS instead.
    if(this.current.spec?.type==='gather'&&this.current.spec.block==='coal_ore'&&(this.coalFails=(this.coalFails||0)+1)>=2){this.coalFails=0;this.coalOffUntil=Date.now()+COAL_OFF_MS;this.log('Autopilot: no coal found twice; charcoal from logs for '+COAL_OFF_MS/60000+' min');}
    // Round 9: a food step that failed 3 times is set aside, not blocked - the blocked
@@ -1180,7 +1190,7 @@ export class Autopilot{
    // Round 8 rung: coal in reach, the bed's wool, the last equip (no equip loops).
    coalNear:this.oreNear(b,['coal_ore','deepslate_coal_ore'],32),waterAt:this.waterSource(b),sheepNear:this.sheepNear(b),bedNear:this.bedNear(b),lastEquip:this.lastEquip||null,coalOff:Date.now()<(this.coalOffUntil||0),bedOff:Date.now()<(this.bedOffUntil||0),bedSearch:(this.bedSearch?.legs||0)<BED_SEARCH_LEGS,sheepFar:this.sheepFar(b),searchDistance:BED_SEARCH_DIST[Math.min(this.bedSearch?.legs||0,BED_SEARCH_DIST.length-1)],diamondOff:Date.now()<(this.diamondOffUntil||0),
    breedable:this.breedable(b,counts),hayNear:this.hayNear(b),
-   foodBar:typeof b.food==='number'?b.food:null,foodOff:Date.now()<(this.food?.offUntil||0),foodDeferred:!!this.food?.deferred};
+   foodBar:typeof b.food==='number'?b.food:null,lowHealth:typeof b.health==='number'&&b.health<(this.worker.config?.limits?.minHealth??10),foodOff:Date.now()<(this.food?.offUntil||0),foodDeferred:!!this.food?.deferred};
   const choice=plan(counts,{...ctx,blocked:this.state.startsWith('blocked: ')?this.state.slice(9).split(' ')[0]:null});
   if(!choice.step){this.state='all steps satisfied';return;}
   // A batch for the furnace: load it and move on (efficiency 1).
@@ -1203,7 +1213,13 @@ export class Autopilot{
    return;
   }
   // Habit 6: surplus into the home chest (or junk dropped far from home) before more gathering.
-  if(Date.now()>=(this.invOffUntil||0)){
+  // Round 15 (round-14 normal1: `waiting: bag full (stone craft)` for 511 s at y=-58 with the
+  // inventory step set aside): a bag still full while crafts wait gets a junk drop once a minute
+  // whatever the step's backoff says.
+  const bagStuck=Date.now()<(this.noRoomUntil||0)&&(this.worker.slotsFull?this.worker.slotsFull():0)>=1;
+  const forced=bagStuck&&Date.now()-(this.forcedDropAt||0)>=FORCED_DROP_MS;
+  if(Date.now()>=(this.invOffUntil||0)||forced){
+   if(forced)this.forcedDropAt=Date.now();
    const inv=inventoryJob(counts,{...ctx,slotsFull:this.worker.slotsFull?this.worker.slotsFull():ctx.slotsFull,...this.homeCtx(b)});
    if(inv&&!(inv.type==='craft'&&choice.job?.type==='craft')){this.submit('inventory',inv);return;}
   }
@@ -1364,6 +1380,7 @@ export class Autopilot{
  waterSource(b){
   try{
    if(!b.inventory.items().some(i=>i.name==='bucket')||b.inventory.items().some(i=>i.name==='water_bucket'))return null;
+   if(Date.now()<(this.bucketOffUntil||0))return null;
    const id=b.registry.blocksByName.water?.id;
    if(id==null||typeof b.findBlocks!=='function')return null;
    // Sources near the bot's own height first (a source 15 up a cliff is "near" but out of
@@ -1405,7 +1422,11 @@ export class Autopilot{
   }catch{return false;}
  }
  submit(step,spec,opts){
-  if(spec.type==='craft'&&Date.now()<(this.noRoomUntil||0)){this.state='waiting: bag full ('+step+' craft)';return;}
+  if(spec.type==='craft'&&Date.now()<(this.noRoomUntil||0)){
+   // A free slot again (a drop, a deposit, an item used up): crafting is back on.
+   if((this.worker.slotsFull?this.worker.slotsFull():1)<1)this.noRoomUntil=0;
+   else{this.state='waiting: bag full ('+step+' craft)';return;}
+  }
   try{
    // Remember where surface gathers started: the step's unblock explores cap themselves
    // to that stand-Y (explore legs used to walk the bot off the grove).

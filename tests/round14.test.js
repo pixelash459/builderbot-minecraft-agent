@@ -68,9 +68,15 @@ test('autopilot: `No room for crafting result` stops crafting for a while and cl
   assert.ok(t.ap.noRoomUntil>Date.now()+NO_ROOM_MS-1000);
   assert.equal(t.ap.invOffUntil,0,'the inventory step is due again');
   const n=t.submitted.length;
+  t.ap.worker.slotsFull=()=>1; // every slot taken
   t.ap.submit('light',{type:'craft',item:'torch',count:4});
   assert.equal(t.submitted.length,n,'no craft while the bag is full');
   assert.match(t.ap.state,/bag full/);
+  // Round 15: a slot frees up - crafting is back on at once.
+  t.ap.worker.slotsFull=()=>35/36;
+  t.ap.submit('light',{type:'craft',item:'torch',count:4});
+  assert.equal(t.submitted.length,n+1,'a free slot: the craft goes out');
+  assert.equal(t.ap.noRoomUntil,0);
  }finally{t.done();}
 });
 test('autopilot: a failed bucket source rules out the pool around it',()=>{

@@ -112,11 +112,19 @@ export class WorldSurvivalChain extends SingleTaskChain{
   // ViaVersion: entity.isInWater may never flip and the air metadata only arrives on change
   // (bot.oxygenLevel is the reliable 0-20 field - see worker.js's spawn handler), so also
   // check the block at head height for water.
-  const touchingWater=e.isInWater===true||/water/.test((bot.blockAt&&bot.blockAt(e.position.offset(0,1.4,0))||{}).name||'');
+  // Round 15 (round-14 hard2 drowned at y=53 in a flooded cave): seagrass, kelp, a bubble
+  // column or a waterlogged block at the head is water too, and the latch only lets go when
+  // the head is in breathable air (not stone pressed against while swimming) or the air is
+  // back to 18 - it released within a second and the resumed shelter job dragged the bot down.
+  const at=dy=>(bot.blockAt&&e.position&&bot.blockAt(e.position.offset(0,dy,0)))||null;
+  const head=at(1.4),feet=at(0.1);
+  const wet=bl=>!!bl&&(WET.test(bl.name)||bl.properties?.waterlogged===true||bl.properties?.waterlogged==='true');
+  const touchingWater=e.isInWater===true||wet(head)||wet(feet);
+  const breathing=!!head&&/^(air|cave_air|void_air)$/.test(head.name)&&e.isInWater!==true;
   const air=airOf(bot);
   const lowAir=air<=6; // surface at the old reflex's threshold: below it the test's <10 floor must be reachable
   if(touchingWater&&lowAir)this._drowning=true;
-  else if(!touchingWater||air>=18)this._drowning=false;
+  else if(air>=18||(this._drowning?breathing:!touchingWater))this._drowning=false;
   if(touchingWater&&lowAir){
    try{bot.setControlState('jump',true);}catch{}
    this._wasAvoidingDrowning=true;
@@ -152,4 +160,5 @@ export class WorldSurvivalChain extends SingleTaskChain{
   return !!b&&b.name==='nether_portal';
  }
 }
+const WET=/^(water|bubble_column|seagrass|tall_seagrass|kelp|kelp_plant)$/;
 const airOf=bot=>typeof bot.oxygenLevel==='number'?bot.oxygenLevel:(typeof bot.oxygen==='number'?bot.oxygen:20);

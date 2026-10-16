@@ -1738,3 +1738,17 @@ Round 13 soak: 0 deaths, the drop loop gone (4 tosses landed, 9 refused, 4 came 
 Still open: no hard (dark-forest) run reaches iron; hard2 took 602 s to a wooden pick.
 
 Log lines to look for: `water beside`, `moved N ... to start a new staircase`, `filled a hole`, `the bag is full`, `Dropped ... (toward`, `No unshorn sheep`, `white_bed`, `water_bucket`.
+
+## Round 15 (2026-10-17)
+
+Round 14 soak: **first diamond pickaxe** (normal1: 3 diamonds at y=-8..-10 on the way down, nine `filled a hole`, pick crafted at 16:29Z); normal2's staircase sidestepped and bridged but stopped at a cave opening at y=68; the craft loop stayed gone; 3 deaths, all hard2; no bed; no hard run past stone.
+
+- **Low health, no food** (normal2: health 9, bar 17, nothing to eat, 13 min of `Health or food is low`). Health only regenerates at a bar of 18+, so `foodDone` now returns false with no food, health under `minHealth` and a bar under 18 (`ctx.lowHealth`), and `recovering()` stops waiting in that state.
+- **Drowning latch** (hard2 drowned twice at (119,53,39): `swimming up` 31 times, `resumed the shelter job` 46 times). Seagrass, kelp, bubble columns and waterlogged blocks at the head or feet count as water, and the latch only lets go when the head is in air (not stone pressed against while swimming) or the air is back to 18.
+- **Tunnel climb walked off the tunnel** (hard2: retries took it from (127,123,29) to (115,123,33), then a 68-block drop to (105,57,37) into the flooded cave). The climb sets the pathfinder's `searchRadius` to `CLIMB_DETOUR`=6, and after a failed step a bot more than `CLIMB_LOST`=5 from the next step stops with `Left the tunnel at ...`.
+- **Full bag wait** (normal1 `waiting: bag full (stone craft)` for 511 s). A free slot ends the craft pause at once; a bag still full gets a forced junk drop once a minute (`FORCED_DROP_MS`) whatever the inventory step's backoff.
+- **Bucket** (three pools `out of reach (21-22)` in a row): two failed fills in 5 min set water fills aside for 15 min (`the bucket failed twice`).
+
+Not fixed, needs a look in the world: hard3 at the hard anchor (141,131,30) after the harness's unstuck teleport - every dark-oak log `Cannot reach` within a second, explore `No path to the goal!` / `stopped early` with the bot not moving, `pillaring 4 up to the canopy log` 7 times in 64 s, and 46 `moved wrongly` teleports at (128,127,36) before that.
+
+Log lines to look for: `Left the tunnel`, `the bucket failed twice`, `waiting: bag full`, `Dropped`, `Food:` with health under 10, `swimming up` followed by `resumed`.

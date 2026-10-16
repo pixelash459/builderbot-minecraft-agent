@@ -91,7 +91,7 @@ export const SMELT_TAKE=8;
 export const JUNK_IGNORE_MS=10*60000;
 // Round 13: a drop needs DROP_MIN_OPEN open cells (feet and head) in some direction, and waits
 // DROP_SETTLE_MS (the 2 s pickup delay of a tossed item, plus margin) before checking the count.
-export const DROP_MIN_OPEN=4,DROP_SETTLE_MS=2600;
+export const DROP_MIN_OPEN=4,DROP_SETTLE_MS=2600,CLIMB_DETOUR=6,CLIMB_LOST=5;
 // Round 14 (round-13 normal1: two shears, then `Shearing produced no wool` on a shorn sheep
 // for 45 s, and no bed): a sheep's wool byte (metadata 17 on 1.21: bit 0x10 sheared, low 4
 // bits the colour) - {sheared, color} or null when unknown.
@@ -2774,12 +2774,19 @@ export class Worker extends EventEmitter {
  // Walk back up a recorded tunnel; every point is clear air by construction.
  async climbTunnel(job,token){
   const b=this.bot,tunnel=job.tunnel||[];
-  const previous=b.pathfinder.movements;
+  const previous=b.pathfinder.movements,prevRadius=b.pathfinder.searchRadius;
   b.pathfinder.setMovements(this.movements);
+  // Round 15: every step is a block or two from the last, so a path that needs a detour of more
+  // than CLIMB_DETOUR is a wrong path (hard2's retries walked 12 blocks off the tunnel and fell
+  // 68 into a flooded cave). And a bot that is CLIMB_LOST from the step it aims at has left
+  // the tunnel: stop climbing there rather than chase the next step from further away.
+  b.pathfinder.searchRadius=CLIMB_DETOUR;
+  let failed=false; // the lost check starts after a failed step (a strip mine ends off the staircase)
   try{
    for(let i=tunnel.length-1;i>=0;i--){
     this.check(token);
     const point=tunnel[i],goal=new goals.GoalBlock(point.x,point.y,point.z);
+    if(failed&&b.entity.position.distanceTo(new Vec3(point.x+.5,point.y,point.z+.5))>CLIMB_LOST)throw Error('Left the tunnel at '+b.entity.position.floored()+' ('+point.x+','+point.y+','+point.z+' is out of reach)');
     // A diagonal 1-up step is 1.41 away, so the skip threshold must stay below that.
     if(b.entity.position.floored().distanceTo(new Vec3(point.x,point.y,point.z))<=0.9)continue;
     try{await this.navigate(goal,token,10);}
@@ -2789,6 +2796,7 @@ export class Worker extends EventEmitter {
      // A step that gravel, sand or a placed block refilled cannot be walked with digging off.
      // Retry it with the explore movements (natural blocks only, dirt/cobble scaffold);
      // a step that still fails is skipped for the next one up - only the top must hold.
+     failed=true;
      this.log('Tunnel climb: step '+point.x+','+point.y+','+point.z+' failed ('+String(e.message).slice(0,60)+'); digging through natural fill');
      b.pathfinder.setMovements(this.exploreMovements());
      try{await this.navigate(goal,token,10);}
@@ -2796,7 +2804,7 @@ export class Worker extends EventEmitter {
      finally{if(token===this.epoch)b.pathfinder.setMovements(this.movements);}
     }
    }
-  }finally{if(token===this.epoch)b.pathfinder.setMovements(previous);}
+  }finally{b.pathfinder.searchRadius=prevRadius;if(token===this.epoch)b.pathfinder.setMovements(previous);}
  }
  // Pick the first recipe variant whose ingredients the inventory actually satisfies, and
  // rewrite planks-family ingredients to the held species: minecraft-data lists one variant
