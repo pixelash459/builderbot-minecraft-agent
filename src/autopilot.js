@@ -431,6 +431,7 @@ export function pickupJob(counts,ctx){
 // from base. Over INV_FULL the surplus goes into the home chest (placed beside home, crafted
 // when needed) while home is within HOME_DEPOSIT_RANGE; passing within INV_PASS of the chest
 // deposits it too; full and far from home, pure junk is dropped.
+export const NO_ROOM_MS=5*60000;
 export const INV_FULL=0.75,INV_PASS=8,INV_PASS_MIN=16,HOME_DEPOSIT_RANGE=48,INV_OFF_MS=5*60000,DROP_LOOP_MS=3*60000;
 const SAPLING=/_sapling$/,FLOWER=/^(dandelion|poppy|blue_orchid|allium|azure_bluet|.*_tulip|oxeye_daisy|cornflower|lily_of_the_valley|sunflower|lilac|rose_bush|peony|pink_petals|short_grass|tall_grass|fern|dead_bush)$/;
 export const JUNK_KEEP={dirt:32,cobblestone:64,cobbled_deepslate:32,netherrack:16,wheat_seeds:16,gravel:0,andesite:0,diorite:0,granite:0,tuff:0,calcite:0,rotten_flesh:0,sand:0,red_sand:0,pointed_dripstone:0,poisonous_potato:0,spider_eye:0};
@@ -981,6 +982,10 @@ export class Autopilot{
    if(step==='bed-rung')this.bedOffUntil=Date.now()+BED_OFF_MS; // the ladder moves on
    if(step==='diamond-rung')this.diamondOffUntil=Date.now()+DIAMOND_OFF_MS;
    if(step==='inventory')this.invOffUntil=Date.now()+INV_OFF_MS; // a full chest, no spot: later
+   // Round 14 (round-13 normal2/normal3: `No room for crafting result` 167 times, a torch craft
+   // every 8 s for 16 min in a full bag): no crafts for NO_ROOM_MS, and the inventory step is
+   // due again now (its drop walks to open ground first).
+   if(/No room for crafting result/.test(String(job.message))){this.noRoomUntil=Date.now()+NO_ROOM_MS;this.invOffUntil=0;this.log('Autopilot: the bag is full; no crafting for '+NO_ROOM_MS/60000+' min, clearing junk first');}
    if(step==='farm')this.farmOffUntil=Date.now()+FARM_OFF_MS;
    // A water source the bucket could not fill from (out of reach on a cliff, ray blocked) is
    // skipped for 10 min, so the next try picks another source (round 11: the same out-of-reach
@@ -1097,7 +1102,10 @@ export class Autopilot{
  }
  sheepNear(b,radius=WOOL_NEAR){
   let n=0;
-  for(const e of Object.values(b.entities||{}))if(e&&e!==b.entity&&e.name==='sheep'&&e.position&&b.entity?.position&&e.position.distanceTo(b.entity.position)<=radius)n++;
+  // Round 14: a shorn sheep (wool byte bit 0x10, or one the shear job already used) gives no
+  // wool to shears or a sword: it does not count.
+  const shorn=this.worker.shorn;
+  for(const e of Object.values(b.entities||{}))if(e&&e!==b.entity&&e.name==='sheep'&&e.position&&b.entity?.position&&e.position.distanceTo(b.entity.position)<=radius&&!(typeof e.metadata?.[17]==='number'&&e.metadata[17]&0x10)&&!shorn?.has(e.id))n++;
   return n;
  }
  animalsNearby(b){
@@ -1363,7 +1371,10 @@ export class Autopilot{
    const me=b.entity?.position,now=Date.now(),bad=this.badWater||new Map();
    const ok=b.findBlocks({matching:id,maxDistance:WATER_NEAR,count:64}).filter(p=>{
     const bl=b.blockAt(p),up=b.blockAt(p.offset(0,1,0));
-    return bl&&(bl.metadata??0)===0&&up&&up.boundingBox==='empty'&&up.name!=='water'&&!((bad.get(p.x+','+p.y+','+p.z)||0)>now);
+    // Round 14 (round 13: (317,113,18) then (316,114,15), the same unreachable pool): a
+    // failed source rules out every source within 6 of it.
+    const near=[...bad].some(([k,until])=>{if(until<=now)return false;const [x,y,z]=k.split(',').map(Number);return Math.abs(x-p.x)<=6&&Math.abs(y-p.y)<=6&&Math.abs(z-p.z)<=6;});
+    return bl&&(bl.metadata??0)===0&&up&&up.boundingBox==='empty'&&up.name!=='water'&&!near;
    });
    if(me)ok.sort((a,c)=>(Math.abs(a.y-me.y)>4)-(Math.abs(c.y-me.y)>4)||a.distanceTo(me)-c.distanceTo(me));
    if(ok.length)return {x:ok[0].x,y:ok[0].y,z:ok[0].z};
@@ -1394,6 +1405,7 @@ export class Autopilot{
   }catch{return false;}
  }
  submit(step,spec,opts){
+  if(spec.type==='craft'&&Date.now()<(this.noRoomUntil||0)){this.state='waiting: bag full ('+step+' craft)';return;}
   try{
    // Remember where surface gathers started: the step's unblock explores cap themselves
    // to that stand-Y (explore legs used to walk the bot off the grove).

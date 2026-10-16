@@ -92,6 +92,41 @@ export const JUNK_IGNORE_MS=10*60000;
 // Round 13: a drop needs DROP_MIN_OPEN open cells (feet and head) in some direction, and waits
 // DROP_SETTLE_MS (the 2 s pickup delay of a tossed item, plus margin) before checking the count.
 export const DROP_MIN_OPEN=4,DROP_SETTLE_MS=2600;
+// Round 14 (round-13 normal1: two shears, then `Shearing produced no wool` on a shorn sheep
+// for 45 s, and no bed): a sheep's wool byte (metadata 17 on 1.21: bit 0x10 sheared, low 4
+// bits the colour) - {sheared, color} or null when unknown.
+export const WOOL_COLORS=['white','orange','magenta','light_blue','yellow','lime','pink','gray','light_gray','cyan','purple','blue','brown','green','red','black'];
+export function sheepWool(e){
+ const v=e&&e.metadata&&e.metadata[17];
+ if(typeof v!=='number')return null;
+ return {sheared:!!(v&0x10),color:WOOL_COLORS[v&0x0f]};
+}
+// The sheep to shear within 24: never one shorn already (metadata or `shorn` ids), the colour
+// `want` (the wool the bot holds most of: 3 of one colour make a bed) first, then the nearest.
+export function pickSheep(entities,me,shorn,want='white_wool'){
+ const color=String(want).replace(/_wool$/,'');
+ return entities.filter(e=>e.name==='sheep'&&e.position&&e.position.distanceTo(me)<=24&&!shorn.has(e.id)&&!sheepWool(e)?.sheared)
+  .map(e=>({e,d:e.position.distanceTo(me)+(sheepWool(e)&&sheepWool(e).color!==color?16:0)}))
+  .sort((a,c)=>a.d-c.d)[0]?.e||null;
+}
+// Round 14: the nearest stand within `radius` (dy -4..+8) with a solid floor, two open cells
+// and DROP_MIN_OPEN+ open cells in some direction: {x,y,z} or null.
+export function openStandNear(b,radius=12){
+ const me=b.entity&&b.entity.position;if(!me||!b.blockAt)return null;
+ const f=me.floored(),at=(x,y,z)=>b.blockAt(new Vec3(x,y,z)),open=bl=>!!bl&&bl.boundingBox!=='block'&&!/water|lava/.test(bl.name);
+ const cells=[];
+ for(let dx=-radius;dx<=radius;dx++)for(let dz=-radius;dz<=radius;dz++)for(let dy=-4;dy<=8;dy++)cells.push([dx,dy,dz,Math.abs(dx)+Math.abs(dz)+Math.abs(dy)]);
+ cells.sort((a,c)=>a[3]-c[3]);
+ for(const [dx,dy,dz] of cells){
+  const x=f.x+dx,y=f.y+dy,z=f.z+dz;
+  const fl=at(x,y-1,z);if(!fl||fl.boundingBox!=='block'||!open(at(x,y,z))||!open(at(x,y+1,z)))continue;
+  for(const [ex,ez] of [[1,0],[-1,0],[0,1],[0,-1]]){
+   let k=0;while(k<DROP_MIN_OPEN&&open(at(x+ex*(k+1),y,z+ez*(k+1)))&&open(at(x+ex*(k+1),y+1,z+ez*(k+1))))k++;
+   if(k>=DROP_MIN_OPEN)return {x,y,z};
+  }
+ }
+ return null;
+}
 // The horizontal direction with the longest open run from the bot's feet (up to 8 cells):
 // {dir:{x,z},open}. Null without a world to look at.
 export function dropDirection(b){
@@ -207,6 +242,15 @@ export function torchSpot(blockAt,feet,dir){
  return solid(blockAt(ground.x,ground.y,ground.z))?{against:ground,face:{x:0,y:1,z:0},side:'floor'}:null;
 }
 const FILL_ITEMS=['cobblestone','cobbled_deepslate','dirt','netherrack','stone','deepslate','andesite','diorite','granite','tuff'];
+// A water or lava block touching a cell a tunnel step digs (feet, head, and the corner cell
+// above the head on a staircase step), as digTunnelStep checks it: {name} or null.
+export function fluidBeside(at3,next,corner){
+ for(const dy of corner?[0,1,2]:[0,1])for(const [dx,ey,dz] of [[1,0,0],[-1,0,0],[0,0,1],[0,0,-1],[0,1,0]]){
+  const bl=at3(next.x+dx,next.y+dy+ey,next.z+dz);
+  if(bl&&(bl.name==='water'||bl.name==='lava'))return {name:bl.name};
+ }
+ return null;
+}
 export function planTunnelStep(b,job,dir,dy,noTurn=false){
  const here=b.entity.position.floored(),at3=(x,y,z)=>b.blockAt(new Vec3(x,y,z));
  const filler=FILL_ITEMS.find(n=>b.inventory.items().some(i=>i.name===n))||null;
@@ -219,6 +263,11 @@ export function planTunnelStep(b,job,dir,dy,noTurn=false){
   if(foot.bridge&&(job.bridges||0)>=BRIDGES)foot=stepFooting(at3,next);
   if(foot.fill&&!filler){why.push((foot.bridge?'a gap':'a hole')+' under '+next+' and no block to fill it');continue;}
   if(foot.turn){why.push(foot.turn);continue;}
+  // Round 14 (round-13 normal1 and normal3: `descent stopped at y=48 (Tunnel stopped: water at
+  // ...)`): water or lava beside a cell the step digs stopped the trip at dig time. Seen at
+  // plan time it is a turn, like a cave opening.
+  const wet=fluidBeside(at3,next,dy<0);
+  if(wet){why.push(wet.name+' beside '+next);continue;}
   if(turned)job.stairTurns=(job.stairTurns||0)+1;
   if(foot.bridge)job.bridges=(job.bridges||0)+1;
   return {dir:new Vec3(d.x,0,d.z),next,foot,filler,turned,why};
@@ -239,7 +288,8 @@ export async function descendLeg(w,job,token,targetY){
   catch(e){
    w.check(token);
    if(!DESCENT_STOP.test(e.message))throw e;
-   if(side<SIDESTEPS&&/no safe way on/.test(e.message)&&w.bot.entity.position.y>targetY){
+   // Round 14: a water stop sidesteps too (a lake or flooded cave across the staircase).
+   if(side<SIDESTEPS&&/no safe way on|^Tunnel stopped: water/.test(e.message)&&w.bot.entity.position.y>targetY){
     dir=await sidestep(w,job,token);
     if(dir)continue;
    }
@@ -1971,8 +2021,8 @@ export class Worker extends EventEmitter {
   const deadline=Date.now()+(job.spec.maxSeconds??45)*1000;
   while(wools.reduce((a,n)=>a+this.count(n),0)<=before&&Date.now()<deadline){
    this.check(token);
-   const sheep=Object.values(b.entities).filter(e=>e.name==='sheep'&&e.position&&e.position.distanceTo(b.entity.position)<=24).sort((a,c)=>a.position.distanceTo(b.entity.position)-c.position.distanceTo(b.entity.position))[0];
-   if(!sheep)throw Error('No sheep within 24 blocks to shear');
+   const sheep=pickSheep(Object.values(b.entities),b.entity.position,this.shorn||(this.shorn=new Set()),wools.reduce((a,n)=>this.count(n)>this.count(a)?n:a,'white_wool'));
+   if(!sheep)throw Error('No unshorn sheep within 24 blocks to shear');
    if(!held)throw Error('Need shears in the inventory');
    await this.walk(sheep.position,token,1.5);
    await b.equip(held,'hand');
@@ -1980,6 +2030,7 @@ export class Worker extends EventEmitter {
    if(b.heldItem?.name!=='shears')throw Error('The shears could not be equipped');
    await b.lookAt(sheep.position.offset(0,sheep.height*.6,0));
    this.useEntityInteract(b,sheep);
+   this.shorn.add(sheep.id); // shorn, or not shearable: never the same sheep twice in a row
    await sleep(900);
    await this.sweepDrops(token);
   }
@@ -2670,7 +2721,9 @@ export class Worker extends EventEmitter {
    const p=spot.plus(delta);
    if(fluidAt(p))throw Error('Tunnel stopped: '+(b.blockAt(p)?.name||'fluid')+' at '+p.floored());
   }
-  if(floor&&fluidAt(floor.position))throw Error('Tunnel stopped: '+floor.name+' at '+floor.position.floored());
+  // A water floor the plan fills (round 12, stepFooting's water fill) is not a stop: the
+  // fill replaces it after the dig. Round 13 never filled one because this threw first.
+  if(floor&&fluidAt(floor.position)&&!(fillPlanned&&floor.name==='water'))throw Error('Tunnel stopped: '+floor.name+' at '+floor.position.floored());
   if(feetBlock?.name==='bedrock'||head?.name==='bedrock')throw Error('Tunnel stopped: bedrock at '+next);
   // Top-down (corner, head, feet): sand in the head cell must never drop into an open feet
   // cell. The bot stands in the previous column meanwhile, so whatever falls lands in the
@@ -3017,7 +3070,13 @@ export class Worker extends EventEmitter {
   // onto the bot and are picked up when their pickup delay ends. Toss down the longest open
   // run, step back away from the items, and check they stayed on the ground. Too cramped to
   // toss: refuse (the inventory step is set aside for INV_OFF_MS).
-  const toss=dropDirection(b);
+  let toss=dropDirection(b);
+  // Round 14 (round-13: `No room to toss cobblestone (open run 0)` 9 times, then a full bag):
+  // cramped here, walk to the nearest stand with room (a player walks back to the cave).
+  if(toss&&toss.open<DROP_MIN_OPEN){
+   const stand=openStandNear(b);
+   if(stand){try{await this.navigate(new goals.GoalBlock(stand.x,stand.y,stand.z),token,20);}catch{}this.check(token);toss=dropDirection(b);}
+  }
   if(toss&&toss.open<DROP_MIN_OPEN)throw Error('No room to toss '+s.item+' (open run '+toss.open+')');
   if(toss)try{await b.look(Math.atan2(-toss.dir.x,-toss.dir.z),0.3,true);}catch{}
   let left=n;

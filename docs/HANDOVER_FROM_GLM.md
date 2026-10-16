@@ -1724,3 +1724,17 @@ Round 12's soak was stopped in normal1: at y=-34 in the diamond strip tunnel the
 - Log lines to look for: `Dropped N item (toward x,z, open k)`, `No room to toss`, `came back into the inventory`, `dropped twice in 3 min`.
 
 Combat test 3 (skeleton) timed out in the harness's wait; the bot's fight job ended in 4 s with no target. It passed in earlier rounds; rerun it before treating it as a bot bug.
+
+## Round 14 (2026-10-16)
+
+Round 13 soak: 0 deaths, the drop loop gone (4 tosses landed, 9 refused, 4 came back), iron pick 3/3 normal, no hard run past stone. New problems and their fixes:
+
+- **Diamond trips stopped on water** (normal1 y=48, normal3 y=20, `Tunnel stopped: water at ...`). Water beside a cell the step digs was only seen at dig time. `planTunnelStep` now checks it (`fluidBeside`) and turns (`water beside ...`), and `descendLeg` sidesteps on a water stop too. Also: round 12's water-floor fill never ran, because `digTunnelStep` threw on the water floor before the fill; a planned water fill now passes.
+- **Full-bag craft loop** (`No room for crafting result` 167x, a torch craft every 8 s for 16 min). A craft that fails that way stops all crafts for `NO_ROOM_MS`=5 min and makes the inventory step due at once (`the bag is full; no crafting for 5 min`).
+- **Tosses refused in a cramped tunnel** (`open run 0/1`). The drop job walks to the nearest stand within 12 that has 4 open cells in a row (`openStandNear`) before giving up.
+- **Shear retried a shorn sheep** (2 shears, then 45 s on a shorn one, no bed). The shear job skips shorn sheep (wool byte bit 0x10, or ones it already sheared) and prefers the wool colour the bot holds most of (a bed needs 3 of one colour). `sheepNear` no longer counts shorn sheep.
+- **Bucket retried the same unreachable pool**: a failed source rules out every source within 6 of it for 10 min.
+
+Still open: no hard (dark-forest) run reaches iron; hard2 took 602 s to a wooden pick.
+
+Log lines to look for: `water beside`, `moved N ... to start a new staircase`, `filled a hole`, `the bag is full`, `Dropped ... (toward`, `No unshorn sheep`, `white_bed`, `water_bucket`.
