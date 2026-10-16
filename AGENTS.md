@@ -85,3 +85,9 @@ Runs of tests/resources.test.js and the dashboard node process grew to 17-140 GB
 
 ## Git (added 2026-10-14)
 This folder is a git repo with a private GitHub remote (`origin`, branch `main`). After each verified step, commit your own changes with a clear message (`git add -A && git commit`) and `git push`. Never force-push, never rewrite history, never commit tokens, logs, worlds or anything `.gitignore` excludes. Pull (`git pull --rebase`) before starting work, because other agents (including cloud sessions) push to the same repo.
+
+## Commit authorship (user's rule, 2026-10-16)
+Every commit to this repo - by Claude (local or cloud sessions), Cursor, GLM or any other agent - is **authored by the repo owner**, with the model that did the work as **co-author**:
+- Before committing, set the author for this clone: `git config user.name "Ashutosh Chaudhary"` and `git config user.email "162051298+pixelash459@users.noreply.github.com"` (or pass `--author="Ashutosh Chaudhary <162051298+pixelash459@users.noreply.github.com>"`).
+- End the commit message with a co-author trailer naming the model, e.g. `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`, `Co-Authored-By: Cursor (Grok 4.7) <cursoragent@cursor.com>`, or `Co-Authored-By: GLM-5.3-Flash <noreply@z.ai>`.
+- Never commit with a model's own identity as the author. Do not rewrite existing history to change old authors.
