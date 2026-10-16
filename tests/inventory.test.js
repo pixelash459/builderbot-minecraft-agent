@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {Vec3} from 'vec3';
-import {Worker} from '../src/worker.js';
+import {Worker,dropDirection,DROP_MIN_OPEN} from '../src/worker.js';
 import {Autopilot,surplus,inventoryJob,INV_OFF_MS} from '../src/autopilot.js';
 import {jobSchema} from '../src/schema.js';
 test('surplus: what is kept on the bot and what is extra',()=>{
@@ -47,12 +47,39 @@ test('drop: junk is tossed and the sweeps leave it lying',async()=>{
  const inv=[{name:'gravel',count:20,type:13}];const tossed=[];
  const w=Object.assign(Object.create(Worker.prototype),{
   bot:{inventory:{items:()=>inv.filter(i=>i.count>0)},async toss(type,meta,n){tossed.push(n);inv[0].count-=n;}},
-  logs:[],log(m){this.logs.push(m);},check(){},count(n){return inv.filter(i=>i.name===n).reduce((a,i)=>a+i.count,0);}});
+  logs:[],dropSettleMs:0,log(m){this.logs.push(m);},check(){},count(n){return inv.filter(i=>i.name===n).reduce((a,i)=>a+i.count,0);}});
  await w.drop({spec:{type:'drop',item:'gravel',count:20}},0);
  assert.deepEqual(tossed,[20]);
  assert.equal(w.isDroppedJunk({getDroppedItem:()=>({name:'gravel'})}),true);
  assert.equal(w.isDroppedJunk({getDroppedItem:()=>({name:'iron_ingot'})}),false);
  await assert.rejects(w.drop({spec:{type:'drop',item:'gravel'}},0),/No gravel to drop/);
+});
+// Round 13 (round-12 normal1: 300x `Dropped 256 cobblestone` in a strip-mine tunnel, each
+// stack picked up again 2 s later): toss down the longest open run, refuse when cramped, and
+// fail when the items come back.
+function tunnelBot(open){
+ const air={name:'air',boundingBox:'empty'},stone={name:'stone',boundingBox:'block'};
+ return {entity:{position:new Vec3(0.5,-34,0.5)},blockAt(p){return p.x>0&&p.x<=open&&p.z===0&&(p.y===-34||p.y===-33)?air:stone;}};
+}
+test('dropDirection: the longest open run from the feet',()=>{
+ const d=dropDirection(tunnelBot(6));
+ assert.deepEqual(d,{dir:{x:1,z:0},open:6});
+ assert.equal(dropDirection({blockAt(){return null;}}),null,'no position: no direction');
+});
+test('drop: refused in a cramped tunnel, failed when the items come back',async()=>{
+ const make=(open,back)=>{const inv=[{name:'cobblestone',count:320,type:1}];const tossed=[];
+  const w=Object.assign(Object.create(Worker.prototype),{dropSettleMs:0,logs:[],log(m){this.logs.push(m);},check(){},
+   count(n){return inv.filter(i=>i.name===n).reduce((a,i)=>a+i.count,0);},
+   bot:{...tunnelBot(open),async look(){},inventory:{items:()=>inv.filter(i=>i.count>0)},async toss(t,m,n){tossed.push(n);if(!back)inv[0].count-=n;}}});
+  return {w,tossed};};
+ let {w,tossed}=make(DROP_MIN_OPEN-1,false);
+ await assert.rejects(w.drop({spec:{type:'drop',item:'cobblestone',count:256}},0),/No room to toss/);
+ assert.deepEqual(tossed,[],'nothing tossed against a wall');
+ ({w,tossed}=make(6,true));
+ await assert.rejects(w.drop({spec:{type:'drop',item:'cobblestone',count:256}},0),/came back/);
+ ({w,tossed}=make(6,false));
+ await w.drop({spec:{type:'drop',item:'cobblestone',count:256}},0);
+ assert.deepEqual(tossed,[256]);assert.match(w.logs.at(-1),/Dropped 256 cobblestone \(toward 1,0, open 6\)/);
 });
 function autopilot({items={},home=null,chestAt=null,blocks={}}={}){
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'inv-'));
@@ -79,6 +106,19 @@ test('autopilot: a full inventory deposits at home first; a failed deposit is se
   assert.ok(t.ap.invOffUntil>Date.now()+INV_OFF_MS-1000);
   t.ap.coolUntil=0;t.ap.tick();
   assert.notEqual(t.submitted.at(-1).type,'deposit','set aside: the ladder goes on');
+ }finally{t.done();}
+});
+test('autopilot: the same junk dropped twice in a few minutes sets the inventory step aside',()=>{
+ const t=autopilot({items:{...KIT,oak_planks:0,...fill(18),cobblestone:320}}); // no planks for a chest: junk is dropped
+ try{
+  t.ap.start();t.ap.tick();
+  assert.deepEqual(t.submitted[0],{type:'drop',item:'cobblestone',count:256});
+  t.jobs[0].status='complete';t.ap.tick();
+  assert.ok(!(t.ap.invOffUntil>Date.now()),'one drop is fine');
+  t.ap.coolUntil=0;t.ap.tick();
+  const j=t.jobs.at(-1);assert.equal(j.spec.type,'drop','the cobble is back: dropped again');
+  j.status='complete';t.ap.tick();
+  assert.ok(t.ap.invOffUntil>Date.now()+INV_OFF_MS-1000,'the second drop of the same item: set aside');
  }finally{t.done();}
 });
 test('autopilot: a remembered chest that is gone is forgotten, and a new one is placed by home',()=>{

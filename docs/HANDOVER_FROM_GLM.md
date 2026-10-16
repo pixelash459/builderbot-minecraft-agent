@@ -1714,3 +1714,13 @@ Unit tests: **534 passed, 0 failed**. Not yet live-verified.
 3. **Bucket fills out of reach** (15 blocks up a cliff, retried 3 jobs in a row): water sources within 4 blocks of the bot's height come first, and a source the bucket failed at is skipped for 10 minutes.
 4. **No bed after killing sheep**: with 2 iron ingots and a sheep in reach, shears are crafted before any kill (a shear gives 1-3 wool and the sheep stays). Look for `craft shears`, then `shear`.
 5. **Starved at a bar of 5** (normal1, `Health or food is low` for 25 min): a nearly empty bar (<= 6) with no food held brings the food step back even while it is set aside, and food trips (`hunt`, `collect`, food-step `explore` with `forFood`) run on a low bar instead of being refused.
+
+## Round 13 (2026-10-16)
+
+Round 12's soak was stopped in normal1: at y=-34 in the diamond strip tunnel the bot dropped 256 cobblestone, 45 dirt and 32 cobbled deepslate in a loop for 10 minutes (300x `Dropped 256 cobblestone`). The tossed stacks hit the tunnel wall, landed on the bot, and were picked up again when their 2 s pickup delay ended; the drop job only checked the count 0.3 s after the toss.
+
+- `drop` (worker): faces the longest open run (`dropDirection`, feet and head clear, up to 8 cells), refuses with `No room to toss` under `DROP_MIN_OPEN`=4 cells, steps 3 blocks back from the toss, waits `DROP_SETTLE_MS`=2.6 s, and fails with `came back into the inventory` if the count rose. A failed inventory job sets the step aside for 5 min (existing).
+- Autopilot: the same item dropped twice within 3 min sets the inventory step aside for 5 min (`... dropped twice in 3 min; inventory step set aside`).
+- Log lines to look for: `Dropped N item (toward x,z, open k)`, `No room to toss`, `came back into the inventory`, `dropped twice in 3 min`.
+
+Combat test 3 (skeleton) timed out in the harness's wait; the bot's fight job ended in 4 s with no target. It passed in earlier rounds; rerun it before treating it as a bot bug.

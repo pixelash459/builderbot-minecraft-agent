@@ -89,6 +89,22 @@ export const HAND_CLEAR_HARDNESS=0.5;
 export const SMELT_TAKE=8;
 // Habit 6: junk the bot dropped is left lying for this long (no sweep walks back to it).
 export const JUNK_IGNORE_MS=10*60000;
+// Round 13: a drop needs DROP_MIN_OPEN open cells (feet and head) in some direction, and waits
+// DROP_SETTLE_MS (the 2 s pickup delay of a tossed item, plus margin) before checking the count.
+export const DROP_MIN_OPEN=4,DROP_SETTLE_MS=2600;
+// The horizontal direction with the longest open run from the bot's feet (up to 8 cells):
+// {dir:{x,z},open}. Null without a world to look at.
+export function dropDirection(b){
+ const me=b.entity&&b.entity.position;if(!me||!b.blockAt)return null;
+ const f=me.floored();let best=null;
+ for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]){
+  let k=0;
+  while(k<8){const a=b.blockAt(f.offset(dx*(k+1),0,dz*(k+1))),h=b.blockAt(f.offset(dx*(k+1),1,dz*(k+1)));
+   if(!a||!h||a.boundingBox==='block'||h.boundingBox==='block'||/lava/.test(a.name))break;k++;}
+  if(!best||k>best.open)best={dir:{x:dx,z:dz},open:k};
+ }
+ return best;
+}
 // A take job waits at most this long past the batch's ready time (a slow or cold furnace).
 export const SMELT_TAKE_GRACE=15000;
 // Round 11 (normal2: three loads never collected, `take queued twice`, then the next smelt
@@ -2996,6 +3012,14 @@ export class Worker extends EventEmitter {
   const b=this.bot,s=job.spec,have=this.count(s.item);
   if(!have)throw Error('No '+s.item+' to drop');
   const n=Math.min(have,s.count??have);
+  // Round 13 (round-12 normal1, 10 min at y=-34 in a strip-mine tunnel: 300x `Dropped 256
+  // cobblestone`, each stack back in the bag 2 s later): tossed items bounce off a tunnel wall
+  // onto the bot and are picked up when their pickup delay ends. Toss down the longest open
+  // run, step back away from the items, and check they stayed on the ground. Too cramped to
+  // toss: refuse (the inventory step is set aside for INV_OFF_MS).
+  const toss=dropDirection(b);
+  if(toss&&toss.open<DROP_MIN_OPEN)throw Error('No room to toss '+s.item+' (open run '+toss.open+')');
+  if(toss)try{await b.look(Math.atan2(-toss.dir.x,-toss.dir.z),0.3,true);}catch{}
   let left=n;
   for(const it of b.inventory.items().filter(i=>i.name===s.item)){
    if(left<=0)break;
@@ -3003,9 +3027,13 @@ export class Worker extends EventEmitter {
    this.check(token);await b.toss(it.type,null,k);left-=k;
   }
   (this.droppedJunk||(this.droppedJunk=new Map())).set(s.item,Date.now());
-  await sleep(300);
-  if(this.count(s.item)>have-n)throw Error('Dropping '+s.item+' did not lower the count');
-  this.log('Dropped '+n+' '+s.item);
+  if(toss&&b.entity?.position&&b.pathfinder){
+   const back=b.entity.position.floored().offset(-toss.dir.x*3,0,-toss.dir.z*3);
+   try{await this.navigate(new goals.GoalNear(back.x,back.y,back.z,1),token,4);}catch{}
+  }
+  await sleep(this.dropSettleMs??DROP_SETTLE_MS);
+  if(this.count(s.item)>have-n)throw Error('Dropped '+s.item+' came back into the inventory');
+  this.log('Dropped '+n+' '+s.item+(toss?' (toward '+toss.dir.x+','+toss.dir.z+', open '+toss.open+')':''));
  }
  // A dropped item entity the bot tossed as junk a moment ago (drop job): not worth a walk.
  isDroppedJunk(e){
