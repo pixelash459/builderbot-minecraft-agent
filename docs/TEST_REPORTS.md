@@ -649,3 +649,13 @@ No `pillaring N up to the canopy log`. All three hard runs still gathered wood (
 `python -u tests/integration.py`, model off. Exit 0, 1066 s. `All in-game integration tests passed`.
 
 `Reflex paused the gather: Reflex: preempted by Mob Defense`. `PASS: A4 escaped the lava trench (hp 18.8, at [1649, -60, 1649])`.
+
+## 2026-10-16 16:27–16:33 IST — combat (`bad9169`, bot code `1721cd6`)
+
+`python -u tests/combat_integration.py`, model off, same services. Exit 1, 316 s. `COMBAT SUITE ERRORS: test3_skeleton: TimeoutError('Condition did not become true')`. One run. The suite continued after that failure.
+
+`3_skeleton_15`: ttk 0.0, hits null, `damage_taken=0`, blocked 0. The skeleton was summoned and the fight timed out without a kill.
+
+`4_creeper` (lane): ttk 5.3 s, hits 3, `damage_taken=0`, end health 20, killed, no crater at the spawn, the midpoint, or the bot start.
+
+`4b_creeper_roofed`: ttk 7.1 s, hits 3, `damage_taken=0`, end health 20, killed, no crater. Both creepers stayed at 0 damage. Zombie trio lost 13.7 hp and still killed all three.
