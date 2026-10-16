@@ -747,3 +747,11 @@ Bed: `craft shears` at 12:40:07Z, two `Completed shear`, then `Shearing produced
 Lowest bar in the dashboard is 8, on `Food: ate porkchop (bar 8 -> 11)` at 12:37:48Z. Soak sample mins are 9, 15, 19, 20, 20, 20. Eat lines: three raw porkchop (one of those did not move the bar) and one `cooked_porkchop` 11 to 19 on normal1; one `cooked_porkchop` 14 to 20 on normal2 at 13:11:28Z. normal1 also logged `Food: meal failed - Promise timed out. (2 tries)` while a furnace place was refused holding porkchop. Food hunts that connected: normal1 one pig (3 hits), normal2 three pigs, normal3 one chicken. The food step was still set aside first on every normal run (12:14Z failed 3 times, 13:35Z 6 explore legs, 14:18Z failed 3 times).
 
 No hard run reached an iron pick or an ingot. hard1's iron-ore peak is 3 and it ended holding 1 raw iron; furnace was in a sample at 301 s and gone at the end. hard3 held a stone pick at 331 s and never a furnace. hard2 got a wooden pick at 602 s and nothing past it. No `WorldSurvival: drowning`, no swim-up, no roof dig. Night: hard1 sealed at (153, 127, 30), mined, `could not climb`, walked back, `pillaring up the sump from y=125`, `back in the shelter`. hard2 sealed at (153, 139, 18) and held until dawn with no night-mine line. hard3 sealed at (126, 134, -7), mined, walked back, `pillaring up the sump from y=132`, `back in the shelter`. Hard pig fights timed out with the pig still standing (14:17Z, 14:18Z, 15:01Z, 15:02Z) while the bar stayed at 20.
+
+## 2026-10-16 21:11–21:28 IST — integration (`bde4fb6`)
+
+`git pull --rebase` already at `bde4fb6` (round 14: turn the staircase away from water, stop crafting in a full bag, toss from open ground, skip shorn sheep). Unit tests, every `tests/*.test.js` except `resources.test.js`, `--max-old-space-size=2048 --test-timeout=60000 --test-skip-pattern resources`: **552 passed, 0 failed** (43.6 s). The note expected 543; nothing failed. Services restarted with `AGENT_MODEL=off`. Supervisor log: `model server disabled`.
+
+`python -u tests/integration.py`, model off. Exit 0, 1067 s (15:41:11Z–15:58:58Z). `All in-game integration tests passed`.
+
+`Reflex paused the gather: Reflex: preempted by Mob Defense`. `PASS: A4 escaped the lava trench (hp 19.8, at [1656, -59, 1654])`.
