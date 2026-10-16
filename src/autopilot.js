@@ -167,8 +167,16 @@ export function bedJob(c,ctx){
   }
   return {type:'craft',item:wool.replace('_wool','_bed'),count:1};
  }
+ // Round 11 (`no sheep after 3 search legs` in both normal runs): any wool source - 4 string
+ // (spiders, cobwebs) craft a white wool.
+ if(c('white_wool')+Math.floor(c('string')/4)>=3)return {type:'craft',item:'white_wool',count:3-c('white_wool')};
  if(!ctx.sheepNear){
-  return ctx.bedSearch?{type:'explore',direction:ctx.grazeDirection||'random',distance:32}:null;
+  if(!ctx.bedSearch)return null;
+  // A sheep the bot can see beyond the hunt's reach: head its way; else a graze leg, wider
+  // each time (ctx.searchDistance).
+  const far=ctx.sheepFar;
+  if(far)return {type:'explore',direction:Math.abs(far.dx)>=Math.abs(far.dz)?(far.dx>0?'east':'west'):(far.dz>0?'south':'north'),distance:Math.max(16,Math.min(SHEEP_FAR,Math.round(Math.max(Math.abs(far.dx),Math.abs(far.dz))-WOOL_NEAR/2)))};
+  return {type:'explore',direction:ctx.grazeDirection||'random',distance:ctx.searchDistance||32};
  }
  // The dusk prep (needPlanks) has no time for a log trip: only wool it can turn into a bed.
  if(ctx.needPlanks&&ctx.planksTotal+4*ctx.logsTotal<planks)return null;
@@ -181,6 +189,8 @@ export function bedJob(c,ctx){
 // with a hostile within 16, after sunset, or while the bed is set aside (a failed hunt).
 // The rung's sheep search gives the bed BED_SEARCH_LEGS graze legs before it is set aside.
 export const WOOL_NEAR=24,BED_SEARCH_LEGS=3;
+// Round 11: sheep seen up to SHEEP_FAR away are walked toward; blind legs go BED_SEARCH_DIST.
+export const SHEEP_FAR=96,BED_SEARCH_DIST=[64,96,96];
 const QUICK_JOBS=new Set(['craft','equip','smelt','eat']);
 export function woolJob(counts,ctx){
  const c=countFactory(counts);
@@ -1036,6 +1046,17 @@ export class Autopilot{
   }
   return best;
  }
+ // The nearest sheep within SHEEP_FAR beyond the hunt's reach: its offset from the bot.
+ sheepFar(b){
+  const me=b.entity?.position;if(!me)return null;
+  let best=null;
+  for(const e of Object.values(b.entities||{})){
+   if(!e||e===b.entity||e.name!=='sheep'||!e.position)continue;
+   const d=e.position.distanceTo(me);
+   if(d>WOOL_NEAR&&d<=SHEEP_FAR&&(!best||d<best.d))best={d,dx:e.position.x-me.x,dz:e.position.z-me.z};
+  }
+  return best&&{dx:Math.round(best.dx),dz:Math.round(best.dz),distance:Math.round(best.d)};
+ }
  sheepNear(b,radius=WOOL_NEAR){
   let n=0;
   for(const e of Object.values(b.entities||{}))if(e&&e!==b.entity&&e.name==='sheep'&&e.position&&b.entity?.position&&e.position.distanceTo(b.entity.position)<=radius)n++;
@@ -1111,7 +1132,7 @@ export class Autopilot{
   const standY=b.entity&&b.entity.position?Math.floor(b.entity.position.y):null;
   const ctx={slotsFull:items/36,animalsNearby:animals?animals.type:null,animalsClose:animals?animals.close:0,huntPhase:this.huntPhase,homeChest:this.homeChest,home:this.home,chestSpot:this.home?this.chestSpotNear(b):null,hostileDistance:this.hostileDistance(b),worldTable,worldFurnace,grazeDirection:grazeDirection(b),standY,lastSurfaceY:this.lastSurfaceY??this.foodAnchorY,
    // Round 8 rung: coal in reach, the bed's wool, the last equip (no equip loops).
-   coalNear:this.oreNear(b,['coal_ore','deepslate_coal_ore'],32),waterAt:this.waterSource(b),sheepNear:this.sheepNear(b),bedNear:this.bedNear(b),lastEquip:this.lastEquip||null,coalOff:Date.now()<(this.coalOffUntil||0),bedOff:Date.now()<(this.bedOffUntil||0),bedSearch:(this.bedSearch?.legs||0)<BED_SEARCH_LEGS,diamondOff:Date.now()<(this.diamondOffUntil||0),
+   coalNear:this.oreNear(b,['coal_ore','deepslate_coal_ore'],32),waterAt:this.waterSource(b),sheepNear:this.sheepNear(b),bedNear:this.bedNear(b),lastEquip:this.lastEquip||null,coalOff:Date.now()<(this.coalOffUntil||0),bedOff:Date.now()<(this.bedOffUntil||0),bedSearch:(this.bedSearch?.legs||0)<BED_SEARCH_LEGS,sheepFar:this.sheepFar(b),searchDistance:BED_SEARCH_DIST[Math.min(this.bedSearch?.legs||0,BED_SEARCH_DIST.length-1)],diamondOff:Date.now()<(this.diamondOffUntil||0),
    breedable:this.breedable(b,counts),hayNear:this.hayNear(b),
    foodBar:typeof b.food==='number'?b.food:null,foodOff:Date.now()<(this.food?.offUntil||0),foodDeferred:!!this.food?.deferred};
   const choice=plan(counts,{...ctx,blocked:this.state.startsWith('blocked: ')?this.state.slice(9).split(' ')[0]:null});

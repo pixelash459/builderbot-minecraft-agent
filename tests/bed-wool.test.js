@@ -142,3 +142,36 @@ test('night: the home bed within range is walked back to, beyond it the shelter'
   }finally{t.done();}
  }
 });
+// ---- round 11: `no sheep after 3 search legs; bed set aside` in both normal runs ----------------
+import {SHEEP_FAR,BED_SEARCH_DIST} from '../src/autopilot.js';
+test('bedJob: a sheep seen beyond the hunt reach is walked toward; blind legs go wider',()=>{
+ const kit={stone_sword:1,crafting_table:1};
+ const toward=bedJob(c(kit),{sheepNear:0,planksTotal:3,logsTotal:0,bedSearch:true,sheepFar:{dx:-70,dz:20,distance:73}});
+ assert.deepEqual(toward,{type:'explore',direction:'west',distance:58});
+ assert.equal(jobSchema.safeParse(toward).success,true);
+ assert.deepEqual(bedJob(c(kit),{sheepNear:0,planksTotal:3,logsTotal:0,bedSearch:true,sheepFar:{dx:3,dz:30,distance:30}}),{type:'explore',direction:'south',distance:18});
+ assert.deepEqual(bedJob(c(kit),{sheepNear:0,planksTotal:3,logsTotal:0,bedSearch:true,grazeDirection:'north',searchDistance:96}),{type:'explore',direction:'north',distance:96});
+ assert.equal(bedJob(c(kit),{sheepNear:0,planksTotal:3,logsTotal:0,sheepFar:{dx:40,dz:0}}),null,'outside the rung: no chase');
+ assert.ok(BED_SEARCH_DIST.every(d=>d>=64&&d<=SHEEP_FAR));
+});
+test('bedJob: string is a wool source (4 string craft a white wool)',()=>{
+ assert.deepEqual(bedJob(c({stone_sword:1,string:12}),{sheepNear:0,planksTotal:7,logsTotal:0}),{type:'craft',item:'white_wool',count:3});
+ assert.deepEqual(bedJob(c({white_wool:2,string:4}),{sheepNear:0,planksTotal:7,logsTotal:0}),{type:'craft',item:'white_wool',count:1});
+ assert.equal(bedJob(c({white_wool:1,string:7}),{sheepNear:0,planksTotal:7,logsTotal:0}),null,'one wool short');
+});
+test('the rung heads for a sheep it can see 60 blocks off, and widens its blind legs',()=>{
+ const slots=[];slots[5]={name:'iron_helmet',count:1};slots[6]={name:'iron_chestplate',count:1};
+ const t=autopilot({items:RUNG,sheep:[[0.5,64,-59.5]]});t.worker.bot.inventory.slots=slots;
+ try{
+  t.ap.tick();
+  assert.deepEqual(t.submitted.at(-1),{type:'explore',direction:'north',distance:48});
+  assert.equal(t.ap.currentStep,'bed-rung');
+ }finally{t.done();}
+ const u=autopilot({items:RUNG});u.worker.bot.inventory.slots=slots;
+ try{
+  u.ap.tick();
+  assert.equal(u.submitted.at(-1).distance,BED_SEARCH_DIST[0]);
+  u.jobs.at(-1).status='complete';u.ap.tick();
+  assert.equal(u.submitted.at(-1).distance,BED_SEARCH_DIST[1]);
+ }finally{u.done();}
+});
