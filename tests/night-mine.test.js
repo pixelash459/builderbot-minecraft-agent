@@ -98,3 +98,72 @@ test('no night mine over water, or through a player-made floor',async()=>{
  const c=miner(own);
  assert.equal(await c.worker.nightMine({id:'o',placed:[{x:0,y:63,z:0}]},0,ORIGIN),true);
 });
+// ---- round 11: home is checked, never assumed ------------------------------------------------
+// hard1: `could not climb back into (163,121,34): No path to the goal!` and `back in the shelter`
+// in the same second, while the bot stood 16 blocks away and the re-seal found the sump open.
+function physics(w,bot){
+ // jump lifts the bot 1.2; forward walks one cell the way it looks (a held jump climbs a stair);
+ // letting go lands it on whatever is below.
+ const fall=()=>{let p=bot.entity.position.floored();while(p.y>0&&!solidAt(w,p.x,p.y-1,p.z))p=p.offset(0,-1,0);bot.entity.position=new Vec3(p.x+0.5,p.y,p.z+0.5);};
+ const held={};
+ Object.assign(bot,{yaw:0,
+  async look(yaw){bot.yaw=yaw;},
+  setControlState(c,v){held[c]=v;
+   if(c==='jump'&&v)bot.entity.position=bot.entity.position.offset(0,1.2,0);
+   if(c==='forward'&&v){const p=bot.entity.position.floored(),dx=Math.round(-Math.sin(bot.yaw)),dz=Math.round(-Math.cos(bot.yaw));
+    const to=new Vec3(p.x+dx,Math.floor(bot.entity.position.y),p.z+dz);
+    if(!solidAt(w,to.x,to.y,to.z)&&!solidAt(w,to.x,to.y+1,to.z)){bot.entity.position=new Vec3(to.x+0.5,bot.entity.position.y,to.z+0.5);fall();}}},
+  clearControlStates(){for(const c in held)held[c]=false;fall();},
+  async placeBlock(ref,face){const t=ref.position.plus(face);if(bot.entity.position.floored().equals(t))return;w.set(t.x,t.y,t.z,'cobblestone');}});
+ return fall;
+}
+test('the tower fails: the bot pillars up its sump and is really back in the cell',async()=>{
+ const w=world();
+ const {worker,bot,logs}=miner(w);
+ physics(w,bot);
+ worker.navigate=async goal=>{if(goal.x===ORIGIN.x&&goal.y===ORIGIN.y&&goal.z===ORIGIN.z)throw Error('No path to the goal!');};
+ const ok=await worker.nightMine({id:'t1',placed:[]},0,ORIGIN);
+ assert.equal(ok,true,logs.join('\n'));
+ assert.deepEqual(bot.entity.position.floored().toArray(),[0,64,0],'feet in the shelter cell');
+ assert.equal(w.nameAt(0,63,0),'cobblestone');assert.equal(w.nameAt(0,62,0),'cobblestone','the sump is filled');
+ assert.ok(logs.some(l=>/could not climb back into/.test(l)));
+ assert.ok(logs.some(l=>/pillaring up the sump from y=62/.test(l)),logs.join('\n'));
+ assert.ok(logs.some(l=>/Night mine: back in the shelter \(/.test(l)));
+});
+test('the climb and the tower both fail at the strip end: it walks the tunnel by hand, then pillars',async()=>{
+ const w=world();
+ const {worker,bot,logs}=miner(w);
+ physics(w,bot);
+ worker.climbTunnel=async()=>{throw Error('Navigation timed out');};
+ worker.navigate=async()=>{throw Error('No path to the goal!');};
+ const ok=await worker.nightMine({id:'t2',placed:[]},0,ORIGIN);
+ assert.equal(ok,true,logs.join('\n'));
+ assert.ok(logs.some(l=>/walking the tunnel back by hand from/.test(l)),logs.join('\n'));
+ assert.deepEqual(bot.entity.position.floored().toArray(),[0,64,0]);
+});
+test('no way home: the night mine says so instead of claiming the shelter',async()=>{
+ const w=world();
+ const {worker,bot,logs}=miner(w,{items:[{name:'stone_pickaxe',count:1,type:901}]});
+ physics(w,bot);
+ worker.climbTunnel=async()=>{throw Error('Navigation timed out');};
+ worker.navigate=async()=>{throw Error('No path to the goal!');};
+ worker.walkTunnelBack=async()=>false; // knocked off the tunnel, no blocks to pillar with
+ const r=await worker.nightMine({id:'t3',placed:[]},0,ORIGIN);
+ assert.equal(r,'away');
+ assert.ok(!logs.some(l=>/Night mine: back in the shelter/.test(l)),logs.join('\n'));
+ assert.ok(logs.some(l=>/Night mine: not back in the shelter .*the box is at \(0, 64, 0\)/.test(l)),logs.join('\n'));
+});
+test('pillarUp never jumps into a ceiling',async()=>{
+ const w=world({'0,66,0':'stone'});
+ const {worker,bot,logs}=miner(w);
+ physics(w,bot);
+ bot.entity.position=new Vec3(0.5,64,0.5);
+ assert.equal(await worker.pillarUp(65,0),false);
+ assert.ok(logs.some(l=>/Pillar: ceiling at \(0, 66, 0\)/.test(l)));
+});
+test('tunnelHeading: the strip carries on the stairs heading',async()=>{
+ const {tunnelHeading}=await import('../src/worker.js');
+ assert.deepEqual(tunnelHeading([{x:0,y:62,z:0},{x:0,y:61,z:-1}]).toArray(),[0,0,-1]);
+ assert.equal(tunnelHeading([{x:0,y:62,z:0}]),null);
+ assert.equal(tunnelHeading([{x:0,y:62,z:0},{x:0,y:61,z:0}]),null,'a straight drop has no heading');
+});

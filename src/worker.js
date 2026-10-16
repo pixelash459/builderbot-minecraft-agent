@@ -80,7 +80,7 @@ export function searchHeading(from,points){
 }
 // Tunnel settle: rounds of re-digging a step while sand/gravel keeps falling into it, and the
 // wait for a falling block to land before the cells are read again.
-export const TUNNEL_SETTLE_ROUNDS=12;export const TUNNEL_FALL_MS=450;
+export const TUNNEL_SETTLE_ROUNDS=12;export const TUNNEL_FALL_MS=450;export const TUNNEL_WALK_MS=2500;export const SHELTER_AWAY_MS=3000;
 // A tunnel opens a block with no harvest tool when a bare hand breaks it this fast (hardness
 // 0.5: 2.5 s by hand). The passage needs no drop: snow blocks (0.2) stopped a normal-anchor
 // dig-down at 16:42Z, round 3, with 'needs a suitable tool'.
@@ -127,6 +127,14 @@ export function creeperThreat(bot){
  return best;
 }
 const WORLD_CHAIN='Misc World Survival Chain';
+// Round 11: a level tunnel that starts at a staircase's foot carries on the stairs' heading.
+// A hashed heading could turn it back under the stairs (the strip's head cell is the stair's
+// floor), leaving each stair a 2-high climb the way home.
+export function tunnelHeading(tunnel){
+ const n=(tunnel||[]).length;if(n<2)return null;
+ const a=tunnel[n-2],c=tunnel[n-1],dx=Math.sign(c.x-a.x),dz=Math.sign(c.z-a.z);
+ return dx&&!dz||dz&&!dx?new Vec3(dx,0,dz):null;
+}
 // Shelter materials (placement order when no kit cobble is reserved). The job needs one per
 // open shell cell where it stands (26 on flat ground, a few in a stone tunnel), digs dirt for
 // at most SHELTER_DIG_MS when short and seals within SHELTER_SEAL_MS, else it fails with the
@@ -1154,20 +1162,32 @@ export class Worker extends EventEmitter {
   this.save();this.update(job,required.length,'Waiting for morning (sealed)');
   this.log('Shelter: sealed at '+origin+' ('+job.placed.length+' blocks placed)');
   this.shelterSealed=true;this.shelterSpot={x:origin.x,y:origin.y,z:origin.z};this.nightPillar=null;
+  // Round 11: the box only shelters a bot inside it. Out of the cell (a night mine that could
+  // not climb home, a world-survival move) for SHELTER_AWAY_MS, it seals where it stands.
+  let away=null,outSince=null;
   try{
    while(!this.shelterExitSafe()){
     await sleep(250);this.check(token);
+    if(!here().equals(origin)){if(outSince==null)outSince=Date.now();if(Date.now()-outSince>=SHELTER_AWAY_MS){away='the bot left the cell';break;}continue;}
+    outSince=null;
     await this.guardShelter(job,token,origin);
     const tod=dayTicks(b);
     // Habit 4: use the night - a staircase mine under the box, back before dawn.
     if(!job.nightMined&&nightMineWanted({tod,pod:job.pod,pickaxe:b.inventory.items().some(i=>/^(stone|iron|diamond|netherite)_pickaxe$/.test(i.name)),blocks:this.shelterStock(true),enabled:this.config?.nightMine!==false,health:b.health})){
      job.nightMined=true;this.save();
-     try{await this.nightMine(job,token,origin);}catch(e){this.check(token);this.log('Night mine: '+e.message);}
+     let r=null;
+     try{r=await this.nightMine(job,token,origin);}catch(e){this.check(token);this.log('Night mine: '+e.message);}
      finally{this.shelterSealed=true;}
+     if(r==='away'){away='the night mine could not climb home';break;}
     }
     if(!darkNow(tod)&&!job.dawnLogged){job.dawnLogged=true;this.update(job,required.length,'Dawn: waiting for a safe morning (sealed)');this.log('Shelter: dawn (tod '+tod+'); staying sealed until the morning is light and clear');}
    }
   }finally{this.shelterSealed=false;}
+  if(away){
+   this.log('Shelter: not in the box at '+origin+' ('+away+'; bot at '+here()+'); sealing where it stands');
+   this.shelterSpot=null;this.save();
+   return this.shelter(job,token);
+  }
   this.log('Shelter: morning (tod '+dayTicks(b)+', nearest hostile '+(Number.isFinite(this.nearestHostile())?this.nearestHostile().toFixed(1):'none')+'); opening up');
   this.shelterSpot=null;
   await this.removeShelter(job,token);
@@ -1225,14 +1245,86 @@ export class Worker extends EventEmitter {
    await this.staircase(mine,token,f2.y-NIGHT_MINE_DEPTH,{stopWhen:stop});
    if(!why)await this.stripMine(mine,token,NIGHT_MINE_STRIP,{stopWhen:stop});
   }catch(e){this.check(token);why=why||e.message;}
+  const home=await this.nightMineReturn(mine,token,origin);
+  const tally=mine.tunnel.length+' steps, '+(ores()-before)+' ore items, '+(mine.wallPickups||0)+' wall digs';
+  if(!home){this.log('Night mine: not back in the shelter ('+(why||'done')+'; '+tally+'); bot at '+b.entity.position.floored()+', the box is at '+origin);return 'away';}
+  this.log('Night mine: back in the shelter ('+(why||'done')+'; '+tally+')');
+  return true;
+ }
+ // Round 11 (hard1: `could not climb back into (163,121,34): No path to the goal!`, then `back
+ // in the shelter` in the same second while the bot stood 16 blocks away and the re-seal
+ // found the sump open for 7 min). Home is checked, never assumed: the recorded tunnel by the
+ // pathfinder, the pathfinder's tower into the cell, the tunnel again cell by cell by hand
+ // (jumping each stair), then a jump-placed pillar up the sump. True only with the bot's feet
+ // in the shelter cell; the caller seals where the bot stands otherwise.
+ async nightMineReturn(mine,token,origin){
+  const b=this.bot,feet=()=>b.entity.position.floored();
+  const home=()=>feet().equals(origin);
   try{await this.climbTunnel(mine,token);if(this.strandedTunnel?.job===mine.id)this.strandedTunnel=null;}
   catch(e){this.check(token);this.log('Night mine: climb back failed: '+e.message);}
+  if(home())return true;
   const prev=b.pathfinder.movements;b.pathfinder.setMovements(this.exploreMovements());
   try{await this.navigate(new goals.GoalBlock(origin.x,origin.y,origin.z),token,20);}
   catch(e){this.check(token);this.log('Night mine: could not climb back into '+origin+': '+e.message);}
   finally{if(token===this.epoch)b.pathfinder.setMovements(prev);}
-  this.log('Night mine: back in the shelter ('+(why||'done')+'; '+mine.tunnel.length+' steps, '+(ores()-before)+' ore items, '+(mine.wallPickups||0)+' wall digs)');
+  if(home())return true;
+  const inSump=()=>{const p=feet();return p.x===origin.x&&p.z===origin.z&&p.y<origin.y&&p.y>=origin.y-3;};
+  if(!inSump()){
+   this.log('Night mine: walking the tunnel back by hand from '+feet());
+   await this.walkTunnelBack(mine.tunnel,token);
+  }
+  if(inSump()){
+   this.log('Night mine: pillaring up the sump from y='+feet().y);
+   await this.pillarUp(origin.y,token);
+  }
+  return home();
+ }
+ // The recorded tunnel walked cell by cell without the pathfinder: from the tunnel point
+ // nearest the bot back to the first, forward plus a jump on each stair up. Stops at a cell
+ // it cannot reach in TUNNEL_WALK_MS.
+ async walkTunnelBack(tunnel,token){
+  const b=this.bot,pts=(tunnel||[]).map(p=>new Vec3(p.x,p.y,p.z));
+  const here=b.entity.position.floored();
+  let i=-1,best=Infinity;
+  pts.forEach((p,j)=>{const d=p.distanceTo(here);if(d<=best){best=d;i=j;}});
+  if(i<0||best>2)return false;
+  for(;i>=0;i--){
+   this.check(token);
+   const p=pts[i];
+   if(b.entity.position.floored().equals(p))continue;
+   const up=p.y>b.entity.position.floored().y,dx=p.x+0.5-b.entity.position.x,dz=p.z+0.5-b.entity.position.z;
+   try{await b.look(Math.atan2(-dx,-dz),0);}catch{}
+   if(up)b.setControlState('jump',true);b.setControlState('forward',true);
+   const deadline=Date.now()+TUNNEL_WALK_MS;
+   try{while(Date.now()<deadline&&!b.entity.position.floored().equals(p)){await sleep(80);this.check(token);}}
+   finally{if(token===this.epoch)b.clearControlStates();}
+   await sleep(150);
+   if(!b.entity.position.floored().equals(p))return false;
+  }
   return true;
+ }
+ // Jump-place held blocks under the feet until the feet stand at targetY: hold jump, place on
+ // the block under the old feet cell at the apex, land. Never into a ceiling (the cell above
+ // the head must be open); three tries per level.
+ async pillarUp(targetY,token){
+  const b=this.bot;
+  for(let tries=0;b.entity.position.floored().y<targetY&&tries<3;){
+   this.check(token);
+   const f=b.entity.position.floored(),y0=f.y;
+   if(b.blockAt(f.offset(0,2,0))?.boundingBox==='block'){this.log('Pillar: ceiling at '+f.offset(0,2,0));return false;}
+   const item=b.inventory.items().find(i=>SHELTER_ITEMS.includes(i.name));
+   const ref=b.blockAt(f.offset(0,-1,0));
+   if(!item||ref?.boundingBox!=='block')return false;
+   await b.equip(item,'hand');this.check(token);
+   b.setControlState('jump',true);
+   const deadline=Date.now()+1000;
+   while(b.entity.position.y<y0+1&&Date.now()<deadline){await sleep(30);this.check(token);}
+   try{if(b.entity.position.y>=y0+1)await b.placeBlock(ref,new Vec3(0,1,0));}catch{}
+   if(token===this.epoch)b.clearControlStates();
+   await sleep(400);
+   if(b.entity.position.floored().y>y0)tries=0;else tries++;
+  }
+  return b.entity.position.floored().y>=targetY;
  }
  // The sealed box opens once the morning is light and clear (night.js leaveRefuge), or when
  // the job's own deadline is SHELTER_EXIT_MARGIN_MS away (a timed-out job leaves the box up).
@@ -2237,7 +2329,7 @@ export class Worker extends EventEmitter {
   const b=this.bot;
   if(!job.tunnel)job.tunnel=[];
   const start=b.entity.position.floored();
-  let dir=[new Vec3(1,0,0),new Vec3(0,0,1),new Vec3(-1,0,0),new Vec3(0,0,-1)][Math.abs(start.x+start.z*5)%4];
+  let dir=tunnelHeading(job.tunnel)||[new Vec3(1,0,0),new Vec3(0,0,1),new Vec3(-1,0,0),new Vec3(0,0,-1)][Math.abs(start.x+start.z*5)%4];
   for(let i=1;i<=main;i++){
    this.check(token);
    let step;
@@ -2283,7 +2375,7 @@ export class Worker extends EventEmitter {
   const b=this.bot;
   if(!job.tunnel)job.tunnel=[];
   const start=b.entity.position.floored();
-  let dir=[new Vec3(1,0,0),new Vec3(0,0,1),new Vec3(-1,0,0),new Vec3(0,0,-1)][Math.abs(start.x+start.z*5)%4];
+  let dir=tunnelHeading(job.tunnel)||[new Vec3(1,0,0),new Vec3(0,0,1),new Vec3(-1,0,0),new Vec3(0,0,-1)][Math.abs(start.x+start.z*5)%4];
   let last=start.floored(),stalls=0;
   for(let steps=0;steps<length;steps++){
    this.check(token);
