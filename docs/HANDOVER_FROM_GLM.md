@@ -1539,3 +1539,169 @@ failures never block a ladder step. Each has its own set-aside timer.
 - The hard runs' furnace (D) was not changed directly. If the earlier wood does not lift it, the
   dusk kit timing is the next lever.
 - Farming needs water within 8 of home. The bot never carries water to make a farm.
+
+## Cloud session round 11 (Claude, 2026-10-16, code only - `docs/NEXT_TASKS.md`)
+
+No game access. Unit tests only, every `tests/*.test.js` except `resources.test.js`,
+`--max-old-space-size=2048 --test --test-timeout=60000`: **532 passed, 0 failed** (500 at the
+start of the round, plus 32 new). One commit per bug on `main`, 7 in all. Bugs 1-7 of
+`docs/NEXT_TASKS.md` were fixed in priority order. Bug 8 (no hunts measured) was left alone, see
+the end. The diagnoses come from the code and the round-10 TEST_REPORTS text. There were no
+dashboard logs in the sandbox, so several root causes are best guesses, marked as such below.
+
+### 1. Night mine left the bot under its shelter (`20a7da5`, `night-mine`, new `shelter-hold`)
+
+- Cause:
+  - `nightMine` logged `back in the shelter` whether or not the bot got back.
+  - hard1's `bot at 163.50,18.34` in the re-seal line is **x,z**, not x,y. The bot stood at the
+    strip's end, 16 blocks north of the box.
+  - Separately, the strip mine (and the branch mine) picked a hashed heading. From some stair
+    feet it turned back under the stairs: the strip's head cell is the stair's floor, which
+    leaves each stair a 2-high climb on the way home.
+- Fix, `nightMineReturn`: it now checks that the feet are in the cell and never assumes it. It
+  tries, in order:
+  1. `climbTunnel`;
+  2. the pathfinder tower;
+  3. `walkTunnelBack`: the recorded tunnel cell by cell by hand, jumping each stair;
+  4. `pillarUp`: a jump-placed pillar up the sump. It never jumps into a ceiling, and it clears
+     a stale pathfinder goal first.
+- If none of these works, `nightMine` returns `'away'` and logs `Night mine: not back in the
+  shelter (...); bot at ..., the box is at ...`.
+- `shelter()`: when the night mine is away, or the bot has been out of the cell for 3 s
+  (`SHELTER_AWAY_MS`) for any reason, it logs `Shelter: not in the box at ... ; sealing where it
+  stands` and seals a new box or pod there. It no longer guards an empty box. The old box stays
+  standing, as with the existing "moved" path.
+- `tunnelHeading`: a level tunnel that starts at a staircase's foot keeps the stairs' heading.
+
+### 2. Diamond descent too cautious to arrive (`e81f1a5`, `descent-safety`)
+
+- Bridging: `stepFooting(blockAt,next,dir)` now bridges a deep opening that is at most
+  `BRIDGE_WIDTH` (2) cells wide along the heading. Solid ground must come back at the floor level
+  or one below. One held block goes against a side of the floor cell. There are `BRIDGES` (8)
+  per job. Log: `Tunnel: bridged a gap under ...`. Wider caves still turn.
+- Sidestep: `descendLeg` on `no safe way on` digs `SIDESTEP_LEN` (3) checked level cells to a
+  side, then straight on, never back. It then starts a new staircase that way, up to
+  `SIDESTEPS` (3) times per leg. Log: `Tunnel: no safe way down; moved 3 north to start a new
+  staircase at ...`.
+- `STAIR_TURNS` went from 6 to 12. Ore descent legs went from 3 to `DESCENT_LEGS` (6).
+- The old "openings on every side stop the staircase where it stands" test is unchanged. The
+  staircase itself still stops, and the sidestep lives in the leg.
+
+### 3. Furnace take never happened (`a484a5d`, `furnace-parallel`)
+
+- Root cause, a guess: the take's single `walk(furnace,2)` failed twice, which dropped the run,
+  and the next smelt placed a new furnace.
+- `smelt` (not take) with a run open now walks back and collects that batch first, with
+  `keepFurnace` on. It then smelts in that same furnace, and the inline smelt picks a kept
+  furnace of its own back up. Log: `Smelt: collecting the iron_ingot at ... before a new batch`.
+- `takeSmelt` goes back through `walkToFurnace`: the plain walk, then the explore movements to
+  within 3. After `FURNACE_TAKE_TRIES` (3) failed walks the run is given up (`gave up on the
+  batch at ... after 3 failed walks`).
+- Autopilot: two failed takes no longer clear `furnaceRun`. The ladder goes on, and the next
+  smelt collects the batch first.
+
+### 4. Water bucket fills fail (`d6c943b`, `water-bucket`)
+
+- Main suspect: the fill sent `activateItem` and then stood still. The 26.3 server applies
+  use-item changes at the next client tick boundary, which is why the hoe and seed uses already
+  call `flushTick`. The bucket path did not.
+- `fillBucket` now does the following:
+  - Flowing water is redirected to a source within 2, at level 0 with air above. Log:
+    `Bucket: ... is flowing water; filling at the source ...`.
+  - It aims at the source's surface (y+0.9).
+  - `rayToFluid` checks that the eye ray meets no solid block first and that the eye is within
+    `BUCKET_REACH` (4.4). Otherwise it walks closer: range 3, then 2, then 1.
+  - After the use it calls `flushTick` and hops while it waits.
+  - It makes `BUCKET_TRIES` (3) tries, then fails with the reason, e.g. `(3 tries; no change
+    after the use)` or `oak_fence at ... in the way`.
+
+### 5. Bed: no sheep found (`c36dc64`, `bed-wool`)
+
+- The rung's search now walks toward the nearest sheep it can see within `SHEEP_FAR` (96) but
+  beyond the hunt's 24-block reach. It explores in that sheep's direction for the distance minus
+  12.
+- Blind graze legs are now `BED_SEARCH_DIST` (64, 96, 96) instead of 32.
+- Any wool source counts: 4 string craft a `white_wool` (`bedJob`).
+- The 3-leg limit and the 10-min backoff are unchanged.
+
+### 6. Deposit never happens (`90bd7a6`, `inventory`)
+
+- Cause, two gaps:
+  - Home was only a bed or a table left standing, and the normal runs pick their tables up, so
+    there was no home and no chest.
+  - A bag full of non-junk items had no surplus at all.
+- `surplus(counts,full)`: when the bag is full, everything the ladder does not use is surplus.
+  The ladder uses tools, armour, food, fuel, logs and planks, the iron and diamond kit's
+  materials and the bed's. Surplus is deposited and never dropped, unless it is on the junk list.
+- `inventoryJob`, when full with no home chest: a chest goes beside home, or where the bot
+  stands (`chestSpotHere`) when home is out of range or unset. It is crafted from 8 planks
+  first (12 without a table).
+- When the home chest is far: junk is dropped first, and a new chest goes here only when nothing
+  is droppable.
+- The inventory step's placed chest becomes `homeChestAt`, and also `home` when none is set.
+  Log: `Autopilot: home chest placed at ...`.
+- `chestSpotNear` skips water and lava cells.
+
+### 7. Hard runs (`4d86ed5`, `gather-blacklist`, `shelter-hold`)
+
+- **hard2's canopy logs.** After the two climbs, `pillarToLog` stands under the lowest log that
+  is out of reach and pillars up until the log is 3 above the feet:
+  - `TRUNK_PILLAR` (4) blocks at most;
+  - dirt is dug first when no blocks are held;
+  - leaves over the head are dug.
+  - This happens twice per job. Log: `Gather: pillaring 2 up to the canopy log at ...`.
+- **hard3's night.**
+  - A seal that ran out of time is now held instead of falling back to the night pillar
+    (`holdableShell`) when:
+    - at most `HOLD_GAPS` (2) cells are open;
+    - the floor and the roof over the bot are solid;
+    - no side opening is two blocks high.
+  - The guard keeps re-sealing and hits mobs at the gap. Log: `Shelter: 1 open cell(s) left at
+    ... under a closed roof; holding the box and re-sealing`.
+  - Root cause of `rose 0.00, 0 clicks`, a guess: a leftover pathfinder goal makes the
+    pathfinder clear the controls every physics tick. `NightPillarTask` (and `pillarUp`) now
+    clear the goal before jumping, and release `sneak`.
+  - The failure line now also says `cleared a pathfinder goal` or `ceiling over the head`, so
+    the next live run tells which it was.
+
+### Changed expectations
+
+- No existing assertion was changed.
+- The round-11 shelter cases live in a new file, `tests/shelter-hold.test.js`, with the
+  `shelter-seal` helpers copied in. `shelter-seal.test.js` alone was at ~64 s with them, over
+  the 60 s per-file timeout.
+- The furnace test that checks movements restore sets `epoch:0` on the fake worker.
+
+### Needs live verification
+
+- **1:**
+  - No `Night mine: back in the shelter` while the re-seal reports the bot elsewhere.
+  - On a failed climb, expect `walking the tunnel back by hand` / `pillaring up the sump`, or
+    `not back in the shelter` followed by `Shelter: ... sealing where it stands` and a new
+    `Shelter: sealed at`.
+- **2:**
+  - `Tunnel: bridged a gap`, `Tunnel: no safe way down; moved 3 ...`, and a diamond trip that
+    reaches y -53 (`Digging a branch mine`).
+  - Watch for a bridge block that does not land: the post-dig footing check still stops the
+    step.
+- **3:**
+  - `Smelt: collecting the ... before a new batch`, then `took N ... (left standing)`.
+  - No new furnace placed while a batch is out.
+- **4:** `water_bucket` held after `[iron] use bucket`. If it still fails, the error now names
+  why (ray blocked, out of reach, or no change after the use).
+- **5:** `[bed-rung] explore` legs toward a seen sheep, then `hunt sheep` / `craft white_bed`.
+- **6:** `[inventory] place chest`, `home chest placed at`, then `[inventory] deposit ...`.
+- **7:**
+  - hard canopy: `pillaring N up to the canopy log`.
+  - hard night: either `holding the box and re-sealing`, or a pillar line that now names the
+    cause.
+
+### Left / known gaps
+
+- **8, no hunts:** the food step was set aside every run (`failed 3 times`, `6 explore legs
+  without food`). Nothing in the round-10 text says which job failed, so nothing was changed.
+  The next live run should keep the `[food]` job failure messages. A seen-but-far herd could
+  get the same "head toward it" treatment as the sheep (bug 5) if that turns out to be the gap.
+- The abandoned box (when the shelter re-seals elsewhere) is not taken down at dawn.
+- A canopy pillar and a pillared-up sump are left standing (player-made dirt or cobble columns).
+- A chest placed far from home replaces the remembered home chest. Only one chest is remembered.
