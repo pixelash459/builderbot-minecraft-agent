@@ -538,3 +538,46 @@ One death. normal2, 17:24Z: `BuilderBot fell from a high place` at (444, 13, 10)
 `4_creeper` (lane): ttk 7.3 s, hits 5, `damage_taken=0`, end health 20, killed, no crater at the spawn, the midpoint, or the bot start.
 
 `4b_creeper_roofed`: ttk 5.3 s, hits 2, `damage_taken=0`, end health 20, killed, no crater. Both creepers stayed at 0 damage.
+
+## 2026-10-16 04:56–08:04 IST — dual soak (`d888731`, bot code `ad5f0a0`)
+
+`AGENT_MODEL=off`, one soak, exit 0, 11271 s. `SOAK DONE (clean)`, promoted to `data/soak-results.json`. Flat world restored (`level-name=agent-test-world`, `server-ip=0.0.0.0`, peaceful). Model stayed off. Anchors: hard [141, 131, 30], normal [310, 131, 30]. No second soak. Deaths are 0 on every run. No `fell from a high place` in the soak window.
+
+| Run | Wood | Stone pick | Furnace | Iron pick | Torches | Armour worn | Bed | Diamonds | Food | Deaths |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| normal1a1 | 90 | 211 | 301 | 421 | 16 | 2 at 692 | — | 1 | not hungry (bar 20) | 0 |
+| normal2a2 | 120 | 180 | 271 | 391 | 16 | 0 | — | 0 | not hungry (bar 20) | 0 |
+| normal3a3 | 90 | 181 | 271 | 692 | 16 | 2 at 1023 | — | 0 | ate 1 | 0 |
+| hard1a1 | 150 | 271 | 391 | — | 0 | 0 | — | 0 | not hungry (bar 20) | 0 |
+| hard2a2 | — | — | — | — | 0 | 0 | — | 0 | not hungry (bar 20) | 0 |
+| hard3a3 | 301 | 421 | 481 | — | 0 | 0 | — | 0 | not hungry (bar 20) | 0 |
+
+Diamond pick never. No bed on any run. The one meal is `Food: ate cooked_beef (bar 14 -> 20)` at 01:14Z. No meal started above bar 14.
+
+### Descent (A)
+
+The drop guard fired, and the bot still fell through one step. normal1, 23:47Z: `Gather: descent stopped at y=49 (Tunnel stopped: dropped to y=49 below the step at (359, 50, 64))`. It then turned at cave openings (`Tunnel: cave opening under 359,39,52`, then `415,-16,53`) and stopped again at 23:53Z: `descent stopped at y=-16` after three openings with `no safe way on`. It never reached y=-53. End inventory still had `diamond: 1`. There is no `Tunnel: mined diamond_ore`, no `Digging a branch mine`, and no `filled a hole`.
+
+normal3, 01:16Z: diamond-rung (`targetY -53`, `strip:true`) stopped at `y=84` after three cave openings under (352, 83, -156) and the two neighbours. No diamonds.
+
+### Furnace side jobs
+
+Leave-and-take worked. Example, normal1 23:36Z: `Smelt: furnace at 293,95,61 loaded with 3 raw_iron; back for the iron_ingot in ~30 s`, then `[furnace]` coal gathers, then `Smelt: took 3 iron_ingot`. The same pattern repeated at 23:39Z and 23:41Z, and on later runs (00:18Z took 3, 01:02Z took 3, 01:05Z took 3, 01:10Z took 6).
+
+Three loads never logged a take: 00:16Z furnace (284, 144, 32) loaded 4, take queued twice; 00:21Z the same furnace loaded 3, take queued twice; 00:24Z furnace (361, 124, 20) loaded 3, take queued twice. The next smelt placed a different furnace.
+
+### Food, bed, bucket, chest
+
+No hunt job in the soak window, so the food step did not batch animals. It was set aside on every normal run: 23:35Z and 00:15Z `failed 3 times`, 00:55Z `6 explore legs without food`. Iron still happened on all three.
+
+Bed rung only explored. 23:44Z and 01:14Z: `no sheep after 3 search legs; bed set aside for 10 min`. No sheep hunt, no `white_bed`, no `Home set`, no sleep.
+
+Bucket was crafted on the iron step (23:39Z, 00:23Z, 01:04Z) and `use bucket` ran. Six fills failed: three at (358, 94, -43) at 00:27Z and three at (315, 130, -13) at 01:12Z, each `produced no water bucket`. No `water_bucket` line.
+
+`Job: Inventory nearly full; deposit items first` at 23:53Z and 01:16Z. No `Completed deposit` and no `[inventory]` deposit in the soak window.
+
+### Night
+
+- hard1 sealed at 01:40Z at (163, 121, 34), 11 blocks. `Night mine: down from the shelter` at 01:41Z (tod 12602), three coal wall digs. At 01:42Z: `could not climb back into (163, 121, 34): No path to the goal!` and, in the same second, `Night mine: back in the shelter (done; 19 steps...)`. The bot was not in the box: re-seal from 01:43Z through 01:50Z kept reporting `open cells 163,120,34=air (bot at 163.50,18.34)`.
+- hard2 never got a log. From 02:00Z, `Gather: no diggable target left` at (141, 131, 30) while the remaining logs sat at y=136–137. At 02:02Z: `6 blocks held, 10 for the box; sealing a 1x1 pod (6)` at (141, 128, 30), then sealed. Dawn hold at 02:11Z (tod 14); opened at 02:12Z (tod 1014, hostile 17.7 away).
+- hard3 got wood at 301 s after `searching further afield` on refused canopy logs (3 columns / 10 blocks, then 2/10, then 1/10). At 02:23Z a night crowd of 2 hostiles started a pillar at (190, 151, 55). At 02:24Z the shelter failed (`1 open cells`, bot at y=55.55) and the pillar `timed out at 0/3; rose 0.00, 0 clicks, holding cobblestone, on grass_block`. No later seal, and no death.
