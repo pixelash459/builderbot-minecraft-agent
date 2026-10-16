@@ -49,6 +49,19 @@ export function shelterShell(origin,pod=false){
  for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++)if((dx||dz)&&!(pod&&dx&&dz))support.push({x:o.x+dx,y:o.y-1,z:o.z+dz});
  return {origin:o,required,support,pod:!!pod};
 }
+// Round 11 (hard3: `1 open cells` and the box was given up for a night pillar that never rose):
+// a box whose seal ran out of time with at most HOLD_GAPS open cells is still a refuge when
+// the floor and the roof over the bot are solid and no side opening is two high (nothing
+// walks in; a mob at a gap is hit by the guard, which keeps re-sealing).
+export const HOLD_GAPS=2;
+export function holdableShell(origin,gaps){
+ const o={x:origin.x|0,y:origin.y|0,z:origin.z|0};
+ if(!gaps.length)return true;
+ if(gaps.length>HOLD_GAPS)return false;
+ const at=(dx,dy,dz)=>gaps.some(g=>g.x===o.x+dx&&g.y===o.y+dy&&g.z===o.z+dz);
+ if(at(0,-1,0)||at(0,2,0))return false;
+ return !gaps.some(g=>g.y===o.y&&at(g.x-o.x,1,g.z-o.z));
+}
 // Cells of `cells` that are not solid (a gap a mob can see or walk through). Unloaded cells
 // (null) count as gaps: the job can only vouch for what it sees.
 export const shellGaps=(blockAt,cells)=>cells.filter(c=>!solid(blockAt(c.x,c.y,c.z)));

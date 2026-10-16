@@ -650,10 +650,15 @@ export class NightPillarTask extends Task{
     // Say what the climb saw: how high it got, clicks sent, the item in hand, the support.
     const under=bot.blockAt&&bot.blockAt(new Vec3(this.base.x,this.base.y-1,this.base.z));
     this._log(ctx,'Night: pillar-up failed ('+(off?'left the column':'timed out')+' at '+top+'/'+this.height+'; rose '+(this.rise||0).toFixed(2)
-     +', '+(this.clicks||0)+' clicks, holding '+(bot.heldItem&&bot.heldItem.name||'nothing')+', on '+(under&&under.name||'unloaded')+(e.onGround===false?', airborne':'')+')');
+     +', '+(this.clicks||0)+' clicks, holding '+(bot.heldItem&&bot.heldItem.name||'nothing')+', on '+(under&&under.name||'unloaded')+(e.onGround===false?', airborne':'')+(this.staleGoal?', cleared a pathfinder goal':'')
+     +(solidAt(bot,this.base.x,this.base.y+2,this.base.z)?', ceiling over the head':'')+')');
     return null;
    }
-   forget(bot,'forward','back','left','right','sprint');setControl(bot,'jump',true);
+   // Round 11 (hard3: `timed out at 0/3; rose 0.00, 0 clicks`): a pathfinder goal left over
+   // from an interrupted move makes the pathfinder clear the controls every physics tick, so
+   // the held jump never lands. No goal while climbing.
+   try{if(bot.pathfinder&&bot.pathfinder.goal){this.staleGoal=true;bot.pathfinder.setGoal(null);}}catch{}
+   forget(bot,'forward','back','left','right','sprint','sneak');setControl(bot,'jump',true);
    try{const p=bot.look(e.yaw||0,-Math.PI/2,true);p&&p.catch&&p.catch(()=>{});}catch{}
    const blocks=pillarBlocks(bot);
    if(!blocks){this.failed=true;forget(bot,'jump');return null;}

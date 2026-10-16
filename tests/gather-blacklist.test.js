@@ -116,3 +116,36 @@ test('a searchable gather leaves a refusing grove after 5 columns, and heads for
   assert.ok(f.logLines.some(l=>/search leg 1 west toward oak_log at -70,131,4/.test(l)));
  }finally{Date.now=real;}
 });
+// Round 11 hard2: `no diggable target left` at a 131 stand with the logs at 136-137 (a tall
+// dark-oak canopy over trunks cut by an earlier run): pillar up under them, then chop.
+test('canopy logs above the reach band: the gather pillars up under them and chops them',async()=>{
+ const f=canopyFake({logs:[[0,136,0],[0,137,0]],reachable:b=>f.w.bot.entity.position.y>=133});
+ f.w.bot.entity.position=new Vec3(0.5,131,0.5);
+ const held=[{name:'oak_log',count:0}],dig=f.w.bot.dig;
+ f.w.bot.inventory.items=()=>held.filter(i=>i.count>0);f.w.bot.dig=async bl=>{await dig(bl);held[0].count++;};
+ const pillars=[];
+ f.w.pillarToLog=async(job,token,log)=>{pillars.push(log.toString());f.w.bot.entity.position=new Vec3(0.5,133,0.5);return true;};
+ await Worker.prototype.gather.call(f.w,{spec:{type:'gather',block:'log',count:2,radius:32,belowFoots:true}},0);
+ assert.deepEqual(pillars,['(0, 136, 0)'],'the lowest canopy log, once');
+ assert.ok(f.tries.includes('0,136,0')&&f.tries.includes('0,137,0'),f.tries.join(' '));
+});
+import {TRUNK_PILLAR} from '../src/worker.js';
+test('pillarToLog: under the log, dirt in hand, leaves over the head dug, up until it is 3 above the feet',async()=>{
+ const cells=new Map([['0,136,0','oak_log'],['0,134,0','oak_leaves']]);
+ const solid=n=>n&&!/air/.test(n);
+ const nameAt=(x,y,z)=>cells.get(x+','+y+','+z)??(y<=130?'grass_block':'air');
+ const blockAt=p=>{const x=Math.floor(p.x),y=Math.floor(p.y),z=Math.floor(p.z),name=nameAt(x,y,z);return {name,position:new Vec3(x,y,z),boundingBox:solid(name)?'block':'empty'};};
+ const inv=[{name:'dirt',count:3}],logs=[];
+ const bot={entity:{position:new Vec3(0.5,131,0.5)},blockAt,inventory:{items:()=>inv.filter(i=>i.count>0)},
+  async equip(){},async dig(bl){cells.set(bl.position.x+','+bl.position.y+','+bl.position.z,'air');},
+  setControlState(c,v){if(c==='jump'&&v)bot.entity.position=bot.entity.position.offset(0,1.2,0);},
+  clearControlStates(){let p=bot.entity.position.floored();while(!solid(nameAt(p.x,p.y-1,p.z)))p=p.offset(0,-1,0);bot.entity.position=new Vec3(p.x+0.5,p.y,p.z+0.5);},
+  async placeBlock(ref,face){const t=ref.position.plus(face);cells.set(t.x+','+t.y+','+t.z,'dirt');inv[0].count--;}};
+ const w=Object.assign(Object.create(Worker.prototype),{bot,epoch:0,check(){},log(m){logs.push(m);},async walk(){},
+  count(n){return inv.filter(i=>i.name===n).reduce((a,i)=>a+i.count,0);}});
+ assert.equal(await w.pillarToLog({},0,new Vec3(0,136,0)),true,logs.join('\n'));
+ assert.equal(bot.entity.position.floored().y,133);
+ assert.equal(nameAt(0,134,0),'air','the leaf over the head was dug');
+ assert.ok(logs.some(l=>/pillaring 2 up to the canopy log at \(0, 136, 0\)/.test(l)));
+ assert.equal(await w.pillarToLog({},0,new Vec3(0,133+3+TRUNK_PILLAR+1,0)),false,'too high: no pillar');
+});

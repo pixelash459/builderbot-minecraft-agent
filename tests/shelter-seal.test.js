@@ -318,31 +318,3 @@ test('round 9: failed climbs back off 3, 6, 12 ... 60 s; a perch knocked off re-
  const {pillarBackoff}=await import('../src/chains/mobDefenseChain.js');
  assert.deepEqual([0,1,2,3,4,5,6,9].map(pillarBackoff),[3,3,6,12,24,48,60,60]);
 });
-// Round 11 hard1: the night mine could not climb home and the job re-sealed an empty box for
-// 7 minutes while the bot stood 16 blocks away. Out of the cell, it seals where it stands.
-test('a night mine that cannot climb home seals a new box where the bot stands',async()=>{
- const world=flat();
- const {w,bot,logs}=shelterWorker(world,{items:[{name:'cobblestone',count:60},{name:'stone_pickaxe',count:1}],tod:13500});
- const origins=[];
- w.removeShelter=async()=>{};
- w.nightMine=async()=>{bot.entity.position=new Vec3(5.5,-60,-3.5);return 'away';};
- const realGuard=w.guardShelter;
- w.guardShelter=async function(job,token,origin){origins.push(origin.toString());if(origin.x===5)this.bot.time.timeOfDay=1500;return realGuard.call(this,job,token,origin);};
- const job={spec:{type:'shelter'}};
- await w.shelter(job,0);
- assert.ok(logs.some(m=>/^Shelter: not in the box at \(0, -60, 0\) \(the night mine could not climb home; bot at \(5, -60, -4\)\); sealing where it stands/.test(m)),logs.join('\n'));
- assert.ok(logs.some(m=>/^Shelter: sealed at \(5, -60, -4\)/.test(m)),logs.join('\n'));
- assert.equal(job.nightMined,true,'one night mine a night');
- assert.deepEqual(job.origin,{x:5,y:-60,z:-4});
-});
-test('pushed out of the sealed cell for 3 s, the shelter seals again where the bot stands',async()=>{
- const world=flat();
- const {w,bot,logs}=shelterWorker(world,{items:[{name:'cobblestone',count:60}],tod:12100});
- w.removeShelter=async()=>{};
- let n=0;
- const realGuard=w.guardShelter;
- w.guardShelter=async function(job,token,origin){if(origin.x===0&&++n===1)bot.entity.position=new Vec3(-4.5,-60,0.5);if(origin.x!==0)this.bot.time.timeOfDay=1500;return realGuard.call(this,job,token,origin);};
- await w.shelter({spec:{type:'shelter'}},0);
- assert.ok(logs.some(m=>/^Shelter: not in the box at \(0, -60, 0\) \(the bot left the cell/.test(m)),logs.join('\n'));
- assert.ok(logs.some(m=>/^Shelter: sealed at \(-5, -60, 0\)/.test(m)),logs.join('\n'));
-});

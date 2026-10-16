@@ -29,7 +29,7 @@ import {solidSupport,placementCells,softBreakCell,hitsBot,HARD_BREAK} from './pl
 import {createMoveTasks} from './tasks/movement/factories.js';
 import {createLoopWatch} from './loop-watch.js';
 import {installToolWear,watchToolLoss} from './toolWear.js';
-import {darkNow,stillNight,leaveRefuge,shelterShell,shellGaps,placementPlan,shelterTarget,deepWaterCost,fleeHeading,nightMineWanted,tunnelBreach,SUNSET,NIGHT_MINE_MS,NIGHT_MINE_STOP,NIGHT_MINE_DEPTH,NIGHT_MINE_STRIP} from './night.js';
+import {darkNow,stillNight,leaveRefuge,shelterShell,shellGaps,holdableShell,placementPlan,shelterTarget,deepWaterCost,fleeHeading,nightMineWanted,tunnelBreach,SUNSET,NIGHT_MINE_MS,NIGHT_MINE_STOP,NIGHT_MINE_DEPTH,NIGHT_MINE_STRIP} from './night.js';
 import {bestWeapon,attackCooldown,leaveAlone} from './chains/combatPolicy.js';
 const {pathfinder,Movements,goals}=pathfinderPackage;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -80,7 +80,7 @@ export function searchHeading(from,points){
 }
 // Tunnel settle: rounds of re-digging a step while sand/gravel keeps falling into it, and the
 // wait for a falling block to land before the cells are read again.
-export const TUNNEL_SETTLE_ROUNDS=12;export const TUNNEL_FALL_MS=450;export const TUNNEL_WALK_MS=2500;export const SHELTER_AWAY_MS=3000;
+export const TUNNEL_SETTLE_ROUNDS=12;export const TUNNEL_FALL_MS=450;export const TUNNEL_WALK_MS=2500;export const TRUNK_PILLAR=4;export const SHELTER_AWAY_MS=3000;
 // A tunnel opens a block with no harvest tool when a bare hand breaks it this fast (hardness
 // 0.5: 2.5 s by hand). The passage needs no drop: snow blocks (0.2) stopped a normal-anchor
 // dig-down at 16:42Z, round 3, with 'needs a suitable tool'.
@@ -1254,7 +1254,12 @@ export class Worker extends EventEmitter {
   this.update(job,0,'Sealing the shelter at '+origin);
   await this.centreInCell(origin,token);
   try{await this.sealShelter(job,token,origin,Date.now()+SHELTER_SEAL_MS);}
-  catch(e){this.check(token);this.shelterFallback(job,e.message);}
+  catch(e){
+   this.check(token);
+   const gaps=/^Could not seal/.test(e.message)?shellGaps(at,required):null;
+   if(!gaps||!holdableShell(origin,gaps))this.shelterFallback(job,e.message);
+   this.log('Shelter: '+gaps.length+' open cell(s) left at '+gaps.map(g=>g.x+','+g.y+','+g.z).join(' ')+' under a closed roof; holding the box and re-sealing');
+  }
   this.save();this.update(job,required.length,'Waiting for morning (sealed)');
   this.log('Shelter: sealed at '+origin+' ('+job.placed.length+' blocks placed)');
   this.shelterSealed=true;this.shelterSpot={x:origin.x,y:origin.y,z:origin.z};this.nightPillar=null;
@@ -1399,19 +1404,44 @@ export class Worker extends EventEmitter {
   }
   return true;
  }
+ // Stand under (or beside) a log out of reach overhead and pillar up until it is 3 above the
+ // feet (in reach from the column or the one beside it). Leaves over the head are dug.
+ async pillarToLog(job,token,log){
+  const b=this.bot,under=()=>{const f=b.entity.position.floored();return Math.abs(f.x-log.x)<=1&&Math.abs(f.z-log.z)<=1;};
+  const goUnder=async()=>{try{await this.walk(new Vec3(log.x,Math.floor(b.entity.position.y),log.z),token,1,20);}catch(e){this.check(token);}};
+  await goUnder();
+  if(!under()){this.log('Gather: could not stand under the canopy log at '+log);return false;}
+  const rise=()=>log.y-3-b.entity.position.floored().y;
+  if(rise()<=0)return true;
+  if(rise()>TRUNK_PILLAR)return false;
+  if(this.shelterStock(true)<rise()){
+   const need=rise();
+   await this.digShelterDirt(job,token,()=>need,'Digging dirt to pillar up to the canopy');
+   if(this.shelterStock(true)<need){this.log('Gather: no blocks to pillar up to the canopy log at '+log);return false;}
+   await goUnder();if(!under())return false;
+  }
+  this.log('Gather: pillaring '+rise()+' up to the canopy log at '+log);
+  return this.pillarUp(log.y-3,token,{clear:bl=>/_leaves$/.test(bl.name)});
+ }
  // Jump-place held blocks under the feet until the feet stand at targetY: hold jump, place on
  // the block under the old feet cell at the apex, land. Never into a ceiling (the cell above
- // the head must be open); three tries per level.
- async pillarUp(targetY,token){
+ // the head must be open, or a block `clear` accepts, which is dug); three tries per level.
+ async pillarUp(targetY,token,{clear=null}={}){
   const b=this.bot;
+  let digs=0;
   for(let tries=0;b.entity.position.floored().y<targetY&&tries<3;){
    this.check(token);
    const f=b.entity.position.floored(),y0=f.y;
-   if(b.blockAt(f.offset(0,2,0))?.boundingBox==='block'){this.log('Pillar: ceiling at '+f.offset(0,2,0));return false;}
+   const roof=b.blockAt(f.offset(0,2,0));
+   if(roof?.boundingBox==='block'){
+    if(!clear||!clear(roof)||++digs>TRUNK_PILLAR){this.log('Pillar: ceiling at '+f.offset(0,2,0));return false;}
+    await b.dig(roof);this.check(token);continue;
+   }
    const item=b.inventory.items().find(i=>SHELTER_ITEMS.includes(i.name));
    const ref=b.blockAt(f.offset(0,-1,0));
    if(!item||ref?.boundingBox!=='block')return false;
    await b.equip(item,'hand');this.check(token);
+   try{if(b.pathfinder?.goal)b.pathfinder.setGoal(null);}catch{} // a stale goal clears the controls every tick
    b.setControlState('jump',true);
    const deadline=Date.now()+1000;
    while(b.entity.position.y<y0+1&&Date.now()<deadline){await sleep(30);this.check(token);}
@@ -1448,10 +1478,10 @@ export class Worker extends EventEmitter {
  // Short of blocks: dig dirt/grass within 24 for at most SHELTER_DIG_MS. Every tried spot is
  // spent (walk failed, undiggable, water above, or dug), so one unreachable block can no
  // longer hold the job all night.
- async digShelterDirt(job,token,need){
+ async digShelterDirt(job,token,need,label='Digging dirt for the shelter'){
   const b=this.bot,until=Date.now()+SHELTER_DIG_MS,tried=new Set();
   const ids=[b.registry.blocksByName.dirt?.id,b.registry.blocksByName.grass_block?.id].filter(x=>x!==undefined);
-  this.update(job,0,'Digging dirt for the shelter');
+  this.update(job,0,label);
   while(this.shelterStock()<need()&&Date.now()<until){
    this.check(token);
    const spot=(b.findBlocks({matching:ids,maxDistance:24,count:64})||[]).map(p=>b.blockAt(p))
@@ -2233,6 +2263,18 @@ export class Worker extends EventEmitter {
       this.update(job,Math.max(0,count_()-job.startDrop),'Climbing back up to the trunks');
       try{await this.walk(above[0].position,token,3,25);}catch(e){this.check(token);}
       continue;
+     }
+     // Round 11 hard2 (`no diggable target left` at a 131 stand with the logs at 136-137: a
+     // tall dark-oak canopy over cut trunks): stand under the lowest canopy log and pillar up
+     // until it is in reach - TRUNK_PILLAR blocks at most, dirt dug for it when none is held.
+     if(anyLog&&above.length&&(job.pillars||0)<2){
+      job.pillars=(job.pillars||0)+1;
+      const feetY=Math.floor(b.entity.position.y);
+      const low=above.filter(t=>t.position.y-3-feetY<=TRUNK_PILLAR).sort((a,c)=>a.position.y-c.position.y||a.position.distanceTo(b.entity.position)-c.position.distanceTo(b.entity.position))[0];
+      if(low){
+       this.update(job,Math.max(0,count_()-job.startDrop),'Pillaring up to the canopy logs');
+       try{if(await this.pillarToLog(job,token,low.position))continue;}catch(e){this.check(token);this.log('Gather: pillar to the canopy failed: '+e.message);}
+      }
      }
      this.log('Gather: no diggable target left; bot at '+b.entity.position.floored()+' and remaining targets at '+JSON.stringify(targets.map(t=>t.position.floored())));
      if(s.searchIfMissing&&job.searches<3&&(job.climbs||0)>=2){await searchLeg();continue;} // out of reach here: look elsewhere
