@@ -659,3 +659,31 @@ No `pillaring N up to the canopy log`. All three hard runs still gathered wood (
 `4_creeper` (lane): ttk 5.3 s, hits 3, `damage_taken=0`, end health 20, killed, no crater at the spawn, the midpoint, or the bot start.
 
 `4b_creeper_roofed`: ttk 7.1 s, hits 3, `damage_taken=0`, end health 20, killed, no crater. Both creepers stayed at 0 damage. Zombie trio lost 13.7 hp and still killed all three.
+
+## 2026-10-16 16:33–17:14 IST — dual soak stopped early (`d69f48f`, bot code `1721cd6`)
+
+`AGENT_MODEL=off`. The soak was stopped on purpose during normal1. It had been running 2450 s (started 11:03:28Z, process ended 11:44:18Z) and had not printed SUMMARY, RUNGS, or `SOAK DONE`. Only normal1a1 had started (spawn [310, 131, 30]). The last sample is t=2227 of 2400, still `inventory: drop`. Hard runs never started. Anchors already scouted: hard [142, 131, 31], normal [310, 131, 30]. Deaths stayed 0. After the stop, services were restarted with the model off onto the flat world (`level-name=agent-test-world`, `server-ip=0.0.0.0`, `difficulty=peaceful`). Supervisor log: `model server disabled`. No second soak.
+
+Sample times, not a rung table. The run never printed one. First sample that already held the item: wood pick 90 s, stone pick 211 s, furnace 301 s, iron pick 391 s, 16 torches 632 s, armour worn 2 at 1084 s. Bed 0 and diamonds 0 on every sample. Food bar stayed 20, eaten 0.
+
+### Throw and pickup loop
+
+This is why the run was stopped. From t=1656 to the stop, the bot did not leave [228, -34, 44] and the step stayed `inventory: drop`.
+
+At 11:34:02Z: `Job: Inventory nearly full; deposit items first`, then `Autopilot [inventory] {"type":"drop","item":"cobblestone","count":256}` and `Dropped 256 cobblestone` / `Completed drop`. The same second-scale cycle then alternated `cobblestone` 256, `dirt` 45, and `cobbled_deepslate` 32 until 11:44Z. In that window the log has 300 `Dropped 256 cobblestone`, 167 `Dropped 45 dirt`, and 133 `Dropped 32 cobbled_deepslate`. At 11:39:26Z, `PACKET_RATE 49 per second, last: window_click`.
+
+There is no collect or sweep line between those drops. The drop job's own check passed (`Completed drop`), so the count fell, and the stacks came back while the bot stood on them. Soak samples show cobble 64 after a drop and 320 at t=1896 (64 plus one 256 stack) before the next sample is 64 again. An earlier pass did the same thing while the bot was still walking: drops at 11:23–11:24Z (`Dropped 51/82/104/107 cobblestone`, `Dropped 40 dirt`), then cobble climbed from 64 at t=1084 to 206 at t=1114 and kept rising through the bed-rung explore.
+
+### What this run did reach
+
+No drowning line, no swim-up dig, and no `waiting: Misc World Survival Chain`.
+
+Diamond: `[diamond-rung]` gather `targetY -53` `strip:true` at 11:26:21Z. Samples then walked down through y=40, 13, -4, -30, -46, -51 (t=1626) and the next sample is back at y=-34 dropping items. No `Digging a branch mine`, no `filled a hole`, no `moved` sidestep, no `water under`, diamonds 0. It did not reach y=-53.
+
+Bucket: `craft bucket` at 11:18:24Z, then `use bucket` at (317, 113, 18), (316, 113, 18), (315, 114, 16), and (311, 62, 95). No `water_bucket` line and no `produced no water bucket` line in the window.
+
+Bed: `no sheep after 3 search legs; bed set aside for 10 min` at 11:26:17Z. No `shears`, no `shear`, no sheep hunt, no `white_bed`, no `Home set`, no sleep, no home chest.
+
+Food: bar never left 20, so the empty-bar hunt path was not reached. `food step set aside for 8 min (failed 3 times)` at 11:11:43Z. No `Health or food is low` and no `Food: ate`.
+
+No night mine. The hard runs did not start.
