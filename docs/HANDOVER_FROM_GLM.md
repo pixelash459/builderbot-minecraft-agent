@@ -1765,3 +1765,12 @@ Round 15 soak: 5 deaths (normal1 burned at y=-20; hard3 four times to zombies, t
 - **Witch flee bounded** (hard2: `fleeing witch` 330 lines over 1000 s): only a witch within 10 with a line of sight is fled, and after 45 s of fleeing, witches beyond 6 are ignored for 60 s (`fled a witch for 45 s`).
 
 Still open: hard runs (no iron yet; dark-oak `Cannot reach` near the anchor), a night respawn with an empty bag (zombie kills at the spawn), bed, bucket.
+
+## Round 17 (2026-10-17)
+
+Round 16 soak: **0 deaths**, the **first bed** (normal1: 3 sheep, `craft white_bed`), a diamond pickaxe again (normal2, 3 diamonds at y=-18), iron pick 3/3 normal, no food emergency, no witch loop. Hard runs: stone pick 3/3, but no furnace; each sealed at nightfall and sat idle until dawn (hard1 had no night mine at all).
+
+- **Full bag in a staircase** (normal3: `No room to toss cobblestone (open run 0)` once a minute for 10 min at y=88, no open stand within 12): the drop digs a level pocket `DROP_POCKET`=5 cells (each a checked tunnel step), walks back out and tosses into it (`Drop: dug a 5-cell pocket ...`).
+- **Night mine deeper and longer**: `NIGHT_MINE_DEPTH` 6 -> 10, `NIGHT_MINE_MS` 4 -> 6 min, `NIGHT_MINE_STRIP` 12 -> 16. The night is the hard runs' only long stretch of digging time.
+
+Still open: why hard1 never night-mined (sealed, quiet until dawn); bed placement and sleeping (`white_bed` held, no `Home set`, no `Sleeping`); normal1 after a failed tunnel climb at y=-47 looped `gather coal_ore targetY 32` 29 times; bucket fills still out of reach.

@@ -68,7 +68,7 @@ test('dropDirection: the longest open run from the feet',()=>{
 });
 test('drop: refused in a cramped tunnel, failed when the items come back',async()=>{
  const make=(open,back)=>{const inv=[{name:'cobblestone',count:320,type:1}];const tossed=[];
-  const w=Object.assign(Object.create(Worker.prototype),{dropSettleMs:0,logs:[],log(m){this.logs.push(m);},check(){},
+  const w=Object.assign(Object.create(Worker.prototype),{dropSettleMs:0,logs:[],log(m){this.logs.push(m);},check(){},async tunnelStep(){throw Error('Tunnel stopped: test wall');},async navigate(){},
    count(n){return inv.filter(i=>i.name===n).reduce((a,i)=>a+i.count,0);},
    bot:{...tunnelBot(open),async look(){},inventory:{items:()=>inv.filter(i=>i.count>0)},async toss(t,m,n){tossed.push(n);if(!back)inv[0].count-=n;}}});
   return {w,tossed};};
@@ -80,6 +80,22 @@ test('drop: refused in a cramped tunnel, failed when the items come back',async(
  ({w,tossed}=make(6,false));
  await w.drop({spec:{type:'drop',item:'cobblestone',count:256}},0);
  assert.deepEqual(tossed,[256]);assert.match(w.logs.at(-1),/Dropped 256 cobblestone \(toward 1,0, open 6\)/);
+});
+// Round 17 (round-16 normal3: `No room to toss` once a minute for 10 min at y=88): with no
+// open stand in reach, a level pocket is dug, the bot walks back out and tosses into it.
+test('drop: a pocket is dug when nothing near is open',async()=>{
+ const open=new Set(['0,-34,0','0,-33,0']);
+ const inv=[{name:'cobblestone',count:320,type:1}];const tossed=[];
+ const bot={entity:{position:new Vec3(0.5,-34,0.5)},async look(){},pathfinder:{},
+  blockAt:p=>open.has(p.x+','+p.y+','+p.z)?{name:'air',boundingBox:'empty'}:{name:'stone',boundingBox:'block'},
+  inventory:{items:()=>inv.filter(i=>i.count>0)},async toss(t,m,n){tossed.push(n);inv[0].count-=n;}};
+ const w=Object.assign(Object.create(Worker.prototype),{bot,dropSettleMs:0,logs:[],log(m){this.logs.push(m);},check(){},
+  count(n){return inv.filter(i=>i.name===n).reduce((a,i)=>a+i.count,0);},
+  async tunnelStep(job,token,d){const p=bot.entity.position.floored().offset(d.x,0,d.z);open.add(p.x+','+p.y+','+p.z);open.add(p.x+','+(p.y+1)+','+p.z);bot.entity.position=p.offset(.5,0,.5);return {dir:d,next:p};},
+  async navigate(goal){if(goal.x!==undefined&&goal.z!==undefined)bot.entity.position=new Vec3(goal.x+.5,goal.y??-34,goal.z+.5);}});
+ await w.drop({spec:{type:'drop',item:'cobblestone',count:256}},0);
+ assert.deepEqual(tossed,[256]);
+ assert.ok(w.logs.some(m=>/dug a 5-cell pocket east/.test(m)),w.logs.join(' | '));
 });
 function autopilot({items={},home=null,chestAt=null,blocks={}}={}){
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'inv-'));

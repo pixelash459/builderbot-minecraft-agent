@@ -212,7 +212,7 @@ export function fleeHeading(blockAt,me,hostiles,{shelter=null,inWater=false}={})
 // nights in a staircase mine under their shelter. A sealed box (not a pod) with a stone or
 // better pickaxe and NIGHT_MINE_BLOCKS blocks held mines from NIGHT_MINE_FROM (the first
 // spawns are past) for at most NIGHT_MINE_MS, and is back in the box by NIGHT_MINE_STOP.
-export const NIGHT_MINE_FROM=SUNSET+600,NIGHT_MINE_STOP=21500,NIGHT_MINE_MS=4*60000,NIGHT_MINE_BLOCKS=4,NIGHT_MINE_DEPTH=6,NIGHT_MINE_STRIP=12;
+export const NIGHT_MINE_FROM=SUNSET+600,NIGHT_MINE_STOP=21500,NIGHT_MINE_MS=6*60000,NIGHT_MINE_BLOCKS=4,NIGHT_MINE_DEPTH=10,NIGHT_MINE_STRIP=16; // round 17: deeper and longer (hard runs sat sealed and idle until dawn, no furnace)
 export function nightMineWanted({tod,pod=false,pickaxe=false,blocks=0,done=false,enabled=true,health=20}){
  if(!enabled||done||pod||!pickaxe||blocks<NIGHT_MINE_BLOCKS)return false;
  if(health<16)return false; // habit 10: heal in the box before risky work

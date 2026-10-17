@@ -91,7 +91,7 @@ export const SMELT_TAKE=8;
 export const JUNK_IGNORE_MS=10*60000;
 // Round 13: a drop needs DROP_MIN_OPEN open cells (feet and head) in some direction, and waits
 // DROP_SETTLE_MS (the 2 s pickup delay of a tossed item, plus margin) before checking the count.
-export const DROP_MIN_OPEN=4,DROP_SETTLE_MS=2600,CLIMB_DETOUR=6,CLIMB_LOST=5;
+export const DROP_MIN_OPEN=4,DROP_POCKET=5,DROP_SETTLE_MS=2600,CLIMB_DETOUR=6,CLIMB_LOST=5;
 // Round 14 (round-13 normal1: two shears, then `Shearing produced no wool` on a shorn sheep
 // for 45 s, and no bed): a sheep's wool byte (metadata 17 on 1.21: bit 0x10 sheared, low 4
 // bits the colour) - {sheared, color} or null when unknown.
@@ -3089,6 +3089,10 @@ export class Worker extends EventEmitter {
   if(toss&&toss.open<DROP_MIN_OPEN){
    const stand=openStandNear(b);
    if(stand){try{await this.navigate(new goals.GoalBlock(stand.x,stand.y,stand.z),token,20);}catch{}this.check(token);toss=dropDirection(b);}
+   // Round 17 (round-16 normal3: `No room to toss cobblestone (open run 0)` once a minute for
+   // 10 min in a staircase at y=88): nowhere open within reach - dig a level pocket
+   // DROP_POCKET cells long (checked like any tunnel step), walk back out and toss into it.
+   if(toss&&toss.open<DROP_MIN_OPEN&&!stand)toss=await this.dropPocket(token)||toss;
   }
   if(toss&&toss.open<DROP_MIN_OPEN)throw Error('No room to toss '+s.item+' (open run '+toss.open+')');
   if(toss)try{await b.look(Math.atan2(-toss.dir.x,-toss.dir.z),0.3,true);}catch{}
@@ -3106,6 +3110,24 @@ export class Worker extends EventEmitter {
   await sleep(this.dropSettleMs??DROP_SETTLE_MS);
   if(this.count(s.item)>have-n)throw Error('Dropped '+s.item+' came back into the inventory');
   this.log('Dropped '+n+' '+s.item+(toss?' (toward '+toss.dir.x+','+toss.dir.z+', open '+toss.open+')':''));
+ }
+ async dropPocket(token){
+  const b=this.bot,start=b.entity.position.floored();
+  for(const d of [new Vec3(1,0,0),new Vec3(0,0,1),new Vec3(-1,0,0),new Vec3(0,0,-1)]){
+   const job={tunnel:[]};let n=0;
+   for(;n<DROP_POCKET;n++){
+    this.check(token);
+    try{await this.tunnelStep(job,token,d,0,false,undefined,true);}
+    catch(e){this.check(token);if(/^Tunnel stopped|stalled/.test(e.message))break;throw e;}
+   }
+   if(n<DROP_MIN_OPEN){if(n)try{await this.navigate(new goals.GoalBlock(start.x,start.y,start.z),token,15);}catch{}continue;}
+   try{await this.navigate(new goals.GoalBlock(start.x,start.y,start.z),token,15);}catch{}
+   this.check(token);
+   const toss=dropDirection(this.bot);
+   this.log('Drop: dug a '+n+'-cell pocket '+(d.x?(d.x>0?'east':'west'):(d.z>0?'south':'north'))+' to toss into');
+   if(toss&&toss.open>=DROP_MIN_OPEN)return toss;
+  }
+  return null;
  }
  // A dropped item entity the bot tossed as junk a moment ago (drop job): not worth a walk.
  isDroppedJunk(e){
