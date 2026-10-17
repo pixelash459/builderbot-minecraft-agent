@@ -911,3 +911,27 @@ No hard run reached an iron pick or an ingot. None sat on (141, 131, 30). The sc
 - normal2 stood at [203, 153, 30] from t=1024 to the bell (t=2408, 1384 s), step `wood`, `backing off`, bar 5, health 20, no food held. From 23:01:28Z the same lines repeat for the rest of that stand: `Health or food is low` and `craft dark_oak_planks`. No `Food: ate` on this run.
 - `craft stone_shovel` / `Missing ingredients or a nearby crafting table` repeats from 22:49:19Z through 22:57Z (normal2), about 15 submits inside a few minutes, and the missing-ingredients line continues out to 23:52:59Z (66 timestamped lines).
 - No `Left the tunnel`. The round-14 tunnel-exit drop did not show up. The craft-every-8-seconds torch loop did not show up either (`No room for crafting result` was not a minutes-long cluster).
+
+## 2026-10-17 11:50–11:55 IST — combat (`e405f20`)
+
+`git pull --rebase` already at `e405f20` (round 16: food emergencies jump the ladder, a kit craft that failed 3 times is skipped, a superseded paused job is cancelled, the witch flee is bounded). Unit tests, every `tests/*.test.js` except `resources.test.js`, `--max-old-space-size=2048 --test-timeout=60000 --test-skip-pattern resources`: **557 passed, 0 failed** (41.6 s). The note expected 548; nothing failed. Services restarted with `AGENT_MODEL=off`. Supervisor log: `model server disabled (config.model.enabled=false): skipping llama-server, saving ~6.5 GB commit`.
+
+`python -u tests/combat_integration.py`, model off. Exit 0, 301 s (06:20:29Z–06:25:30Z). `All combat acceptance tests passed`. One run.
+
+`4_creeper` (lane): ttk 7.3 s, hits 5, `damage_taken=0`, end health 20, killed, no crater at the spawn, the midpoint, or the bot start. Dashboard: `Combat: pillar-up 2 at 1499,-60,1518 (creeper at 7.3)` at 06:22:18.277Z, `pillar perched 2 up` at 06:22:19.076Z. Fight result at 06:22:24.958Z: `tactic=bow hits=5 shots=0 released=0 landed=0 damage taken=0`.
+
+`4b_creeper_roofed`: ttk 7.2 s, hits 3, `damage_taken=0`, end health 20, killed, no crater. At 06:22:33.558Z `Combat: pillar-up 2 at 1496,-60,1497 (creeper at 8.0)`, then `pillar perched 2 up`. Fight result at 06:22:39.425Z: `tactic=bow hits=3 shots=2 released=2 landed=2 damage taken=0`. Both creepers stayed at 0 damage.
+
+### Witch
+
+`7_witch: ttk=1.0 hits=0.0 crits=0.0 damage_taken=0`. The harness printed `NOTE: witch survived the duel (job failed, lost 0 hp)` and recorded it as the measured 26.3 limit. The suite still passed. The witch was not killed.
+
+Timestamped dashboard lines for that fight, all inside one second:
+
+- 06:23:48.353Z `Combat: avoid witch`
+- 06:23:48.353Z `Combat event: avoid avoid: the witch kites and out-potions the rush - break line of sight (7c/26.3)`
+- 06:23:48.415Z `Combat: avoiding witch - benched for 60s, breaking line of sight`
+- 06:23:48.475Z `Fight result: no target tactic=avoid hits=0 crits=0 sweeps=0 shots=0 released=0 landed=0 damage taken=0 disengages=0 result=finished`
+- 06:23:48.479Z `Job: Fight timed out; witch is still standing`
+
+In the combat window 06:20:29Z–06:25:30Z there are **0** `fleeing witch` lines and **0** `fled a witch for 45 s` lines. The fight job took the avoid path and ended before a reflex flee could run, so the 45 s bound was not exercised here.
