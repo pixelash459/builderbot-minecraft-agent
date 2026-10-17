@@ -935,3 +935,84 @@ Timestamped dashboard lines for that fight, all inside one second:
 - 06:23:48.479Z `Job: Fight timed out; witch is still standing`
 
 In the combat window 06:20:29Z–06:25:30Z there are **0** `fleeing witch` lines and **0** `fled a witch for 45 s` lines. The fight job took the avoid path and ended before a reflex flee could run, so the 45 s bound was not exercised here.
+
+## 2026-10-17 11:58–15:06 IST — dual soak (`2a21bb1`, bot code `e405f20`)
+
+`AGENT_MODEL=off`, one soak, exit 0, 11276 s (06:28:52Z–09:36:48Z). `SOAK DONE (clean)`. Anchors this seed: hard [141, 131, 30], normal [310, 131, 30]. Interventions 9, resumes 0, deaths 0. After the stop, the flat world was restored (`level-name=agent-test-world`, `server-ip=0.0.0.0`, `difficulty=peaceful`). Supervisor log: `model server disabled (config.model.enabled=false): skipping llama-server, saving ~6.5 GB commit`. Dashboard window used below is 06:30:41.596Z–09:36:32.456Z (soak world connect through the last `Autopilot stopped`, 1770 timestamped lines).
+
+The wood / stone-pick / furnace / iron-pick columns are the first sample that held the item. End predicates differ where the table or the rest of the kit was gone at the bell: normal2 `wood` no (table 0, wooden pick still 1), hard1 and hard2 `wood` no and `stone` no (table 0, furnace 0, both picks still 1), hard3 `wood` no and `stone` no (table 0, furnace 0, stone pick still 1, stone axe/sword/shovel 0).
+
+| Run | Wood | Stone pick | Furnace | Iron pick | Torches | Armour worn | Bed | Diamonds | Food | Deaths |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| normal1a1 | 90 | 211 | 271 | 391 | 16 | 2 at 632 | 933 | 0 | ate 1 | 0 |
+| normal2a2 | 90 | 211 | 331 | 512 | 16 | 4 at 783 | — | 3 | ate 2 | 0 |
+| normal3a3 | 90 | 211 | 271 | 452 | 17 | 2 at 843 | — | 0 | ate 1 | 0 |
+| hard1a1 | 120 | 271 | — | — | 0 | 0 | — | 0 | not hungry (bar 20) | 0 |
+| hard2a2 | 90 | 211 | — | — | 0 | 0 | — | 0 | not hungry (bar 20) | 0 |
+| hard3a3 | 211 | 391 | — | — | 0 | 0 | — | 0 | not hungry (bar 20) | 0 |
+
+normal2 also held a diamond pick from t=2353. The other five runs never did.
+
+### Deaths
+
+Zero `Bot died` lines in the window. The soak counter is 0.
+
+### Food emergencies
+
+None. Sample bars are 15–20, 15–20, 16–20, 20, 20, 20. Health is 20 on every sample. Zero `Health or food is low` lines. The bar never sat at 6 or under, and health never sat under 10, so no food job was required for that rule.
+
+### `craft failed 3 times; skipped`
+
+Zero lines. Stone shovel crafts completed (the tool shows up in the inventory after each submit). The 3-failure skip was not hit.
+
+### `was superseded`
+
+Zero lines.
+
+### Witch
+
+Zero `fleeing witch` lines. Zero `fled a witch for 45 s` lines. One crowd line at 08:54:07.384Z, the start of hard2, lists a witch among skeletons, creepers, and zombies (`Reflex: fleeing skeleton,skeleton,creeper,...witch,...`). That is the mixed-crowd flee, and it is a single line.
+
+### Full bag
+
+`waiting: bag full` is the soak status. Dashboard says `the bag is full; no crafting for 5 min, clearing junk first` four times: 07:06:08.589Z, 08:16:25.031Z, 08:21:26.318Z, 08:26:27.635Z.
+
+normal1 has the 07:06:08Z line and no sample whose status is `waiting: bag full`. Drops inside the following minutes: 07:06:11.630Z `Dropped 158 cobbled_deepslate` and 07:08:37.509Z `Dropped 64 cobblestone`. The next chest craft is 07:30:17.425Z, on the next run.
+
+normal3 stood at [231, 88, 13] from t=1415 to t=2017 (602 s), cobble stuck at 317. Status `waiting: bag full (iron craft)` from t=1475 to t=1716 (241 s) and again on most samples through t=2017, with short `backing off` gaps at t=1746, 1806, 1866, 1927, and 1987. That stand is the 08:16:25Z, 08:21:26Z, and 08:26:27Z lines. In 08:16:25Z–08:26:27Z there is no `Dropped N` line. `No room to toss cobblestone (open run 0)` is on 08:16:25.066Z, 08:17:25.536Z, 08:18:25.957Z, 08:19:26.417Z, 08:20:26.882Z, 08:21:26.369Z, 08:21:34.448Z, 08:22:34.882Z, 08:23:35.367Z, 08:24:35.828Z, and 08:25:36.292Z. No chest craft falls in that window. The run's only chest craft is earlier, 07:30:17.425Z `craft chest`, placed at 07:44:02.081Z `home chest placed at 413,39,136` (normal2, bag not full).
+
+Other `Dropped N` lines in the window: 5 cobblestone, 22 cobblestone, 248 cobblestone, 158 cobbled_deepslate, 64 cobblestone, 73 cobblestone, 5 spruce sapling, 3 cobblestone.
+
+### Diamond trips
+
+Four `gather diamond_ore` submits, each `targetY -53`, `strip:true`, count 3: 06:47:17.738Z (normal1), 07:27:18.773Z and 07:49:39.833Z (normal2), 08:10:22.541Z (normal3).
+
+- normal1 diamond-rung samples walk y=99, 10, 1, -4, -8, -15, -20, -25 (t=933 to t=1505), diamonds 0. At 06:57:17.943Z `Could not climb back up the tunnel: Time limit reached`. The step then leaves diamond-rung. A later iron sample is [314, -53, 7] at t=1656, diamonds 0, diamond pick 0. The run's lowest y is -53. Diamonds held 0. No `diamond_pickaxe` line on this run.
+- normal2 lowest sample is [403, -19, 95] at t=2142. Diamond-rung samples: y=-14 with 0 diamonds (t=2262), y=-18 with 1 (t=2292), y=-18 with 3 (t=2323). 07:49:52.838Z `BuilderBot has made the advancement [Diamonds!]`. 07:50:17.303Z `skipping deepslate_diamond_ore at 422,-18,98 (Cannot reach or harvest this block)`. 07:51:06.788Z `craft diamond_pickaxe`. The pick is held from t=2353 (diamonds then 0). It is still in the end inventory (`diamond_pickaxe` 1). The y=-53 strip was not reached. Six `descent stopped at y=62` lines, 07:27:18.773Z–07:27:23.796Z, water beside the staircase; the later trip still found the three diamonds above that stop.
+- normal3 diamond-rung samples walk y=155 down to y=76 (t=1084 to t=1385), diamonds 0. 08:15:51.736Z `descent stopped at y=73`. Lowest y on the run is 76. No diamond pick. The bag-full stand above starts on the next samples.
+
+### Bucket
+
+Zero lines that name `water_bucket` as held. Two fill failures: 06:40:42.956Z `(316, 130, 0)` out of reach 21.2, then 06:40:53.861Z `the bucket failed twice; no water fills for 15 min`; 07:10:53.749Z `(129, -22, 79)` out of reach 13.3, then 07:11:01.483Z the same 15 min line. A bucket was crafted at 06:40:23.731Z, 07:23:00.971Z, and 08:03:38.212Z. Uses at 07:06:20.744Z `(71, -42, 17)`, 07:27:09.668Z `(401, 62, 124)`, and 08:27:53.727Z `(239, 99, 9)` (that last one `Completed use` at 08:28:23.990Z) logged no `produced no water bucket` line. `MLG Water Bucket Fall Chain` engaged once, 07:44:29.157Z.
+
+### Bed
+
+Zero `shears` lines and zero shear results. normal1 killed sheep instead: three `Fight result: sheep` lines at 06:46:05.032Z, 06:46:11.534Z, and 06:46:16.505Z, 2 hits each. 06:47:08.557Z `craft white_bed`, `Completed craft` at 06:47:16.842Z. Bed stays 1 on every normal1 sample from t=933 to the bell. Zero `Home set` lines. Zero `Sleeping` lines. The other three bed lines are `no sheep after 3 search legs; bed set aside for 10 min` at 07:26:25.075Z, 08:09:16.252Z, and 08:29:03.951Z. Bed 0 on those five runs.
+
+### Food
+
+Lowest bar on a meal line is 14. Sample mins are 15, 15, 16, 20, 20, 20. Meals: `cooked_mutton` 14 to 20 at 07:03:01.005Z, `cooked_chicken` 14 to 20 at 07:38:35.262Z, `cooked_beef` 14 to 20 at 07:51:52.911Z, `cooked_beef` 14 to 20 at 08:31:05.208Z. Hunts that connected: three sheep (2 hits each) at 06:46Z, one chicken (2 hits) at 07:17:52.434Z, two cows (3 and 2 hits) at 07:18:27.682Z and 07:18:41.418Z, one cow (3 hits) at 07:57:24.760Z. Hard runs stayed at bar 20 with eaten 0.
+
+### Hard runs
+
+No hard run reached a furnace or an iron pick. Each one sealed a shelter and the dashboard then goes quiet until dawn.
+
+- hard1 furthest rung is the stone pick (271 s; wooden pick 120 s). It stood at [152, 130, 36] from t=632 to the bell (t=1264, 632 s), status `working: shelter`. 08:40:49.855Z–08:40:58.943Z is ten `Cannot reach or harvest` stone lines in one second. 08:43:22.179Z `Shelter: sealed at (152, 130, 36)`. The next timestamped line is 08:52:49.238Z `Shelter: dawn (tod 7)`. It ended with both picks still held, table 0, furnace 0.
+- hard2 furthest rung is the stone pick (211 s; wooden pick 90 s). It stood at [148, 131, 29] from t=662 to t=1234 (572 s), `working: shelter`. Earlier same-cell stands: [139, 129, 23] t=30–120 on `wood: craft`, [142, 126, 23] t=150–271 on `working: gather`, [146, 131, 27] t=481–572 on `working: craft`. 09:01:46.257Z–09:01:55.320Z is ten `Cannot reach` stone lines in nine seconds. 09:04:43.311Z `Shelter: sealed at (148, 131, 29)`. 09:04:58.981Z `Night mine: could not climb back into (148, 131, 29): Took to long to decide path to goal!`, then `pillaring up the sump from y=129`, then `back in the shelter`. The next line after the re-seal is 09:14:05.207Z `Shelter: dawn (tod 7)`. It ended `backing off (2s): stone` at [149, 133, 31], both picks held, table 0, furnace 0.
+- hard3 furthest rung is the stone pick (391 s; wooden pick 211 s). 3 raw iron, 0 ingots. From 09:15:28.884Z to 09:16:07.985Z, `Cannot reach or harvest` on dark_oak_log (and three oak_log) repeats, about forty lines in 39 s, around the anchor. It then stood at [133, 125, 40] from t=722 to the bell (t=1264, 542 s), `working: shelter`. 09:27:22.564Z `Night mine: not back in the shelter` (bot at (133, 125, 40), box at (146, 126, 36)), then 09:27:34.797Z `Shelter: sealed at (133, 125, 40)`. The next line is 09:35:21.322Z `Shelter: dawn (tod 11)`. It ended there, table 0, furnace 0, stone pick still 1.
+
+### Other loops
+
+- normal1, after the failed tunnel climb, explores at about y=-47 from t=1686 to the bell (t=2409). From 06:58:20.748Z to 07:11:43.989Z the same coal job repeats 29 times: `gather coal_ore` count 4 `targetY 32`. `iron failed 3 times; exploring before retry` is on 12 lines from 06:58:51.206Z to 07:11:52.076Z. Bar stayed at least 15. The run ended at [153, -47, 12].
+- normal2 stood at [405, 55, 128] from t=1054 to t=1204 (150 s) and again t=1446 to t=1568 (122 s), `working: gather`. 07:32:55.883Z–07:35:44.827Z is ten `Cannot reach` iron_ore lines, then two more at 07:41:05.379Z and 07:41:25.438Z. In that first stand, `swimming up` is four lines, 07:32:39.632Z–07:32:41.870Z, air 5, 4, 3, then 5. No drown death.
+- Zero `Left the tunnel` lines. Zero `craft failed 3 times; skipped` lines, as above.
