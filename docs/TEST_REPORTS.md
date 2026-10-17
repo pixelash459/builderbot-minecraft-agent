@@ -1016,3 +1016,13 @@ No hard run reached a furnace or an iron pick. Each one sealed a shelter and the
 - normal1, after the failed tunnel climb, explores at about y=-47 from t=1686 to the bell (t=2409). From 06:58:20.748Z to 07:11:43.989Z the same coal job repeats 29 times: `gather coal_ore` count 4 `targetY 32`. `iron failed 3 times; exploring before retry` is on 12 lines from 06:58:51.206Z to 07:11:52.076Z. Bar stayed at least 15. The run ended at [153, -47, 12].
 - normal2 stood at [405, 55, 128] from t=1054 to t=1204 (150 s) and again t=1446 to t=1568 (122 s), `working: gather`. 07:32:55.883Z–07:35:44.827Z is ten `Cannot reach` iron_ore lines, then two more at 07:41:05.379Z and 07:41:25.438Z. In that first stand, `swimming up` is four lines, 07:32:39.632Z–07:32:41.870Z, air 5, 4, 3, then 5. No drown death.
 - Zero `Left the tunnel` lines. Zero `craft failed 3 times; skipped` lines, as above.
+
+## 2026-10-18 04:33–04:54 IST — units and integration (`84f6d70`)
+
+`git pull --rebase` was already up to date at `84f6d70` (round 17: dig a pocket to toss junk into when boxed in, mine deeper and longer at night). Unit tests, every `tests/*.test.js` except `resources.test.js`, `--max-old-space-size=2048 --test-timeout=60000 --test-skip-pattern resources`: **558 passed, 0 failed** (41.8 s). The note expected 549; nothing failed.
+
+`Stop-Agent.ps1` could not reach `127.0.0.1:8766` (supervisor already down). The PIDs in `data/processes.json` (69624, 59648) were dead, and ports 8765, 8766, 8081, and 25569 were free, so `Start-Agent.ps1 -NoBrowser` ran with `AGENT_MODEL=off`. Supervisor log: `model server disabled (config.model.enabled=false): skipping llama-server, saving ~6.5 GB commit`.
+
+`python -u tests/integration.py`, model off. Exit 0, 1066 s (04:36:17–04:54:03 IST). `All in-game integration tests passed`.
+
+`Reflex paused the gather: Reflex: preempted by Mob Defense`. `PASS: A4 escaped the lava trench (hp 19.8, at [1652, -59, 1650])`.
