@@ -834,3 +834,80 @@ normal2, after the y=68 stop, stood at [278, 60, 39] with health 9 from t=1625 t
 `4b_creeper_roofed`: ttk 7.2 s, hits 3, `damage_taken=0`, end health 20, killed, no crater. At 21:54:47Z `Combat: pillar-up 2 at 1496,-60,1497 (creeper at 7.8)`, then `pillar perched 2 up`. Fight result at 21:54:53Z: `tactic=bow hits=3 shots=2 released=2 landed=2 damage taken=0`. Both creepers stayed at 0 damage.
 
 Drowning latch: the combat dashboard window (21:52:41Z join through 21:57:42Z, 411 lines) has no `drown`, `swimming up`, `resumed`, `water`, or air line. The arena fights never entered water, so the latch was not exercised here.
+
+## 2026-10-17 03:31–06:39 IST — dual soak (`514dd40`, bot code `804de91`)
+
+`AGENT_MODEL=off`, one soak, exit 0, 11290 s (22:01:05Z–01:09:15Z). `SOAK DONE (clean)`, promoted to `data/soak-results.json`. Dashboard window used below is 22:01:08Z–01:09:01Z (the stop of the previous flat world through the soak stop, before the restore's dashboard came back). After the stop, the flat world was restored (`level-name=agent-test-world`, `server-ip=0.0.0.0`, `difficulty=peaceful`). Supervisor log: `model server disabled`. Anchors this seed: hard [142, 131, 31], normal [310, 131, 30]. No second soak. Interventions 13, resumes 5.
+
+The wood / stone-pick / furnace / iron-pick columns are the first sample that held the item. End predicates differ where the table, furnace, or pick was gone at the bell: normal1 `stone` no (furnace 0, stone pick still 1 in the end inventory line, iron pick already gone), normal2 `wood` no and `stone` no (table 0, furnace 0, both picks still 1), hard1 `wood` no and `stone` no (table 0, furnace 0, both picks still 1), hard3 empty at the bell after four deaths.
+
+| Run | Wood | Stone pick | Furnace | Iron pick | Torches | Armour worn | Bed | Diamonds | Food | Deaths |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| normal1a1 | 90 | 181 | 271 | 391 | 16 | 2 at 722 | — | 0 | no food held (bar min 13) | 1 |
+| normal2a2 | 120 | 211 | — | — | 4 | 0 | — | 0 | no food held (bar min 5) | 0 |
+| normal3a3 | 150 | 211 | 271 | 602 | 16 | 0 | — | 0 | ate 6 (1 failed: the food bar did not rise) | 0 |
+| hard1a1 | 211 | 421 | — | — | 0 | 0 | — | 0 | not hungry (bar 20) | 0 |
+| hard2a2 | — | — | — | — | 0 | 0 | — | 0 | not hungry (bar 20) | 0 |
+| hard3a3 | 211 | 301 | 331 | — | 0 | 0 | — | 0 | not hungry (bar min 17) | 4 |
+
+### Deaths
+
+Five `Bot died at` lines, matching the soak counter.
+
+- 22:38:51Z `BuilderBot burned to death` at 285, -20, 137 (normal1). The previous 30 s: three `craft stone_shovel` jobs each ending `Missing ingredients or a nearby crafting table`, then `stone failed 3 times; exploring before retry`, an explore, `Reflex: preempted by Misc World Survival Chain`, `resumed the explore job`, and `Health or food is low` at 22:38:43Z. No lava line in that slice.
+- 00:59:18Z `BuilderBot was slain by Zombie Villager` at 146, 147, -7 (hard3). The previous 30 s: `Reflex: fleeing` a mixed crowd, mob defense preempts the fight, a shelter is submitted, `resumed the fight job`, `Tool left the inventory: stone_sword`, then the kill.
+- 01:00:14Z `BuilderBot was slain by Zombie Villager` at 107, 140, -41. The previous 30 s: `Short of shelter blocks: 0 held, 24 needed at (101, 143, -42)`, `fleeing creeper`, `creeper at 5.9 overrides the shelter hold`, a wood gather, then the kill.
+- 01:00:31Z `BuilderBot was slain by Zombie Villager` at 90, 132, -25. The previous 30 s includes the death above, `respawned at night`, `Server set position to (96, 143, -26)`, `Short of shelter blocks: 0 held, 22 needed at (93, 143, -31)`, another fleeing crowd, then the kill.
+- 01:07:56Z `BuilderBot was slain by Zombie` at 132, 124, 25. The previous 30 s: `Server set position to (142, 131, 31)` at 01:07:27Z, then `Cannot reach or harvest` on dark_oak_log at (135, 134, 31), (135, 132, 31), (135, 133, 31), (139, 134, 23), (138, 134, 22), (138, 132, 22), (138, 130, 22), and (133, 129, 31), with mob defense preempting and resuming the gather the whole way. `Misc World Survival Chain engaging` at 01:07:55Z, then the kill.
+
+### Diamond trips
+
+One `[diamond-rung]` gather, 22:20:34Z, `targetY -53`, `strip:true`, count 3. Diamonds held 0 on every sample. No `diamond_pickaxe` line. No `descent stopped`. No `Left the tunnel`.
+
+Diamond-step samples walked y=126, 117, 110, 101, 90, 84, 77, 69, 62, 55, 50, 45, 39, 30, 21, 12, 6, 0, -5, -9 (t=993 to t=1565), all with 0 diamonds. Tunnel lines on that descent: `moved 3 west to start a new staircase at (259, 50, 109)` at 22:25:51Z, `bridged a gap under (267, 29, 114)` at 22:27:25Z, `filled a hole under (267, 27, 112)` at 22:27:30Z, `filled a hole under (267, -7, 78)` at 22:30:00Z. It then stood at [273, -10, 72] from t=1625 to t=1926. The run's lowest sample is later, [280, -21, 135] at t=2047, step already `stone`, diamonds still 0, hp 17, and that is the burn above. Did not reach y=-53.
+
+### Drowning
+
+One `swimming up` line: 23:55:51Z `WorldSurvival: drowning (air 6), swimming up` (normal3, during an iron gather that was already `Inventory nearly full`). The next line is `Reflex: Misc World Survival Chain engaging`, not `resumed`. No second `swimming up`. `Completed explore` at 23:56:13Z. No drown death. The bot got out.
+
+### Low health
+
+No stretch of health under 10 lasted more than a minute. The only sample under 10 is normal3 t=1566, hp 7.3, bar 17, `recovering: health 7`, 4 food items, eaten 2. The next sample (t=1596) is hp 14.6, eaten 3, and t=1626 is hp 20, eaten 4. Meals on that run are the `Food: ate` lines below.
+
+`Health or food is low` is on 182 timestamped lines from 22:38:43Z to 23:50:36Z. The long run of them is normal2, health still 20, bar down to 5, with nothing to eat (see the loop below).
+
+### Full bag
+
+The string `waiting: bag full` is the soak status, not a dashboard line. Dashboard says `the bag is full; no crafting for 5 min, clearing junk first` three times: 22:31:26Z, 23:40:54Z, 23:54:55Z.
+
+normal1's status stayed `waiting: bag full (stone craft)` at [273, -10, 72] from t=1625 to t=1926 (301 s), starting at the 22:31:26Z line. No `Dropped N` line falls inside that 301 s. The tosses just before it are 22:30:42Z `Dropped 291 cobblestone` and 22:30:50Z `Dropped 104 dirt`. The next came-back is 22:38:10Z, after the bot had left that cell.
+
+Thirteen `Dropped N (toward` lines in the window: 291 cobblestone, 104 dirt, 62 cobblestone, 25 andesite, 63 cobblestone, 21 dirt, 21 granite, two 2 spruce sapling, 152 cobblestone, 13 dirt, 152 cobblestone, 128 cobblestone. Seven `came back into the inventory` lines (dirt, granite, cobblestone, cobblestone, andesite, cobblestone, dirt). One toss refusal: 23:34:42Z `No room to toss spruce_sapling (open run 2)`.
+
+### Bucket
+
+No `water_bucket` line, so none was logged as held. 22:15:35Z fill at (317, 113, 18) `out of reach (14.2)`, 22:15:36Z fill at (313, 114, 11) `out of reach (22.2)`, then 22:15:44Z `the bucket failed twice; no water fills for 15 min`. A bucket was crafted at 22:14:53Z and again at 23:37:17Z. One later use at (297, 29, 42) at 23:40:22Z logged no failure line. `MLG Water Bucket Fall Chain` engaged at 23:50:35Z and 23:54:07Z.
+
+### Bed
+
+No `shears`, no shear result, no wool line, no `white_bed`, no `Home set`, no `Sleeping`. One bed line: 22:20:14Z `no sheep after 3 search legs; bed set aside for 10 min`. A later food fight killed a sheep (23:30:27Z, 3 hits) and did not shear it. Bed 0 on every run.
+
+### Food
+
+Lowest bar on a meal line is 14. Soak sample mins are 13, 5, 15, 20, 20, 17. Meals, all normal3: `cooked_chicken` 14 to 20 at 23:44:49Z and 23:50:16Z, `cooked_chicken` 17 to 20 at 23:51:08Z, `cooked_mutton` 14 to 20 at 23:51:52Z and 23:57:17Z, `cooked_beef` 14 to 20 at 00:03:17Z. `Food: meal failed - the food bar did not rise (2 tries)` at 23:51:01Z. Hunts that connected: one cow (3 hits), one sheep (3 hits), three chickens (1 hit each), all 23:29Z–23:32Z. hard3 submitted three pig fights at 00:53Z–00:55Z; two ended `no target` / `stopped`, and the third has no `Fight result` before the deaths. normal1 and normal2 ate nothing.
+
+### Hard runs
+
+No hard run reached an iron pick or an ingot. None sat on (141, 131, 30). The scouted hard anchor was [142, 131, 31]. No block read was taken: the bot never stayed put on (141, 131, 30), and the one return to (142, 131, 31) lasted under 30 s and ended in the zombie kill above, after which the soak had already restored the flat world.
+
+- hard1 furthest rung is the stone pick (421 s; wooden pick 211 s). No furnace. It stood at [140, 131, 32], one block off the old anchor, from t=181 to t=271 while the wooden pick was crafted, then moved. Two unstucks, at [140, 126, 37] and [139, 125, 37]. From t=722 to t=1264 it held a shelter at [123, 121, 32] (`working: shelter`). It ended with both picks still held, table 0, furnace 0, 1 raw iron.
+- hard2 furthest rung is planks and a table. The wooden pick never appeared (`wood` —). It stood at [128, 111, 48] from t=211 to t=572 on `queued: goto`, then at [128, 110, 48] from t=602 to the bell (t=1264), step `night` then `wood`, still `queued: goto` until the last sample `backing off (3s): wood`. No unstuck. Ended with 14 planks, 4 sticks, a table, and no pick.
+- hard3 furthest rung is the furnace (331 s; stone pick 301 s, wooden pick 211 s). It then stood at [147, 147, -7] from t=481 to t=662 on a food fight, and at [89, 76, -22] on `night: no shelter; holding for morning` for 12 samples. `Explore stopped early at (89, 76, -22)` at 01:07:20Z and 01:07:21Z. The four deaths above emptied it. The 01:07:27Z teleport back to the anchor is the 30 s in the last death.
+
+`Cannot reach or harvest` 36 lines (19 of them `skipping`), spread 22Z 10, 23Z 2, 00Z 8, 01Z 16. `No path to the goal!` once, 22:13:55Z, a smelt walk back to the furnace at 328,119,30 on normal1. `Explore stopped early` three job lines: (339, 114, 42) at 22:09:14Z, and the two at (89, 76, -22). Server log inside the soak window (IST 03:31–06:39): nine `BuilderBot moved wrongly!` warnings, 04:24:48–04:24:57 IST (22:54:48Z–22:54:57Z), no coordinates on the warning. Not the hard anchor.
+
+### Other loops
+
+- normal2 stood at [203, 153, 30] from t=1024 to the bell (t=2408, 1384 s), step `wood`, `backing off`, bar 5, health 20, no food held. From 23:01:28Z the same lines repeat for the rest of that stand: `Health or food is low` and `craft dark_oak_planks`. No `Food: ate` on this run.
+- `craft stone_shovel` / `Missing ingredients or a nearby crafting table` repeats from 22:49:19Z through 22:57Z (normal2), about 15 submits inside a few minutes, and the missing-ingredients line continues out to 23:52:59Z (66 timestamped lines).
+- No `Left the tunnel`. The round-14 tunnel-exit drop did not show up. The craft-every-8-seconds torch loop did not show up either (`No room for crafting result` was not a minutes-long cluster).
