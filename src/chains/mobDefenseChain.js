@@ -111,10 +111,20 @@ export class MobDefenseChain extends SingleTaskChain{
   // Witches are never engaged (7c/26.3 measured: they kite and out-potion every rush,
   // knockback does not apply, arrows cannot be calibrated) - break line of sight instead:
   // the run-away band covers armed and unarmed bots alike.
-  if(hostiles.some(e=>e.name==='witch'&&withinRange(e,bot,16))){
+  // Round 16 (round-15 hard2: `fleeing witch` 330 times over 1000 s, the run lost): a witch
+  // throws within ~10 blocks and only with a line of sight, so only that one is fled; and a
+  // flee that has run WITCH_FLEE_MS gives up on witches beyond 6 blocks for WITCH_IGNORE_MS.
+  const now=Date.now(),ignoring=now<(this._witchIgnoreUntil||0);
+  const witch=hostiles.find(e=>e.name==='witch'&&withinRange(e,bot,ignoring?6:WITCH_FLEE)&&canSee(bot,e,WITCH_FLEE));
+  if(!witch)this._witchSince=0;
+  else if(this._witchSince&&now-this._witchSince>=WITCH_FLEE_MS&&distanceTo(witch,bot)>6){
+   this._witchSince=0;this._witchIgnoreUntil=now+WITCH_IGNORE_MS;
+   if(ctx.worker&&ctx.worker.log)try{ctx.worker.log('Reflex: fled a witch for '+WITCH_FLEE_MS/1000+' s; ignoring witches beyond 6 for '+WITCH_IGNORE_MS/1000+' s');}catch{}
+  }else{
+   if(!this._witchSince)this._witchSince=now;
    this._runAwayTask=movementTask(ctx,'RunAwayFromHostilesTask',()=>new RunAwayFromHostilesTask(30,true));
    this.root=this._runAwayTask;
-   if(ctx.worker&&ctx.worker.log)try{ctx.worker.log('Reflex: fleeing witch (26.3: it kites and out-potions the rush)');}catch{}
+   this._fleeLog(ctx,'witch','Reflex: fleeing witch (26.3: it kites and out-potions the rush)');
    return 68;
   }
   // Universally dangerous mobs (wither skeleton wither / hoglin chipping us down at low health).
@@ -292,6 +302,7 @@ export class MobDefenseChain extends SingleTaskChain{
 }
 // LookHelper.seesPlayer port: sample the eye line for solid blocks. With no block data
 // (fake bots, unloaded chunks) the target counts as visible.
+export const WITCH_FLEE=10,WITCH_FLEE_MS=45000,WITCH_IGNORE_MS=60000;
 const canSee=(bot,from,range)=>{
  try{
   const me=bot.entity.position;

@@ -513,3 +513,18 @@ test('run-away and keep-distance face away from a mob on the z axis',async()=>{
   }
  }
 });
+// Round 16 (round-15 hard2 fled a witch for 1000 s): a witch is fled only within 10 with a line
+// of sight, and a flee that has run 45 s gives up on witches beyond 6 for a minute.
+test('MobDefenseChain: the witch flee is bounded',()=>{
+ const witch=at=>({name:'witch',position:at});
+ const m=new MobDefenseChain();
+ const far=makeBot({hostiles:[witch([14,-60,0])],timeOfDay:6000});
+ assert.notEqual(m.priority(far.bot,ctxOf()),68,'a witch 14 away is not fled');
+ const near=makeBot({hostiles:[witch([8,-60,0])],timeOfDay:6000});
+ assert.equal(m.priority(near.bot,ctxOf()),68,'a witch 8 away is fled');
+ m._witchSince=Date.now()-46000;
+ assert.notEqual(m.priority(near.bot,ctxOf()),68,'45 s of fleeing: witches beyond 6 are ignored');
+ assert.ok(m._witchIgnoreUntil>Date.now());
+ const close=makeBot({hostiles:[witch([4,-60,0])],timeOfDay:6000});
+ assert.equal(m.priority(close.bot,ctxOf()),68,'still fled within 6');
+});

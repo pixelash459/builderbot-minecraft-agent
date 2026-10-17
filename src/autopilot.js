@@ -64,6 +64,9 @@ const IRON_CORE=[['iron_pickaxe',3,2],['iron_sword',2,1],['shield',1,0]];
 // The food graze may go this far below its anchor (hills, not caves).
 const GRAZE_DEPTH=6;
 const STONE_KIT=[['stone_pickaxe',3],['stone_sword',2],['stone_axe',3],['stone_shovel',1]];
+// Round 16: kit pieces the ladder can go on without (a craft that keeps failing is skipped).
+export const OPTIONAL_KIT=new Set(['stone_shovel','stone_axe']),KIT_SKIP_MS=10*60000;
+const skipped=(ctx,item)=>Date.now()<(ctx?.kitSkip?.[item]||0);
 const KIT_STICKS={stone_pickaxe:2,stone_sword:1,stone_axe:2,stone_shovel:1};
 // Cobble the unfinished stone kit still costs (tools not held + the furnace when none is held
 // or standing near). The shelter leaves this much cobble alone while the autopilot runs.
@@ -321,6 +324,10 @@ function replacementJob(c,ctx){
 // bot is hungry (bar <= FOOD_HUNGRY) with nothing to eat. A food step that keeps failing is
 // set aside (ctx.foodOff, FOOD_OFF_MS) and comes back only on that hunger (ctx.foodDeferred).
 export const FOOD_CRITICAL=6,FOOD_ENOUGH=4,FOOD_HUNGRY=14,FOOD_LEGS=6,FOOD_OFF_MS=8*60000,FOOD_BATCH=6;
+export function foodEmergency(c,ctx){
+ if(c('_edible')>=1||!Number.isFinite(ctx?.foodBar))return false;
+ return ctx.foodBar<=FOOD_CRITICAL||(!!ctx.lowHealth&&ctx.foodBar<18);
+}
 export function foodDone(c,ctx){
  if(COOKABLE_MEAT.some(m=>c(m)>=1&&c('furnace')>=1))return false; // smelting it takes seconds
  const edible=c('_edible');
@@ -473,8 +480,9 @@ export function inventoryJob(counts,ctx){
  const top=extra[0];
  if(ctx.chestAt&&(ctx.chestDistance??Infinity)<=(full?HOME_DEPOSIT_RANGE:INV_PASS)&&(full||top.extra>=INV_PASS_MIN))return {type:'deposit',position:ctx.chestAt,item:top.item,keep:top.keep};
  if(!full)return null;
+ // Round 16: while crafts are paused for a full bag, a chest is only placed, never crafted.
  const chestJob=spot=>c('chest')>=1?(spot?{type:'place',block:'chest',position:spot}:null)
-  :ctx.planksTotal>=8+(c('crafting_table')>=1||ctx.worldTable?0:4)?{type:'craft',item:'chest',count:1}:null;
+  :ctx.noCraft?null:ctx.planksTotal>=8+(c('crafting_table')>=1||ctx.worldTable?0:4)?{type:'craft',item:'chest',count:1}:null;
  if(!ctx.chestAt){const j=chestJob((ctx.homeDistance??Infinity)<=HOME_DEPOSIT_RANGE?ctx.chestSpot:ctx.chestSpotHere);if(j)return j;}
  const junk=extra.find(droppable);
  if(junk)return {type:'drop',item:junk.item,count:junk.extra};
@@ -519,7 +527,7 @@ export const STEPS=[
   if(ctx.logsTotal<12)return {type:'gather',block:'log',count:4,radius:32,searchIfMissing:true,belowFoots:true,surface:true};
   return null;
  }},
- {name:'stone',done:(c,ctx)=>(c('furnace')>=1||!!ctx?.worldFurnace)&&c('stone_pickaxe')>=1&&c('stone_axe')>=1&&c('stone_sword')>=1&&c('stone_shovel')>=1,next(c,ctx){
+ {name:'stone',done:(c,ctx)=>(c('furnace')>=1||!!ctx?.worldFurnace)&&c('stone_pickaxe')>=1&&(c('stone_axe')>=1||skipped(ctx,'stone_axe'))&&c('stone_sword')>=1&&(c('stone_shovel')>=1||skipped(ctx,'stone_shovel')),next(c,ctx){
   const plank=((ctx.heldLog||'oak_log').replace('_log','_planks'));
   // Planks from held logs are a 2x2 craft (seconds, no table): keep a few for the sticks.
   if(ctx.planksTotal<8&&ctx.logsTotal>=2)return {type:'craft',item:plank,count:8};
@@ -530,7 +538,7 @@ export const STEPS=[
   // Round 7 (hard1/hard3 never got a stone pickaxe): sticks are made only for a piece whose
   // cobble is already held - the old 10-sticks-first rule sent a log hunt (planks 0, logs 0
   // after the wood kit; a harvested forest by hard3) before the first stone was ever mined.
-  const left=STONE_KIT.filter(([item])=>c(item)<1),piece=left[0];
+  const left=STONE_KIT.filter(([item])=>c(item)<1&&!skipped(ctx,item)),piece=left[0];
   if(piece&&c('cobblestone')>=piece[1]){
    if(c('stick')>=KIT_STICKS[piece[0]])return {type:'craft',item:piece[0],count:1,keepTable:true};
    const planks=planksJob(c,ctx,2);if(planks)return planks;
@@ -546,8 +554,8 @@ export const STEPS=[
   if(c('stone_pickaxe')<1)return {type:'craft',item:'stone_pickaxe',count:1,keepTable:true};
   // COMBAT_SPEC 7f: the stone sword comes right after the stone pickaxe.
   if(c('stone_sword')<1)return {type:'craft',item:'stone_sword',count:1,keepTable:true};
-  if(c('stone_axe')<1)return {type:'craft',item:'stone_axe',count:1,keepTable:true};
-  if(c('stone_shovel')<1)return {type:'craft',item:'stone_shovel',count:1,keepTable:true};
+  if(c('stone_axe')<1&&!skipped(ctx,'stone_axe'))return {type:'craft',item:'stone_axe',count:1,keepTable:true};
+  if(c('stone_shovel')<1&&!skipped(ctx,'stone_shovel'))return {type:'craft',item:'stone_shovel',count:1,keepTable:true};
   // leave the table standing through the kit; pick it up with the furnace (last stone craft)
   return {type:'craft',item:'furnace',count:1,keepTable:true,collectTable:true};
  }},
@@ -733,6 +741,9 @@ export function bedPrepJob(counts,ctx){
 export function plan(counts,ctx={}){
  const c=countFactory(counts);
  ctx=woodTotals(counts,{...ctx});
+ // Round 16: a food emergency (nothing to eat, and the bar nearly empty or health low under a
+ // bar of 18) jumps the ladder - the wood and stone steps' jobs are all refused meanwhile.
+ if(foodEmergency(c,ctx)&&ctx.blocked!=='food'){const food=STEPS.find(e=>e.name==='food');if(!food.done(c,ctx))return {step:'food',job:food.next(c,ctx)};}
  for(const entry of STEPS){
   if(ctx.blocked===entry.name)continue;
   if(entry.done(c,ctx))continue;
@@ -1008,6 +1019,12 @@ export class Autopilot{
    if(step==='food'&&this.failures.food>=3){this.failures.food=0;this.deferFood('failed 3 times');}
    // Only ladder steps block (and explore to unblock): a night job that keeps failing must
    // never turn into an explore in the dark - nightKeyFree caps its retries instead.
+   // Round 16: an optional kit piece whose craft failed 3 times is skipped for KIT_SKIP_MS -
+   // walking off to explore (64 blocks through caves at y=-20, into lava) cannot fix a craft.
+   else if(this.failures[step]>=3&&job.spec?.type==='craft'&&OPTIONAL_KIT.has(job.spec.item)){
+    this.failures[step]=0;(this.kitSkip||(this.kitSkip={}))[job.spec.item]=Date.now()+KIT_SKIP_MS;
+    this.state='retry: '+step;this.log('Autopilot: '+job.spec.item+' craft failed 3 times; skipped for '+KIT_SKIP_MS/60000+' min');
+   }
    else if(this.failures[step]>=3&&STEPS.some(st=>st.name===step)){this.state='blocked: '+step+' (exploring elsewhere)';this.log('Autopilot: '+step+' failed '+this.failures[step]+' times; exploring before retry');}
    else this.state='retry: '+step+' ('+this.failures[step]+'/3)';
   }else{
@@ -1025,7 +1042,9 @@ export class Autopilot{
     const now=Date.now(),last=(this.recentDrops||(this.recentDrops=new Map())).get(sp.item);this.recentDrops.set(sp.item,now);
     if(last&&now-last<DROP_LOOP_MS){this.recentDrops.clear();this.invOffUntil=now+INV_OFF_MS;this.log('Autopilot: '+sp.item+' dropped twice in '+DROP_LOOP_MS/60000+' min; inventory step set aside for '+INV_OFF_MS/60000+' min');}
    }
-   this.failures[this.currentStep]=0;
+   // Round 16: a collect (the sweep after a failed hunt) is not progress: it must not wipe the
+   // step's failure count, or hunt-timeout, collect, hunt-timeout never reaches 3.
+   if(sp?.type!=='collect')this.failures[this.currentStep]=0;
    this.coolUntil=0;
    this.state='step done: '+this.currentStep;
   }
@@ -1191,7 +1210,7 @@ export class Autopilot{
    coalNear:this.oreNear(b,['coal_ore','deepslate_coal_ore'],32),waterAt:this.waterSource(b),sheepNear:this.sheepNear(b),bedNear:this.bedNear(b),lastEquip:this.lastEquip||null,coalOff:Date.now()<(this.coalOffUntil||0),bedOff:Date.now()<(this.bedOffUntil||0),bedSearch:(this.bedSearch?.legs||0)<BED_SEARCH_LEGS,sheepFar:this.sheepFar(b),searchDistance:BED_SEARCH_DIST[Math.min(this.bedSearch?.legs||0,BED_SEARCH_DIST.length-1)],diamondOff:Date.now()<(this.diamondOffUntil||0),
    breedable:this.breedable(b,counts),hayNear:this.hayNear(b),
    foodBar:typeof b.food==='number'?b.food:null,lowHealth:typeof b.health==='number'&&b.health<(this.worker.config?.limits?.minHealth??10),foodOff:Date.now()<(this.food?.offUntil||0),foodDeferred:!!this.food?.deferred};
-  const choice=plan(counts,{...ctx,blocked:this.state.startsWith('blocked: ')?this.state.slice(9).split(' ')[0]:null});
+  const choice=plan(counts,{...ctx,kitSkip:this.kitSkip||null,blocked:this.state.startsWith('blocked: ')?this.state.slice(9).split(' ')[0]:null});
   if(!choice.step){this.state='all steps satisfied';return;}
   // A batch for the furnace: load it and move on (efficiency 1).
   if(choice.job&&choice.job.type==='smelt'&&!choice.job.take&&choice.job.count>=SMELT_LEAVE_AT&&!this.worker.furnaceRun)choice.job={...choice.job,leave:true};
@@ -1220,7 +1239,7 @@ export class Autopilot{
   const forced=bagStuck&&Date.now()-(this.forcedDropAt||0)>=FORCED_DROP_MS;
   if(Date.now()>=(this.invOffUntil||0)||forced){
    if(forced)this.forcedDropAt=Date.now();
-   const inv=inventoryJob(counts,{...ctx,slotsFull:this.worker.slotsFull?this.worker.slotsFull():ctx.slotsFull,...this.homeCtx(b)});
+   const inv=inventoryJob(counts,{...ctx,noCraft:Date.now()<(this.noRoomUntil||0),slotsFull:this.worker.slotsFull?this.worker.slotsFull():ctx.slotsFull,...this.homeCtx(b)});
    if(inv&&!(inv.type==='craft'&&choice.job?.type==='craft')){this.submit('inventory',inv);return;}
   }
   // Habit 7: light. Torches from held coal and sticks; a lit base.

@@ -39,3 +39,19 @@ test('tunnel climb: a bot that left the tunnel after a failed step stops climbin
  assert.equal(calls,2,'no chase of the next step from '+CLIMB_LOST+'+ away');
  assert.equal(bot.pathfinder.searchRadius,-1,'search radius restored');
 });
+// ---- round 16 ----
+import {plan,foodEmergency,OPTIONAL_KIT} from '../src/autopilot.js';
+test('round 16: a food emergency jumps the ladder; a skipped kit piece does not hold the stone step',()=>{
+ const c=counts({_edible:0});
+ assert.equal(foodEmergency(c,{foodBar:5}),true);
+ assert.equal(foodEmergency(c,{foodBar:17,lowHealth:true}),true);
+ assert.equal(foodEmergency(c,{foodBar:17}),false);
+ assert.equal(foodEmergency(counts({_edible:2}),{foodBar:3}),false,'food held: eat it');
+ const p=plan({oak_log:1},{foodBar:5});
+ assert.equal(p.step,'food','the wood step waits while the bar is nearly empty');
+ assert.equal(plan({oak_log:1},{foodBar:15}).step,'wood');
+ assert.ok(OPTIONAL_KIT.has('stone_shovel'));
+ const kit={oak_planks:8,stick:10,crafting_table:1,wooden_pickaxe:1,wooden_sword:1,wooden_axe:1,stone_pickaxe:1,stone_sword:1,stone_axe:1,furnace:1,cobblestone:20,cooked_beef:8,_edible:8};
+ assert.equal(plan(kit,{foodBar:20}).job?.item,'stone_shovel','the shovel is still wanted');
+ assert.notEqual(plan(kit,{foodBar:20,kitSkip:{stone_shovel:Date.now()+60000}}).step,'stone','skipped: the stone step is done');
+});

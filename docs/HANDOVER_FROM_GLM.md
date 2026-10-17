@@ -1752,3 +1752,16 @@ Round 14 soak: **first diamond pickaxe** (normal1: 3 diamonds at y=-8..-10 on th
 Not fixed, needs a look in the world: hard3 at the hard anchor (141,131,30) after the harness's unstuck teleport - every dark-oak log `Cannot reach` within a second, explore `No path to the goal!` / `stopped early` with the bot not moving, `pillaring 4 up to the canopy log` 7 times in 64 s, and 46 `moved wrongly` teleports at (128,127,36) before that.
 
 Log lines to look for: `Left the tunnel`, `the bucket failed twice`, `waiting: bag full`, `Dropped`, `Food:` with health under 10, `swimming up` followed by `resumed`.
+
+## Round 16 (2026-10-17)
+
+Round 15 soak: 5 deaths (normal1 burned at y=-20; hard3 four times to zombies, three of them a respawn at night with an empty bag), no diamonds (the trip stood at y=-10 on a full bag), normal2 stuck for 23 min at bar 5 on the wood step, hard2 fled a witch for 1000 s. The drowning latch held (one swim-up, out). No `Left the tunnel`.
+
+- **Full bag, chest craft blocked** (normal1 idle 301 s on `waiting: bag full`): while crafts are paused, `inventoryJob` never offers a chest craft (`ctx.noCraft`), so the junk drop goes out.
+- **Optional kit pieces** (`craft stone_shovel` / `Missing ingredients or a nearby crafting table` 66 times; the third failure's unblock explore went 64 blocks through caves at y=-20 into lava): a stone shovel or axe craft that failed 3 times is skipped for `KIT_SKIP_MS`=10 min (`... craft failed 3 times; skipped`), with no explore.
+- **Food emergency jumps the ladder** (normal2: bar 5, no food, ladder on the wood step, `Health or food is low` on every plank craft): `plan()` goes to the food step first when nothing edible is held and the bar is <= 6, or health is low under a bar of 18 (`foodEmergency`). Crafting is now a survival job (allowed at any health).
+- **Superseded resume** (hard3: Mob Defense paused a pig fight, the night shelter was queued, then `resumed the fight job`, then killed): a paused job with a newer queued job behind it is cancelled (`the paused ... job was superseded`).
+- **Hunt timeouts count** (3x `Fight timed out; pig is still standing`, each followed by a collect that reset the failures): a completed collect no longer resets the step's failure count.
+- **Witch flee bounded** (hard2: `fleeing witch` 330 lines over 1000 s): only a witch within 10 with a line of sight is fled, and after 45 s of fleeing, witches beyond 6 are ignored for 60 s (`fled a witch for 45 s`).
+
+Still open: hard runs (no iron yet; dark-oak `Cannot reach` near the anchor), a night respawn with an empty bag (zombie kills at the spawn), bed, bucket.

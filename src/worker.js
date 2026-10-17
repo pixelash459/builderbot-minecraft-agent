@@ -526,7 +526,12 @@ export class Worker extends EventEmitter {
     // back to the paused job immediately, whatever the trackers are doing.
     try{
      if(this.taskRunner.status().task===null&&!this.userStopped&&!this.deathResume){
-      for(const j of this.jobs)if(j.status==='paused'&&/^(Preempted by|Job interrupted|Reflex:)/.test(String(j.message))){this.log('Reflex: resumed the '+j.spec.type+' job');this.resume(j.id);}
+      // Round 16: a paused job with a newer job queued behind it was superseded (the night
+      // shelter queued while Mob Defense held a pig fight): cancel it rather than resume it.
+      for(const [i,j] of this.jobs.entries())if(j.status==='paused'&&/^(Preempted by|Job interrupted|Reflex:)/.test(String(j.message))){
+       if(this.jobs.slice(i+1).some(k=>k.status==='queued')){this.log('Reflex: the paused '+j.spec.type+' job was superseded; cancelled');j.status='cancelled';continue;}
+       this.log('Reflex: resumed the '+j.spec.type+' job');this.resume(j.id);
+      }
       // A job queued behind a tree that has now ended: pump is event-driven (submit/finish),
       // so without this re-pump it would starve until the next submit.
       if(this.jobs.some(j=>j.status==='queued'))this.pump();
@@ -626,7 +631,7 @@ export class Worker extends EventEmitter {
   const job=this.jobs.find(j=>j.status==='queued'&&SURVIVAL_JOBS.has((j.spec||{}).type))||this.jobs.find(j=>j.status==='queued');if(!job)return;
   this.busy=true;job.status='running';job.message='Working';this.save();const token=this.epoch;
   const minutes=['sleep','shelter'].includes(job.spec.type)?this.config.limits.nightMinutes??13:this.config.limits.jobMinutes;
-  this.deadline=Date.now()+minutes*60000;this.survivalJob=['eat','equip','smelt','sleep','shelter','fight','hunt','collect'].includes(job.spec.type)||!!job.spec.forFood; // getting food must run on an empty bar
+  this.deadline=Date.now()+minutes*60000;this.survivalJob=['eat','equip','smelt','sleep','shelter','fight','hunt','collect','craft'].includes(job.spec.type)||!!job.spec.forFood; // getting food must run on an empty bar
   const watchdog=setInterval(()=>{if(Date.now()>this.deadline)this.stop('Job time limit reached','timeout');},1000);
   // runSettled resolves only once run(job) has FULLY unwound (every inner finally). A stop
   // resolves the race below while run is still unwinding; reflexes await runSettled before
