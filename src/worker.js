@@ -127,6 +127,20 @@ export function openStandNear(b,radius=12){
  }
  return null;
 }
+// Round 23: bed spots around `feet` (nearest first): {foot, head, dir}; the head is one cell
+// further from the bot along the dominant axis (the facing a placing player has).
+export function bedSpots(at,feet){
+ const open=bl=>!!bl&&bl.boundingBox!=='block'&&!/water|lava|fire/.test(bl.name);
+ const floor=bl=>!!bl&&bl.boundingBox==='block';
+ const out=[];
+ for(const dy of [0,-1,1])for(let r=1;r<=3;r++)for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]){
+  const foot={x:feet.x+dx*r,y:feet.y+dy,z:feet.z+dz*r},head={x:foot.x+dx,y:foot.y,z:foot.z+dz};
+  if(!open(at(foot.x,foot.y,foot.z))||!open(at(head.x,head.y,head.z)))continue;
+  if(!floor(at(foot.x,foot.y-1,foot.z))||!floor(at(head.x,head.y-1,head.z)))continue;
+  out.push({foot,head,dir:{x:dx,z:dz}});
+ }
+ return out;
+}
 // Round 21 diagnostic: what fills the bag - item names by slots used, most first (`name:slots`).
 export function slotUse(b){
  try{const m={};for(const i of b.inventory.items())m[i.name]=(m[i.name]||0)+1;
@@ -2979,8 +2993,31 @@ export class Worker extends EventEmitter {
   try{await b.placeBlock(below,new Vec3(0,1,0));}catch{}
   await sleep(250);b.setControlState('jump',false);
  }
+ // Foot cells 1-3 out at feet level (then one up or down), each with its head cell along the
+ // bot->foot axis: both open (air or a replaceable plant), both on solid ground, the bot in
+ // neither, the foot within reach. Placed on the foot's floor with the bot facing that axis.
+ async placeBed(token,name){
+  const b=this.bot,feet=b.entity.position.floored();
+  const eye=()=>b.entity.position.offset(0,b.entity.eyeHeight||1.62,0);
+  for(const c of bedSpots((x,y,z)=>b.blockAt(new Vec3(x,y,z)),feet)){
+   if(eye().distanceTo(new Vec3(c.foot.x+.5,c.foot.y+.5,c.foot.z+.5))>4.4)continue;
+   if(hitsBot(b.entity.position,c.foot.x,c.foot.y,c.foot.z)||hitsBot(b.entity.position,c.head.x,c.head.y,c.head.z))continue;
+   this.check(token);
+   const item=b.inventory.items().find(i=>i.name===name);if(!item)throw Error('Ran out of '+name);
+   await b.equip(item,'hand');
+   try{await b.look(Math.atan2(-c.dir.x,-c.dir.z),0.6,true);}catch{}
+   try{await b.placeBlock(b.blockAt(new Vec3(c.foot.x,c.foot.y-1,c.foot.z)),new Vec3(0,1,0));}catch(e){this.log('place '+name+' at '+c.foot.x+','+c.foot.y+','+c.foot.z+' threw '+String(e.message).slice(0,60));}
+   await sleep(250);
+   for(const q of [c.foot,c.head])if(/_bed$/.test(b.blockAt(new Vec3(q.x,q.y,q.z))?.name||''))return new Vec3(c.foot.x,c.foot.y,c.foot.z);
+  }
+  return null;
+ }
  async placeBlockNear(token,name){
   const b=this.bot;
+  // Round 23 (round-22 hard1: 7 bed places refused, `the block is still air`): a bed is two
+  // cells - the foot where it is placed and the head one further along the bot's facing. Pick a
+  // foot whose head cell is open on solid ground too; the generic planner checks the foot only.
+  if(/_bed$/.test(name)){const at=await this.placeBed(token,name);if(at)return at;}
   const id=b.registry.blocksByName[name]?.id;
   const seen=new Set((id?b.findBlocks({matching:id,maxDistance:6,count:16}):[]).map(p=>p.x+','+p.y+','+p.z));
   const foundNew=()=>{

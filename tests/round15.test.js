@@ -149,3 +149,26 @@ test('round 22: distant silverfish are ignored by Mob Defense',()=>{
  const bot={entity:{position:new Vec3(0,64,0)},entities:{1:ent('silverfish',6),2:ent('silverfish',7)},health:20,food:20,inventory:{items:()=>[],slots:[]},time:{timeOfDay:6000},heldItem:null,blockAt:()=>null};
  assert.ok(m.priority(bot,{config:{chains:{}},move:{},trackers:{},blacklist:{}})<60,'two silverfish 6-7 away: no flee');
 });
+// ---- round 23 ----
+import {bedSpots} from '../src/worker.js';
+test('round 23: a bed spot needs its head cell open on solid ground too',()=>{
+ // flat ground at y=63, the bot at (0,64,0), a wall at x=2 (so east r=1 has no head room)
+ const at=(x,y,z)=>y<64?{name:'stone',boundingBox:'block'}:(x===2&&y<66?{name:'stone',boundingBox:'block'}:{name:'air',boundingBox:'empty'});
+ const spots=bedSpots(at,{x:0,y:64,z:0});
+ assert.ok(spots.length>0);
+ assert.ok(!spots.some(s=>s.foot.x===1&&s.foot.z===0),'east: the head would be in the wall');
+ const west=spots.find(s=>s.foot.x===-1&&s.foot.z===0);
+ assert.deepEqual(west.head,{x:-2,y:64,z:0});assert.deepEqual(west.dir,{x:-1,z:0});
+ assert.deepEqual(bedSpots(()=>({name:'stone',boundingBox:'block'}),{x:0,y:64,z:0}),[],'boxed in: no spot');
+});
+test('round 23: a deep-dark refusal climbs out and sets diamond trips aside',async()=>{
+ const {Autopilot,DIAMOND_OFF_MS}=await import('../src/autopilot.js');
+ const ap=Object.create(Autopilot.prototype);
+ const submitted=[];
+ Object.assign(ap,{failures:{},current:{id:'j1',step:'iron',spec:{type:'gather',block:'iron_ore'}},currentStep:'iron',lastSurfaceY:122,log(){},state:'',
+  worker:{bot:{entity:{position:new Vec3(0,-30,0)},blockAt:()=>null}},submit(step,spec){submitted.push([step,spec]);}});
+ ap.settle({id:'j1',status:'failed',message:'Deep dark: sculk_catalyst at (511, -31, 79); leaving (warden)',spec:{type:'gather'}});
+ assert.equal(ap.escapeDark,true);assert.ok(ap.diamondOffUntil>Date.now()+DIAMOND_OFF_MS-1000);
+ ap.counts=()=>({});ap.decide({});
+ assert.deepEqual(submitted[0],['escape',{type:'ascend',y:122}]);
+});

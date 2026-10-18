@@ -1828,3 +1828,12 @@ Round 21 soak: **0 deaths**, zero `walk ok` (round 20: 142 of 148 attempts), no 
 - **Silverfish / endermites** are not fled or fought unless within 3 (`MINOR_MOBS`, `MINOR_NEAR`).
 
 Still open: the full-bag slot lists show many single slots (snowball, clay_ball, a second stone pickaxe and shovel, wool) - those need dropping too; pockets still came back 3 of 3; bed; bucket.
+
+## Round 23 (2026-10-19)
+
+Round 22 soak: **the best yet** - 0 deaths, **all 6 runs made a wooden pick, a stone pick and a furnace** (hard furnaces at 301/331/241 s; round 21 hard2/hard3 never made a wooden pick), iron pick 3/3 normal, hard1 crafted the first hard-run bed and its night mine came back with 8 ore items. The empty-path stall on the hard runs is gone (0 empty paths on hard; `trying without it` retries mostly moved on). Silverfish: no stall.
+
+- **Bed placement** (hard1: 7 places refused `the block is still air`, then `No clear spot to place a white_bed`, no sleep): a bed is two cells - the foot that is clicked and the head one further along the placer's facing. `placeBed` picks a foot (1-3 out, feet level then one down/up) whose head cell (one further from the bot along the same axis) is open too, both on solid ground, faces that axis and places on the foot's floor (`bedSpots`). The generic planner is the fallback.
+- **Deep dark leave** (normal1: `Deep dark: sculk_catalyst ...; leaving (warden)` 26 times in 5 min on the same cell): a deep-dark refusal now submits an `ascend` to the surface anchor next tick and sets diamond trips aside for `DIAMOND_OFF_MS` (`deep dark - climbing out`).
+
+Still open: diamonds (deepest trip y=-44, the strip at -53 not reached), bucket fills (`No path` / out of reach every time), normal3 ended at food bar 2 with `waiting: bag full (food craft)`.

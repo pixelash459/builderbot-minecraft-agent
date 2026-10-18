@@ -1009,6 +1009,7 @@ export class Autopilot{
    if(step==='bed-rung')this.bedOffUntil=Date.now()+BED_OFF_MS; // the ladder moves on
    if(step==='diamond-rung')this.diamondOffUntil=Date.now()+DIAMOND_OFF_MS;
    if(step==='inventory')this.invOffUntil=Date.now()+INV_OFF_MS; // a full chest, no spot: later
+   if(/[Dd]eep dark/.test(String(job.message))){this.escapeDark=true;this.diamondOffUntil=Date.now()+DIAMOND_OFF_MS;this.log('Autopilot: deep dark - climbing out; diamond trips set aside for '+DIAMOND_OFF_MS/60000+' min');}
    // Round 14 (round-13 normal2/normal3: `No room for crafting result` 167 times, a torch craft
    // every 8 s for 16 min in a full bag): no crafts for NO_ROOM_MS, and the inventory step is
    // due again now (its drop walks to open ground first).
@@ -1212,6 +1213,9 @@ export class Autopilot{
  }
  decide(b){
   const counts=this.counts();
+  // Round 23 (round-22 normal1: `Deep dark: sculk_catalyst ...; leaving (warden)` 26 times in
+  // 5 min while the bot stood on the same cell): leaving means going - climb toward the surface.
+  if(this.escapeDark){this.escapeDark=false;this.submit('escape',{type:'ascend',y:Number.isFinite(this.lastSurfaceY)?this.lastSurfaceY:64});return;}
   if(this.furnaceTick(b,counts))return;
   const animals=this.animalsNearby(b);
   const items=b.inventory.items().length;
