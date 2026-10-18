@@ -52,8 +52,9 @@ export function stepCost(block,hostiles,botPos){
   if(d<8)cost+=(8-d)*6;
   if(RANGED.test(e.name||'')&&d<16&&onShotLine(p.x+0.5,p.z+0.5,e.position,botPos))cost+=40;
  }
- return cost;
+ return Math.min(cost,STEP_COST_CAP); // round 22: shape paths, never price out every step
 }
+export const STEP_COST_CAP=40;
 
 // No-progress watchdog for a pathfinder that hangs without an event (issues
 // #222 and #273). A real step resets it; digging does not count as a stall.

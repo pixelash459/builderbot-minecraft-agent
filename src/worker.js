@@ -91,7 +91,7 @@ export const SMELT_TAKE=8;
 export const JUNK_IGNORE_MS=10*60000;
 // Round 13: a drop needs DROP_MIN_OPEN open cells (feet and head) in some direction, and waits
 // DROP_SETTLE_MS (the 2 s pickup delay of a tossed item, plus margin) before checking the count.
-export const DROP_MIN_OPEN=4,DROP_POCKET=5,DROP_SETTLE_MS=2600,CLIMB_DETOUR=6,CLIMB_LOST=5;
+export const STAIR_OUT=4,DROP_MIN_OPEN=4,DROP_POCKET=5,DROP_SETTLE_MS=2600,CLIMB_DETOUR=6,CLIMB_LOST=5;
 // Round 14 (round-13 normal1: two shears, then `Shearing produced no wool` on a shorn sheep
 // for 45 s, and no bed): a sheep's wool byte (metadata 17 on 1.21: bit 0x10 sheared, low 4
 // bits the colour) - {sheared, color} or null when unknown.
@@ -674,7 +674,7 @@ export class Worker extends EventEmitter {
   this.check(token);const bot=this.bot;
   const reached=()=>bot.entity?.onGround&&goal.isEnd(bot.entity.position.floored());
   if(reached())return;
-  try{this.applyMobAvoidance(bot.pathfinder.movements,bot);}catch{}
+  if(!this._noAvoid)try{this.applyMobAvoidance(bot.pathfinder.movements,bot);}catch{}
   let timer,monitor,last='none';
   const onPath=r=>{last=`${r.status}, ${r.path.length} steps, ${r.visitedNodes} nodes`;};bot.on('path_update',onPath);
   let track=trackProgress(bot.entity.position,Date.now());
@@ -688,7 +688,25 @@ export class Worker extends EventEmitter {
    if(track.stuck)reject(new Error('Navigation made no progress at '+bot.entity.position.floored()+' (last path: '+last+')'));
   },250);}),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error(`Navigation timed out at ${bot.entity.position.floored()} (onGround ${bot.entity.onGround}, last path: ${last})`)),seconds*1000);})]);this.check(token);
    // Round 21: goto() resolves on an EMPTY path (nothing found) as if it had arrived.
-   if(!goal.isEnd(bot.entity.position.floored())&&!reached())throw new Error('No path to the goal! (empty path at '+bot.entity.position.floored()+', last path: '+last+')');}
+   if(!goal.isEnd(bot.entity.position.floored())&&!reached()){
+    // Round 22 (round-21 hard2/hard3 stood 8 min on `noPath, 0 steps, 1 nodes` on open ground
+    // by the anchor at dawn): the mob-avoidance step cost (6 per block per hostile within 8)
+    // passed the search's cost cap, so not even the first step was tried. Path again once
+    // with avoidance off before treating the bot as boxed in.
+    const mv=bot.pathfinder.movements;
+    if(mv?._mobAvoidHook&&Array.isArray(mv.exclusionAreasStep)&&!this._noAvoid){
+     this._noAvoid=true;mv.exclusionAreasStep=mv.exclusionAreasStep.filter(fn=>fn!==mv._mobAvoidHook);mv._mobAvoidHook=null;
+     this.log('Navigation: no path with mob avoidance at '+bot.entity.position.floored()+'; trying without it');
+     try{return await this.navigate(goal,token,seconds);}finally{this._noAvoid=false;}
+    }
+    // Round 22: a search that could not leave its first node is a bot boxed in (a pit it dug,
+    // a sealed cell): stair out once toward the goal, then path again.
+    if(/ [12] nodes/.test(last)&&!this._staired){
+     this._staired=true;
+     try{if(await this.stairOut(token,goal))return await this.navigate(goal,token,seconds);}finally{this._staired=false;}
+    }
+    throw new Error('No path to the goal! (empty path at '+bot.entity.position.floored()+', last path: '+last+')');
+   }}
   finally{bot.off('path_update',onPath);clearTimeout(timer);clearInterval(monitor);if(token===this.epoch){bot.pathfinder.setGoal(null);unstickDigging(bot);bot.clearControlStates();}}
  }
  async walk(target,token,range=2,seconds=45){await this.navigate(new goals.GoalNear(target.x,target.y,target.z,range),token,seconds);}
@@ -3142,6 +3160,28 @@ export class Worker extends EventEmitter {
   await sleep(this.dropSettleMs??DROP_SETTLE_MS);
   if(this.count(s.item)>have-n)throw Error('Dropped '+s.item+' came back into the inventory');
   this.log('Dropped '+n+' '+s.item+(toss?' (toward '+toss.dir.x+','+toss.dir.z+', open '+toss.open+')':''));
+ }
+ // Round 22: up to STAIR_OUT steps of an upward staircase (each a checked tunnel step, dy +1),
+ // in the goal's direction first; true when the bot rose and now has an open side.
+ async stairOut(token,goal){
+  const b=this.bot,start=b.entity.position.floored();
+  const gx=goal.x??start.x,gz=goal.z??start.z,dx=Math.sign(gx-start.x),dz=Math.sign(gz-start.z);
+  const dirs=[...(Math.abs(gx-start.x)>=Math.abs(gz-start.z)?[[dx||1,0],[0,dz||1]]:[[0,dz||1],[dx||1,0]]),[1,0],[-1,0],[0,1],[0,-1]];
+  const seen=new Set();
+  for(const [x,z] of dirs){
+   const k=x+','+z;if(seen.has(k)||(!x&&!z))continue;seen.add(k);
+   const d=new Vec3(x,0,z),job={tunnel:[]};let n=0;
+   for(;n<STAIR_OUT;n++){
+    this.check(token);
+    try{await this.tunnelStep(job,token,d,1,false,undefined,true);}
+    catch(e){this.check(token);if(/^Tunnel stopped|stalled/.test(e.message))break;throw e;}
+    const f=b.entity.position.floored(),open=[[1,0],[-1,0],[0,1],[0,-1]].some(([ox,oz])=>{const a=b.blockAt(f.offset(ox,0,oz)),h=b.blockAt(f.offset(ox,1,oz));return a&&h&&a.boundingBox!=='block'&&h.boundingBox!=='block'&&!(ox===-x&&oz===-z);});
+    if(open)break;
+   }
+   if(n){this.log('Boxed in at '+start+': dug '+(n+1>STAIR_OUT?STAIR_OUT:n+1)+' steps up '+(x?(x>0?'east':'west'):(z>0?'south':'north'))+' to '+b.entity.position.floored());return true;}
+  }
+  this.log('Boxed in at '+start+': no way to stair out');
+  return false;
  }
  async dropPocket(token){
   const b=this.bot,start=b.entity.position.floored();

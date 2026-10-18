@@ -70,7 +70,10 @@ export class MobDefenseChain extends SingleTaskChain{
   // prioritizeEating: let FoodChain's critical eat happen before dodging anything.
   if(this.food&&this.food.needsToEatCritical&&this.food.needsToEatCritical(bot))return -1;
   this._doingFunkyStuff=false;
-  const hostiles=getHostiles(bot,ctx);
+  // Round 22 (round-21 normal3: `fleeing silverfish x4` and then 17 min of nothing, a drop job
+  // queued behind the flee): silverfish and endermites (1 damage, slow) are not worth a flee
+  // or a reflex unless one is within MINOR_NEAR - then it is fought like any other mob.
+  const hostiles=getHostiles(bot,ctx).filter(e=>!(MINOR_MOBS.has(e.name)&&!withinRange(e,bot,MINOR_NEAR)));
   if(hostiles.some(e=>withinRange(e,bot,16)))this._dangerUntil=this.now()+8;
   const policy=evaluateFight(bot,hostiles);
   // Night refuge (night.js): a perched bot holds its column (a creeper fusing at the base is
@@ -303,6 +306,7 @@ export class MobDefenseChain extends SingleTaskChain{
 }
 // LookHelper.seesPlayer port: sample the eye line for solid blocks. With no block data
 // (fake bots, unloaded chunks) the target counts as visible.
+export const MINOR_MOBS=new Set(['silverfish','endermite']),MINOR_NEAR=3;
 export const WARDEN_FLEE=24,WITCH_FLEE=10,WITCH_FLEE_MS=45000,WITCH_IGNORE_MS=60000;
 const canSee=(bot,from,range)=>{
  try{

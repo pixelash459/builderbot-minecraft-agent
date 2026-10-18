@@ -1818,3 +1818,13 @@ Round 20 soak: the pathfinder wedge is gone - **all 6 runs made a wooden pick** 
 - **Warden**: within `WARDEN_FLEE`=24 it is "universally dangerous" - Mob Defense runs.
 - **Drowning backstop**: a head under water for `HEAD_WET_MS`=8 s counts as low air whatever `oxygenLevel` says (the normal3 drown never saw the air reading drop).
 - **Diagnostic**: `Inventory nearly full; deposit items first (name:slots ...)` lists what fills the bag (normal2 stood 754 s and normal3 571 s on a full bag that drops did not clear).
+
+## Round 22 (2026-10-19)
+
+Round 21 soak: **0 deaths**, zero `walk ok` (round 20: 142 of 148 attempts), no wedge, no uncaught errors, iron pick 3/3 normal. But hard2 and hard3 never made a wooden pick: `No path to the goal! (empty path at ..., last path: noPath, 0 steps, 1 nodes)` 61 and 123 times, the bot on open ground by the anchor at dawn; hard1 dug itself into a pit under the canopy (y 126 -> 124). normal3 fled 4 silverfish and was silent for 17 min.
+
+- **Mob avoidance priced out every step.** `stepCost` adds 6 per block per hostile within 8 (plus 40 on a skeleton's shot line); with a dawn crowd one step cost more than the search's cost cap (`maxCost = h + searchRadius`), so the A* never left its first node. The cost is capped at `STEP_COST_CAP`=40 per step, and an empty path with the avoidance hook on is retried once without it (`no path with mob avoidance at ...; trying without it`).
+- **Boxed in**: an empty path whose search visited 1-2 nodes runs `stairOut` - up to `STAIR_OUT`=4 checked upward tunnel steps (dy +1) toward the goal (then the other sides) - and paths again (`Boxed in at ...: dug N steps up ...`).
+- **Silverfish / endermites** are not fled or fought unless within 3 (`MINOR_MOBS`, `MINOR_NEAR`).
+
+Still open: the full-bag slot lists show many single slots (snowball, clay_ball, a second stone pickaxe and shovel, wool) - those need dropping too; pockets still came back 3 of 3; bed; bucket.

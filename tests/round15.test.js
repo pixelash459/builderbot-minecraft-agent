@@ -125,3 +125,27 @@ test('round 21: a head under water for 8 s is drowning even with a stale air rea
  w._handleDrowning(bot,{});assert.equal(w._drowning,false,'just under: air reads 20');
  w._headWetSince=Date.now()-9000;w._handleDrowning(bot,{});assert.equal(w._drowning,true,'9 s under: swim up');
 });
+// ---- round 22 ----
+test('round 22: an empty path under mob avoidance is retried without it, then a boxed-in bot stairs out',async()=>{
+ const {EventEmitter}=await import('node:events');
+ const hook=()=>0;let gotoCalls=0,stair=0;
+ const mv={exclusionAreasStep:[hook],_mobAvoidHook:hook};
+ const bot=Object.assign(new EventEmitter(),{entity:{onGround:true,position:new Vec3(0.5,64,0.5)},targetDigBlock:null,
+  pathfinder:{movements:mv,goto(){gotoCalls++;if(gotoCalls===2)bot.entity.position=new Vec3(20.5,64,0.5);return Promise.resolve();},setGoal(){},isMining:()=>false},clearControlStates(){}});
+ const w=Object.assign(Object.create(Worker.prototype),{bot,epoch:0,ready:true,deadline:Date.now()+60000,survivalJob:true,config:{limits:{minHealth:10,minFood:6}},logs:[],log(m){this.logs.push(m);},applyMobAvoidance(){}});
+ await w.navigate(new pf.goals.GoalNear(20,64,0,1),0,5);
+ assert.equal(gotoCalls,2,'the second try (no avoidance) arrived');
+ assert.equal(mv._mobAvoidHook,null);assert.ok(w.logs.some(m=>/trying without it/.test(m)));
+ // no avoidance hook and a 1-node search: stair out, then path again
+ bot.entity.position=new Vec3(0.5,64,0.5);gotoCalls=0;
+ bot.pathfinder.goto=()=>{gotoCalls++;bot.emit('path_update',{status:'noPath',path:[],visitedNodes:1});if(stair)bot.entity.position=new Vec3(20.5,64,0.5);return Promise.resolve();};
+ w.stairOut=async()=>{stair++;return true;};
+ await w.navigate(new pf.goals.GoalNear(20,64,0,1),0,5);
+ assert.equal(stair,1);assert.equal(gotoCalls,2);
+});
+test('round 22: distant silverfish are ignored by Mob Defense',()=>{
+ const m=new MobDefenseChain();
+ const ent=(name,x)=>({name,type:'hostile',position:new Vec3(x,64,0),isValid:true});
+ const bot={entity:{position:new Vec3(0,64,0)},entities:{1:ent('silverfish',6),2:ent('silverfish',7)},health:20,food:20,inventory:{items:()=>[],slots:[]},time:{timeOfDay:6000},heldItem:null,blockAt:()=>null};
+ assert.ok(m.priority(bot,{config:{chains:{}},move:{},trackers:{},blacklist:{}})<60,'two silverfish 6-7 away: no flee');
+});
