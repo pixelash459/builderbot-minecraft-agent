@@ -1790,3 +1790,21 @@ Zero lines that name `water_bucket`. Buckets were crafted at 19:25:13.250Z (norm
 ### Uncaught
 
 `logs/dashboard-uncaught.log` gained no bytes during the soak (size stayed 2576174). Zero lines in that file carry a timestamp inside 19:13:57Z–22:21:57Z. There is no line to quote from the soak window.
+
+## 2026-10-19 04:07–04:15 IST — units and combat (`edd3b0c`)
+
+`git pull --rebase` needed a stash of local `data/` dumps first (`unstaged changes`). After the stash, origin was already up to date, and the stash was popped. HEAD is `edd3b0c` (`Round 23: place a bed where its head fits, climb out of the deep dark`). The handover for this round is bed placement and the deep-dark climb. It does not ask for an integration run, so this round is units, one combat run, then the soak.
+
+Unit tests, every `tests/*.test.js` except `resources.test.js`, `--max-old-space-size=2048 --test-timeout=60000 --test-skip-pattern resources`: **569 passed, 0 failed** (41.4 s). The note expected 560; nothing failed.
+
+Services restarted with `AGENT_MODEL=off`. `Stop-Agent.ps1` saved the test world and stopped the services. `Start-Agent.ps1 -NoBrowser` then brought the dashboard up. Supervisor log first line: `model server disabled (config.model.enabled=false): skipping llama-server, saving ~6.5 GB commit`.
+
+`python -u tests/combat_integration.py`, model off, same process as that restart. Exit 0, 306 s (04:10:41–04:15:47 IST, 22:40:41Z–22:45:47Z). `All combat acceptance tests passed`. One run. Damage was measured, so there is no second run.
+
+`4_creeper` (lane): ttk 7.4 s, hits 5, `damage_taken=0`, end health 20, killed, no crater at the spawn, the midpoint, or the bot start. Dashboard: `Combat: pillar-up 2 at 1499,-60,1518 (creeper at 7.1)` at 22:42:40.653Z, then `pillar perched 2 up` at 22:42:41.453Z, then `perch 2 up is inside the fuse ring; knocking the creeper back (at 3.8)` and three `pillar-strike` lines. Fight result at 22:42:47.302Z: `tactic=bow hits=5 shots=0 released=0 landed=0 damage taken=0`.
+
+`4b_creeper_roofed`: ttk 5.3 s, hits 2, `damage_taken=0`, end health 20, killed, no crater at the spawn corner or the arena center. At 22:42:56.087Z `Combat: pillar-up 2 at 1496,-60,1497 (creeper at 7.8)`, then `pillar perched 2 up` at 22:42:56.853Z. Two arrows released (2.97 b/t and 2.99 b/t) and both landed. Fight result at 22:43:00.641Z: `tactic=bow hits=2 shots=2 released=2 landed=2 damage taken=0`.
+
+The witch leg printed `NOTE: witch survived the duel (job failed, lost 0 hp) - recorded as a measured 26.3 limit` and the suite still exited 0. Dashboard at 22:44:08.797Z: `Combat: avoid witch` and `avoid: the witch kites and out-potions the rush`, then 22:44:08.928Z `Job: Fight timed out; witch is still standing`. That is the recorded 26.3 limit, not a suite failure.
+
+The soak is next.
