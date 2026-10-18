@@ -122,7 +122,10 @@ export class WorldSurvivalChain extends SingleTaskChain{
   const touchingWater=e.isInWater===true||wet(head)||wet(feet);
   const breathing=!!head&&/^(air|cave_air|void_air)$/.test(head.name)&&e.isInWater!==true;
   const air=airOf(bot);
-  const lowAir=air<=6; // surface at the old reflex's threshold: below it the test's <10 floor must be reachable
+  const now=Date.now();
+  if(wet(head)){if(!this._headWetSince)this._headWetSince=now;}else this._headWetSince=0;
+  const longUnder=!!this._headWetSince&&now-this._headWetSince>=HEAD_WET_MS;
+  const lowAir=air<=6||longUnder; // surface at the old reflex's threshold: below it the test's <10 floor must be reachable
   if(touchingWater&&lowAir)this._drowning=true;
   // Round 19 (round-18 normal1 drowned: released with the air at 2 while the head bobbed at
   // the surface, then dragged under by the next job): air back to 18, or head and feet dry.
@@ -162,5 +165,5 @@ export class WorldSurvivalChain extends SingleTaskChain{
   return !!b&&b.name==='nether_portal';
  }
 }
-const WET=/^(water|bubble_column|seagrass|tall_seagrass|kelp|kelp_plant)$/;
+const WET=/^(water|bubble_column|seagrass|tall_seagrass|kelp|kelp_plant)$/,HEAD_WET_MS=8000;
 const airOf=bot=>typeof bot.oxygenLevel==='number'?bot.oxygenLevel:(typeof bot.oxygen==='number'?bot.oxygen:20);

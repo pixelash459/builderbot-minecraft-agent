@@ -127,6 +127,21 @@ export function openStandNear(b,radius=12){
  }
  return null;
 }
+// Round 21 diagnostic: what fills the bag - item names by slots used, most first (`name:slots`).
+export function slotUse(b){
+ try{const m={};for(const i of b.inventory.items())m[i.name]=(m[i.name]||0)+1;
+  return Object.entries(m).sort((a,c)=>c[1]-a[1]).slice(0,10).map(([n,k])=>n+':'+k).join(' ');}catch{return '?';}
+}
+// Round 21: a sculk sensor, shrieker or catalyst within DEEP_DARK_NEAR - the deep dark, where
+// a few footsteps call a warden. The block, or null.
+export const DEEP_DARK_NEAR=12;
+export function deepDarkNear(b){
+ try{
+  const ids=['sculk_sensor','calibrated_sculk_sensor','sculk_shrieker','sculk_catalyst'].map(n=>b.registry?.blocksByName?.[n]?.id).filter(id=>id!=null);
+  if(!ids.length||typeof b.findBlock!=='function')return null;
+  return b.findBlock({matching:ids,maxDistance:DEEP_DARK_NEAR})||null;
+ }catch{return null;}
+}
 // Round 20: the pathfinder's `digging` flag outliving every dig (no bot dig in progress) wedges
 // all pathing; setGoal(null) armed its diggingAborted listener, so firing it clears the flag.
 export function unstickDigging(bot){
@@ -671,7 +686,9 @@ export class Worker extends EventEmitter {
    if(bot.targetDigBlock){track=trackProgress(bot.entity.position,Date.now());return;}
    track=trackProgress(bot.entity.position,Date.now(),track);
    if(track.stuck)reject(new Error('Navigation made no progress at '+bot.entity.position.floored()+' (last path: '+last+')'));
-  },250);}),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error(`Navigation timed out at ${bot.entity.position.floored()} (onGround ${bot.entity.onGround}, last path: ${last})`)),seconds*1000);})]);this.check(token);}
+  },250);}),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error(`Navigation timed out at ${bot.entity.position.floored()} (onGround ${bot.entity.onGround}, last path: ${last})`)),seconds*1000);})]);this.check(token);
+   // Round 21: goto() resolves on an EMPTY path (nothing found) as if it had arrived.
+   if(!goal.isEnd(bot.entity.position.floored())&&!reached())throw new Error('No path to the goal! (empty path at '+bot.entity.position.floored()+', last path: '+last+')');}
   finally{bot.off('path_update',onPath);clearTimeout(timer);clearInterval(monitor);if(token===this.epoch){bot.pathfinder.setGoal(null);unstickDigging(bot);bot.clearControlStates();}}
  }
  async walk(target,token,range=2,seconds=45){await this.navigate(new goals.GoalNear(target.x,target.y,target.z,range),token,seconds);}
@@ -2202,7 +2219,8 @@ export class Worker extends EventEmitter {
    };
    let lastScan=0,lastCount=null;
    while(count_()-job.startDrop<s.count){
-    this.check(token);if(b.inventory.emptySlotCount()<2)throw Error('Inventory nearly full; deposit items first');
+    this.check(token);if(b.inventory.emptySlotCount()<2)throw Error('Inventory nearly full; deposit items first ('+slotUse(b)+')');
+    const dark=deepDarkNear(b);if(dark)throw Error('Deep dark: '+dark.name+' at '+dark.position.floored()+'; leaving (warden)');
     if(s.smeltAt)await this.kilnTick(job,token);
     // One rescan per second at most while nothing is being collected.
     const have=count_();
@@ -2553,6 +2571,7 @@ export class Worker extends EventEmitter {
  // ends up below the step dropped somewhere: the tunnel stops there.
  async tunnelStep(job,token,dir,dy,corner,natural,noTurn=false){
   const b=this.bot;
+  {const dark=deepDarkNear(b);if(dark)throw Error('Tunnel stopped: deep dark ('+dark.name+' at '+dark.position.floored()+')');}
   const plan=planTunnelStep(b,job,dir,dy,noTurn);
   if(!plan.next)throw Error('Tunnel stopped: '+(plan.why.join('; ')||'no safe step')+'; no safe way on');
   const next=plan.next;

@@ -1808,3 +1808,13 @@ Cause (`logs/dashboard-uncaught.log`, `Cannot read properties of null (reading '
 - `worker.navigate` finally: `unstickDigging(bot)` - after `setGoal(null)` (which arms the pathfinder's `diggingAborted` listener), a `digging` flag with no bot dig in progress is cleared by emitting `diggingAborted`.
 
 Round 19's other changes held: `Inventory nearly full` 4x each followed by a drop; 7x `deep underground; no cave explore` and no cave walk; 2 hazard cancels; no drowning. Pockets still came back 4 of 4 (next round). Ascend never reached the surface (that run's pathfinder wedge).
+
+## Round 21 (2026-10-18)
+
+Round 20 soak: the pathfinder wedge is gone - **all 6 runs made a wooden pick** (round 19: 1 of 6), zero `last path: none`, no uncaught errors; hard2/hard3 reached the furnace. 2 deaths: normal1 `obliterated by a sonically-charged shriek` (a warden) at y=-33 after 13 s of diamond-ore attempts in place, and normal3 drowned at (239,60,83) with **no** `swimming up` line.
+
+- **Empty path is a failure.** mineflayer-pathfinder's `goto()` RESOLVES when a path update comes back with zero steps (`noPathListener`: `if (results.path.length === 0) cleanup()`), i.e. "no path at all" looks like arrival. That is every `walk ok` on a target 6-18 blocks away (102 of 104 dark-oak refusals on the hard runs, the 13 diamond-ore attempts before the warden). `navigate` now throws `No path to the goal! (empty path at ...)` when goto resolves but the goal is not reached.
+- **Deep dark**: a sculk sensor/shrieker/catalyst within `DEEP_DARK_NEAR`=12 stops a gather (`Deep dark: ... leaving (warden)`) and a tunnel step (`Tunnel stopped: deep dark (...)`).
+- **Warden**: within `WARDEN_FLEE`=24 it is "universally dangerous" - Mob Defense runs.
+- **Drowning backstop**: a head under water for `HEAD_WET_MS`=8 s counts as low air whatever `oxygenLevel` says (the normal3 drown never saw the air reading drop).
+- **Diagnostic**: `Inventory nearly full; deposit items first (name:slots ...)` lists what fills the bag (normal2 stood 754 s and normal3 571 s on a full bag that drops did not clear).

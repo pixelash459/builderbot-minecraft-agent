@@ -95,3 +95,33 @@ test('round 20: a null block never throws in the tool lookup, and a stale diggin
  unstickDigging(b2);assert.equal(fired,1,'flag set with no dig running: aborted');
  b2.targetDigBlock={name:'stone'};unstickDigging(b2);assert.equal(fired,1,'a real dig is left alone');
 });
+// ---- round 21 ----
+import {deepDarkNear} from '../src/worker.js';
+import {MobDefenseChain} from '../src/chains/mobDefenseChain.js';
+import pf from 'mineflayer-pathfinder';
+test('round 21: an empty path is a failure, not an arrival',async()=>{
+ const {EventEmitter}=await import('node:events');
+ const bot=Object.assign(new EventEmitter(),{entity:{onGround:true,position:new Vec3(0.5,64,0.5)},targetDigBlock:null,
+  pathfinder:{movements:{},goto:()=>Promise.resolve(),setGoal(){},isMining:()=>false},clearControlStates(){}});
+ const w=Object.assign(Object.create(Worker.prototype),{bot,epoch:0,ready:true,deadline:Date.now()+60000,survivalJob:true,config:{limits:{minHealth:10,minFood:6}},applyMobAvoidance(){}});
+ await assert.rejects(w.navigate(new pf.goals.GoalNear(20,64,0,1),0,5),/No path to the goal! \(empty path/);
+ await w.navigate(new pf.goals.GoalNear(0,64,0,1),0,5); // already there: fine
+});
+test('round 21: deep dark and the warden',()=>{
+ const reg={blocksByName:{sculk_shrieker:{id:7},sculk_sensor:{id:8}}};
+ const shrieker={name:'sculk_shrieker',position:new Vec3(3,-40,0)};
+ assert.equal(deepDarkNear({registry:reg,findBlock:()=>shrieker}),shrieker);
+ assert.equal(deepDarkNear({registry:reg,findBlock:()=>null}),null);
+ assert.equal(deepDarkNear({registry:{blocksByName:{}},findBlock:()=>shrieker}),null,'no sculk in the registry');
+ const m=new MobDefenseChain();
+ const bot={entity:{position:new Vec3(0,-40,0)},health:20};
+ assert.equal(m._universallyDangerous([{name:'warden',position:new Vec3(20,-40,0)}],bot),true);
+ assert.equal(m._universallyDangerous([{name:'warden',position:new Vec3(40,-40,0)}],bot),false);
+});
+test('round 21: a head under water for 8 s is drowning even with a stale air reading',()=>{
+ const w=new WorldSurvivalChain();
+ const blocks={'0,-59,0':{name:'water'},'0,-60,0':{name:'water'}};
+ const bot={oxygenLevel:20,entity:{position:new Vec3(0.5,-60,0.5),isInWater:false},blockAt:p=>blocks[Math.floor(p.x)+','+Math.floor(p.y)+','+Math.floor(p.z)]||null,setControlState(){}};
+ w._handleDrowning(bot,{});assert.equal(w._drowning,false,'just under: air reads 20');
+ w._headWetSince=Date.now()-9000;w._handleDrowning(bot,{});assert.equal(w._drowning,true,'9 s under: swim up');
+});

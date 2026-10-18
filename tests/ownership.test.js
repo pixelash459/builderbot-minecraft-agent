@@ -21,7 +21,8 @@ function makeBot(){
   setGoal(g){calls.push(['setGoal',g]);this.goal=g;},
   stop(){calls.push(['stop']);},
   setMovements(m){calls.push(['setMovements',m]);this.movements=m;},
-  goto(goal){calls.push(['goto',goal]);this.goal=goal;return gotoNext();} // the real pathfinder installs the goal on goto
+  // A goto that resolves has arrived (round 21: navigate checks the goal really is reached).
+  goto(goal){calls.push(['goto',goal]);this.goal=goal;return Promise.resolve(gotoNext()).then(v=>{if(goal&&goal.x!==undefined)bot.entity.position=new Vec3(goal.x,goal.y??bot.entity.position.y,goal.z);return v;});} // the real pathfinder installs the goal on goto
  };
  Object.assign(bot,{
   entities:{},health:20,food:20,oxygenLevel:20,time:{timeOfDay:1000},

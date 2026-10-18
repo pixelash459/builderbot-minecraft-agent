@@ -270,6 +270,7 @@ export class MobDefenseChain extends SingleTaskChain{
   const angry=e=>true; // mineflayer has no anger state; presence within range stands in
   const wither=hostiles.find(e=>e.name==='wither_skeleton'&&withinRange(e,bot,SAFE_KEEP_DISTANCE-2));
   if(wither&&angry(wither))return true;
+  if(hostiles.some(e=>e.name==='warden'&&withinRange(e,bot,WARDEN_FLEE)))return true; // round 21
   if(bot.health<10&&hostiles.some(e=>(e.name==='hoglin'||e.name==='zoglin')&&withinRange(e,bot,SAFE_KEEP_DISTANCE-1)))return true;
   return false;
  }
@@ -302,7 +303,7 @@ export class MobDefenseChain extends SingleTaskChain{
 }
 // LookHelper.seesPlayer port: sample the eye line for solid blocks. With no block data
 // (fake bots, unloaded chunks) the target counts as visible.
-export const WITCH_FLEE=10,WITCH_FLEE_MS=45000,WITCH_IGNORE_MS=60000;
+export const WARDEN_FLEE=24,WITCH_FLEE=10,WITCH_FLEE_MS=45000,WITCH_IGNORE_MS=60000;
 const canSee=(bot,from,range)=>{
  try{
   const me=bot.entity.position;
