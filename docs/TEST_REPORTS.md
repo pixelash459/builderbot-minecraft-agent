@@ -1612,3 +1612,24 @@ Zero lines that name `water_bucket`. Buckets were crafted at 15:27:10.366Z, 16:1
 ### Uncaught
 
 `logs/dashboard-uncaught.log` gained no bytes during the soak (size stayed 2576174). Zero lines in that file carry a timestamp inside 15:13:01Z–18:21:00Z. There is no line to quote from the soak window.
+
+## 2026-10-19 00:22–00:41 IST — units and integration (`e1e2f1c`, also `ac4d6c0`)
+
+`git pull --rebase` needed a stash of local `data/` dumps first (`unstaged changes`). After the stash, origin was already up to date, and the stash was popped. HEAD is `e1e2f1c`. Two Round 22 commits, both bot code (neither is docs-only):
+
+- `ac4d6c0` retries a path without mob avoidance when avoidance priced out every step, stairs out when boxed in, and ignores distant silverfish (`src/move-safety.js`, `src/worker.js`, `src/chains/mobDefenseChain.js`, `tests/round15.test.js`).
+- `e1e2f1c` treats snowballs and clay balls as junk (`src/autopilot.js`).
+
+Unit tests, every `tests/*.test.js` except `resources.test.js`, `--max-old-space-size=2048 --test-timeout=60000 --test-skip-pattern resources`: **567 passed, 0 failed** (42.0 s). The note expected 558; nothing failed.
+
+Services restarted with `AGENT_MODEL=off`. `Stop-Agent.ps1` saved the test world and stopped the services. The old test-server and dashboard PIDs were dead, and 8765/8766/8081/25569 were not listening. `Start-Agent.ps1 -NoBrowser` then brought the dashboard up. Supervisor log first line: `model server disabled (config.model.enabled=false): skipping llama-server, saving ~6.5 GB commit`.
+
+`python -u tests/integration.py`, model off. Exit 0, 1063 s (00:23:59–00:41:42 IST, 18:53:59Z–19:11:42Z). `All in-game integration tests passed`.
+
+Reflex line from the suite: `Reflex paused the gather: Reflex: preempted by Mob Defense`. The suite also logged `PASS: armed bot reflex killed the zombie`, `PASS: unarmed bot fled to 10.1 blocks`, `PASS: creeper avoided at 11.0 blocks`, `PASS: reflex auto-ate without a job (11 -> 17)`, `PASS: reflex auto-equipped the iron chestplate`, `PASS: reflex surfaced the drowning bot`, and `PASS: gather paused by a reflex resumed and completed`.
+
+`PASS: A4 escaped the lava trench (hp 19.8, at [1649, -59, 1649])`.
+
+The dashboard window (522 timestamped lines) has zero `empty path` lines, zero `Boxed in` lines, and zero `No path to the goal!` lines. `trying without it` is 23 lines, all the same cell, from 19:00:46.800Z to 19:00:56.463Z: `Navigation: no path with mob avoidance at (1008, -60, 997); trying without it`. The next job line is 19:00:56.999Z `Job: No matching blocks within the allowed radius`, then a harness teleport to (1008, -60, 997) at 19:00:57.741Z. The retry did not log a reached goal before that job ended. The suite still passed.
+
+The soak is next. This round has no combat run.
