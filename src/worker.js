@@ -530,6 +530,8 @@ export class Worker extends EventEmitter {
       // shelter queued while Mob Defense held a pig fight): cancel it rather than resume it.
       for(const [i,j] of this.jobs.entries())if(j.status==='paused'&&/^(Preempted by|Job interrupted|Reflex:)/.test(String(j.message))){
        if(this.jobs.slice(i+1).some(k=>k.status==='queued')){this.log('Reflex: the paused '+j.spec.type+' job was superseded; cancelled');j.status='cancelled';continue;}
+       // Round 19: a job a World Survival escape (lava, fire, water) took over walked into it.
+       if(/World Survival/.test(String(j.message))&&['explore','goto','gather'].includes(j.spec.type)){this.log('Reflex: the '+j.spec.type+' job led into a hazard; cancelled, not resumed');j.status='cancelled';continue;}
        this.log('Reflex: resumed the '+j.spec.type+' job');this.resume(j.id);
       }
       // A job queued behind a tree that has now ended: pump is event-driven (submit/finish),
@@ -2394,7 +2396,7 @@ export class Worker extends EventEmitter {
          if(!b.canDigBlock(target))await this.canopyDrop(token,target);
         }
        }
-       if(!b.canDigBlock(target))throw Error('Cannot reach or harvest this block'+(walkErr?' (walk: '+String(walkErr.message).slice(0,50)+'; bot at '+b.entity.position.floored()+', '+b.entity.position.distanceTo(target.position).toFixed(1)+' away)':''));
+       if(!b.canDigBlock(target))throw Error('Cannot reach or harvest this block ('+(walkErr?'walk: '+String(walkErr.message).slice(0,70)+'; ':'walk ok; ')+'bot at '+b.entity.position.floored()+', '+b.entity.position.offset(0,b.entity.eyeHeight||1.62,0).distanceTo(target.position.offset(.5,.5,.5)).toFixed(1)+' from the eye)');
        const harvest=b.registry.blocks[target.type]?.harvestTools;if(harvest&&!harvest[b.heldItem?.type])throw Error('A suitable harvesting tool is required');
        if(target.position.equals(b.entity.position.floored().offset(0,-1,0)))throw Error('Walked onto the target; it is under the bot now');
        for(const delta of [new Vec3(0,1,0),new Vec3(1,0,0),new Vec3(-1,0,0),new Vec3(0,0,1),new Vec3(0,0,-1)])if(['lava','water'].includes(b.blockAt(target.position.plus(delta))?.name))throw Error('Fluid beside target');
@@ -3094,7 +3096,9 @@ export class Worker extends EventEmitter {
    // Round 17 (round-16 normal3: `No room to toss cobblestone (open run 0)` once a minute for
    // 10 min in a staircase at y=88): nowhere open within reach - dig a level pocket
    // DROP_POCKET cells long (checked like any tunnel step), walk back out and toss into it.
-   if(toss&&toss.open<DROP_MIN_OPEN&&!stand)toss=await this.dropPocket(token)||toss;
+   // Round 19: also when the stand was found but not reached (round-18 normal2: `open run 1`
+   // once a minute for 9 min, no pocket dug).
+   if(toss&&toss.open<DROP_MIN_OPEN)toss=await this.dropPocket(token)||toss;
   }
   if(toss&&toss.open<DROP_MIN_OPEN)throw Error('No room to toss '+s.item+' (open run '+toss.open+')');
   if(toss)try{await b.look(Math.atan2(-toss.dir.x,-toss.dir.z),0.3,true);}catch{}

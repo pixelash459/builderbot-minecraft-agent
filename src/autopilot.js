@@ -62,7 +62,7 @@ export function grazeDirection(bot){
 // M5 (iron): [item, ingots, sticks] crafted first, in this order; then the rest of the kit.
 const IRON_CORE=[['iron_pickaxe',3,2],['iron_sword',2,1],['shield',1,0]];
 // The food graze may go this far below its anchor (hills, not caves).
-const GRAZE_DEPTH=6,ASCEND_BELOW=16;
+const GRAZE_DEPTH=6,ASCEND_BELOW=16,DEEP_COOL_MS=20000;
 const STONE_KIT=[['stone_pickaxe',3],['stone_sword',2],['stone_axe',3],['stone_shovel',1]];
 // Round 16: kit pieces the ladder can go on without (a craft that keeps failing is skipped).
 export const OPTIONAL_KIT=new Set(['stone_shovel','stone_axe']),KIT_SKIP_MS=10*60000;
@@ -980,6 +980,13 @@ export class Autopilot{
   this.submit('night',job,{keepHolds:true});
   return true;
  }
+ // Round 19: the bot stands more than ASCEND_BELOW under its surface anchor with no sky above
+ // it (a valley under a stale anchor is not underground).
+ deepUnderground(){
+  const b=this.worker.bot,p=b?.entity?.position,y=p?.y,top=this.lastSurfaceY??this.foodAnchorY;
+  if(!(Number.isFinite(y)&&Number.isFinite(top)&&y<top-ASCEND_BELOW))return false;
+  try{const head=b.blockAt(p.offset(0,1.6,0));return !!head&&head.skyLight===0;}catch{return false;}
+ }
  recovering(b){
   const min=this.worker.config?.limits?.minHealth??10;
   if(!(b.health<min)){this.lowSince=0;this.recoverAte=false;return false;}
@@ -1005,7 +1012,7 @@ export class Autopilot{
    // Round 14 (round-13 normal2/normal3: `No room for crafting result` 167 times, a torch craft
    // every 8 s for 16 min in a full bag): no crafts for NO_ROOM_MS, and the inventory step is
    // due again now (its drop walks to open ground first).
-   if(/No room for crafting result/.test(String(job.message))){this.noRoomUntil=Date.now()+NO_ROOM_MS;this.invOffUntil=0;this.log('Autopilot: the bag is full; no crafting for '+NO_ROOM_MS/60000+' min, clearing junk first');}
+   if(/No room for crafting result|Inventory nearly full/.test(String(job.message))){this.noRoomUntil=Date.now()+NO_ROOM_MS;this.invOffUntil=0;this.log('Autopilot: the bag is full; no crafting for '+NO_ROOM_MS/60000+' min, clearing junk first');}
    if(step==='farm')this.farmOffUntil=Date.now()+FARM_OFF_MS;
    // A water source the bucket could not fill from (out of reach on a cliff, ray blocked) is
    // skipped for 10 min, so the next try picks another source (round 11: the same out-of-reach
@@ -1027,6 +1034,10 @@ export class Autopilot{
    else if(this.failures[step]>=3&&job.spec?.type==='craft'&&OPTIONAL_KIT.has(job.spec.item)){
     this.failures[step]=0;(this.kitSkip||(this.kitSkip={}))[job.spec.item]=Date.now()+KIT_SKIP_MS;
     this.state='retry: '+step;this.log('Autopilot: '+job.spec.item+' craft failed 3 times; skipped for '+KIT_SKIP_MS/60000+' min');
+   }
+   else if(this.failures[step]>=3&&STEPS.some(st=>st.name===step)&&this.deepUnderground()){
+    this.failures[step]=0;this.coolUntil=Date.now()+DEEP_COOL_MS;this.state='retry: '+step+' (deep: no explore)';
+    this.log('Autopilot: '+step+' failed 3 times deep underground; no cave explore, retrying in '+DEEP_COOL_MS/1000+' s');
    }
    else if(this.failures[step]>=3&&STEPS.some(st=>st.name===step)){this.state='blocked: '+step+' (exploring elsewhere)';this.log('Autopilot: '+step+' failed '+this.failures[step]+' times; exploring before retry');}
    else this.state='retry: '+step+' ('+this.failures[step]+'/3)';
@@ -1238,7 +1249,7 @@ export class Autopilot{
   // Round 15 (round-14 normal1: `waiting: bag full (stone craft)` for 511 s at y=-58 with the
   // inventory step set aside): a bag still full while crafts wait gets a junk drop once a minute
   // whatever the step's backoff says.
-  const bagStuck=Date.now()<(this.noRoomUntil||0)&&(this.worker.slotsFull?this.worker.slotsFull():0)>=1;
+  const bagStuck=Date.now()<(this.noRoomUntil||0)&&((this.worker.slotsFull?this.worker.slotsFull():0)>=1||(this.worker.bot?.inventory?.emptySlotCount?.()??9)<2);
   const forced=bagStuck&&Date.now()-(this.forcedDropAt||0)>=FORCED_DROP_MS;
   if(Date.now()>=(this.invOffUntil||0)||forced){
    if(forced)this.forcedDropAt=Date.now();

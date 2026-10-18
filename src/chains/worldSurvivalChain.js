@@ -124,7 +124,9 @@ export class WorldSurvivalChain extends SingleTaskChain{
   const air=airOf(bot);
   const lowAir=air<=6; // surface at the old reflex's threshold: below it the test's <10 floor must be reachable
   if(touchingWater&&lowAir)this._drowning=true;
-  else if(air>=18||(this._drowning?breathing:!touchingWater))this._drowning=false;
+  // Round 19 (round-18 normal1 drowned: released with the air at 2 while the head bobbed at
+  // the surface, then dragged under by the next job): air back to 18, or head and feet dry.
+  else if(air>=18||!touchingWater)this._drowning=false;
   if(touchingWater&&lowAir){
    try{bot.setControlState('jump',true);}catch{}
    this._wasAvoidingDrowning=true;

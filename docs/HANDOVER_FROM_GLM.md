@@ -1784,3 +1784,16 @@ Round 17 soak: **0 deaths** again; **the first hard-run iron pickaxes** (hard1 a
 - **Diagnostic**: `Cannot reach or harvest this block` now says why the walk failed (`walk: <error>; bot at ..., N away`), for the dark-oak logs the hard runs keep refusing in about a second each.
 
 Still open: diamonds (trips stopped at y=29, -48, -17 this round), bed, bucket (out of reach / clay in the way).
+
+## Round 19 (2026-10-18)
+
+Round 18 soak: 2 deaths, both after a full bag stalled the ladder; no diamonds; hard3 never started (harness: `dawn/clear weather not confirmed`, `timeOfDay=None`). normal1 drowned at (390,55,179): every log gather refused `Inventory nearly full; deposit items first` (the inventory step was set aside after `tuff dropped twice`), the wood step's unblock explore dropped it into a lake, and the drowning latch let go at air 2 while its head bobbed at the surface. normal3 burned at (381,-54,107): every iron gather refused the same way, `iron failed 3 times; exploring before retry` walked 64 blocks through caves into lava, and the lava escape's preemption resumed that explore six times.
+
+- **Drowning latch**: lets go only at air 18+ or with head and feet both out of the water (round 15's "head in air" release fired while bobbing).
+- **`Inventory nearly full`** (gather refuses with < 2 empty slots) is handled like `No room for crafting result`: the inventory step is due at once and a bag that stays full gets the forced drop once a minute.
+- **Hazard resume**: an explore/goto/gather that a World Survival escape (lava, fire, water) preempted is cancelled, not resumed (`led into a hazard; cancelled`).
+- **No cave explores deep down**: a step that fails 3 times more than 16 under the surface anchor with no sky light cools down 20 s and retries instead of exploring (`failed 3 times deep underground; no cave explore`).
+- **Pocket**: also dug when an open stand was found but not reached (normal2: `open run 1` once a minute for 9 min, no pocket).
+- **Diagnostic**: every `Cannot reach or harvest` now carries `walk ok;` or the walk error, the bot's cell and the eye-to-block distance (336 of 356 round-18 lines had no walk error at all: the walk "succeeded" but the log was still out of reach).
+
+Ascend did not fire in round 18 (the bar never fell low underground). Still open: the dark-oak reach problem, diamonds, bed placement/sleep, bucket.

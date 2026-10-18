@@ -66,3 +66,21 @@ test('round 18: ascend climbs the recorded tunnel, then paths up; no progress fa
  const stuck=Object.assign(Object.create(Worker.prototype),{bot:{entity:{position:new Vec3(0.5,-9,0.5)}},log(){},check(){},async navigate(){throw Error('No path to the goal!');}});
  await assert.rejects(stuck.ascend({spec:{type:'ascend',y:131}},0),/Could not climb/);
 });
+// ---- round 19 ----
+test('round 19: the drowning latch holds while the head bobs above the surface',()=>{
+ const w=new WorldSurvivalChain();
+ const blocks={'0,-59,0':{name:'water'},'0,-60,0':{name:'water'}};
+ const bot={oxygenLevel:2,entity:{position:new Vec3(0.5,-60,0.5),isInWater:false},blockAt:p=>blocks[Math.floor(p.x)+','+Math.floor(p.y)+','+Math.floor(p.z)]||null,setControlState(){}};
+ w._handleDrowning(bot,{});assert.equal(w._drowning,true);
+ blocks['0,-59,0']={name:'air'}; // head out, feet still in the water, air 2
+ w._handleDrowning(bot,{});assert.equal(w._drowning,true,'bobbing: still escaping');
+ bot.oxygenLevel=18;w._handleDrowning(bot,{});assert.equal(w._drowning,false,'air back: done');
+});
+test('round 19: deep underground means far under the anchor with no sky light',async()=>{
+ const {Autopilot}=await import('../src/autopilot.js');
+ const mk=(y,sky)=>{const ap=Object.create(Autopilot.prototype);ap.lastSurfaceY=131;
+  ap.worker={bot:{entity:{position:new Vec3(0.5,y,0.5)},blockAt:()=>({name:'air',skyLight:sky})}};return ap;};
+ assert.equal(mk(-54,0).deepUnderground(),true);
+ assert.equal(mk(86,15).deepUnderground(),false,'a valley under open sky');
+ assert.equal(mk(125,0).deepUnderground(),false,'near the anchor');
+});
