@@ -1215,3 +1215,13 @@ Zero lines that name `water_bucket`. A bucket was crafted at 04:12:57.995Z, 04:5
 - hard2's dark-oak refusals, 83 attempts from 06:24:58.187Z to 06:29:50.685Z, then the 511 s hold at [143, 140, 32] with no night-mine line.
 - hard1, after the failed climb home, sat at [152, 116, 53] from t=722 to the bell. The dashboard between the reseal (06:15:17.612Z) and dawn (06:23:20.982Z) has no further job line.
 - The coal-job repeat from earlier rounds did not show up. `No room for crafting result` is not a minutes-long cluster in this window.
+
+## 2026-10-18 12:40–12:58 IST — units and integration (`0e8fb13`)
+
+`git pull --rebase` was already up to date at `0e8fb13` (round 19: a drowning escape that holds while bobbing, clear a nearly full bag, never resume a job into a hazard, no cave explores deep down). Unit tests, every `tests/*.test.js` except `resources.test.js`, `--max-old-space-size=2048 --test-timeout=60000 --test-skip-pattern resources`: **561 passed, 0 failed** (41.3 s). The note expected 552; nothing failed.
+
+Services restarted with `AGENT_MODEL=off`. `Stop-Agent.ps1` saved the test world and stopped the services. `Start-Agent.ps1 -NoBrowser` then brought the dashboard up. Supervisor log: `model server disabled (config.model.enabled=false): skipping llama-server, saving ~6.5 GB commit`.
+
+`python -u tests/integration.py`, model off. Exit 0, 1064 s (12:40:38–12:58:22 IST, 07:10:38Z–07:28:22Z). `All in-game integration tests passed`.
+
+`Reflex paused the gather: Reflex: preempted by Mob Defense`. Dashboard at 07:26:34.924Z: `Pause trace: gather -> Reflex: preempted by Mob Defense`, then 07:26:36.215Z `Reflex: resumed the gather job` and 07:26:45.775Z `Completed gather`. `PASS: A4 escaped the lava trench (hp 19.8, at [1648, -59, 1648])`. The dashboard shows the escape start at 07:28:20.241Z `Reflex: Misc World Survival Chain engaging`, after a teleport to (1648, -60, 1647).
