@@ -1321,7 +1321,7 @@ hard3 did start, on a confirmed dawn and clear sky. None of the three hard runs 
 
 One `gather diamond_ore` submit, 07:54:07.909Z, `targetY -53`, `strip:true`, count 3, on normal1. normal2, normal3, and the hard runs never submitted one. Diamonds held 0 on every sample. No `diamond_pickaxe` line.
 
-The trip walked to y=-14. 08:00:54.192Z, 08:00:58.890Z, and 08:01:04.740Z are three `no safe way down` staircase moves at y=-14. 08:01:04.743Z `descent stopped at y=-14` (cave opening under the floor, `no safe way on`). The y=-53 strip was not reached. The run's lowest sample is later, [356, -26, 186] at t=1956, on an iron use, diamonds still 0.
+The trip walked to y=-14. 08:00:54.192Z, 08:00:58.890Z, and 08:01:04.740Z are three `no safe way down` staircase moves at y=-14. 08:01:04.743Z `descent stopped at y=-14` (cave opening under the floor, `no safe way on`). The y=-53 strip was not reached. The run's lowest sample is later, [356, -26, 186] at t=1986, on `iron: gather`, diamonds still 0. The sample before it (t=1956) is [358, -24, 184], `working: use`.
 
 ### Bed
 
