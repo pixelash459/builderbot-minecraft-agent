@@ -128,8 +128,12 @@ test('the food step hunts, collects and prefers cooking raw meat',()=>{
  assert.equal(jobSchema.safeParse(r.job).success,true);
  // Cloud review: min(current,anchor) ratcheted DOWN - a bot in a valley got a valley+8 cap
  // and could never climb out to graze; the run's anchor holds instead.
- r=plan(counts({...STONE,_edible:0}),{grazeDirection:'east',standY:100,lastSurfaceY:131});
+ r=plan(counts({...STONE,_edible:0}),{grazeDirection:'east',standY:120,lastSurfaceY:131});
  assert.equal(r.job.surfaceCeiling,139,'a valley does not lower the anchor');
+ // Round 18: far below the anchor (a cave, a mine) the food step climbs back up first.
+ r=plan(counts({...STONE,_edible:0}),{grazeDirection:'east',standY:100,lastSurfaceY:131});
+ assert.deepEqual(r.job,{type:'ascend',y:131,forFood:true});
+ assert.equal(jobSchema.safeParse(r.job).success,true);
  // A bot already above the cap may not climb further, but its leg must start: navigation
  // rejects every position above the cap, so a cap below the bot failed each leg at once.
  r=plan(counts({...STONE,_edible:0}),{grazeDirection:'east',standY:150,lastSurfaceY:131});

@@ -4,6 +4,7 @@ const item=z.string().regex(/^[a-z0-9_]{1,64}$/);
 export const jobSchema=z.discriminatedUnion('type',[
  z.object({type:z.literal('gather'),block:item,count:z.number().int().min(1).max(128),radius:z.number().int().min(1).max(128).optional(),searchIfMissing:z.boolean().optional(),targetY:z.number().int().min(-63).max(320).optional(),bandTop:z.number().int().min(-63).max(320).optional(),smeltAt:z.number().int().min(1).max(64).optional(),strip:z.boolean().optional(),belowFoots:z.boolean().optional(),openSky:z.boolean().optional(),surface:z.boolean().optional()}).strict(),
  z.object({type:z.literal('goto'),position}).strict(),
+ z.object({type:z.literal('ascend'),y:z.number().int().min(-64).max(320),forFood:z.boolean().optional()}).strict(),
  // keepTable: leave a placed table standing for the next craft (wood-step ladder);
  // collectTable: pick the used table back up at the end of a step even when only reused.
  z.object({type:z.literal('craft'),item,count:z.number().int().min(1).max(128),keepTable:z.boolean().optional(),collectTable:z.boolean().optional()}).strict(),

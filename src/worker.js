@@ -631,7 +631,7 @@ export class Worker extends EventEmitter {
   const job=this.jobs.find(j=>j.status==='queued'&&SURVIVAL_JOBS.has((j.spec||{}).type))||this.jobs.find(j=>j.status==='queued');if(!job)return;
   this.busy=true;job.status='running';job.message='Working';this.save();const token=this.epoch;
   const minutes=['sleep','shelter'].includes(job.spec.type)?this.config.limits.nightMinutes??13:this.config.limits.jobMinutes;
-  this.deadline=Date.now()+minutes*60000;this.survivalJob=['eat','equip','smelt','sleep','shelter','fight','hunt','collect','craft'].includes(job.spec.type)||!!job.spec.forFood; // getting food must run on an empty bar
+  this.deadline=Date.now()+minutes*60000;this.survivalJob=['eat','equip','smelt','sleep','shelter','fight','hunt','collect','craft','ascend'].includes(job.spec.type)||!!job.spec.forFood; // getting food must run on an empty bar
   const watchdog=setInterval(()=>{if(Date.now()>this.deadline)this.stop('Job time limit reached','timeout');},1000);
   // runSettled resolves only once run(job) has FULLY unwound (every inner finally). A stop
   // resolves the race below while run is still unwinding; reflexes await runSettled before
@@ -2105,6 +2105,7 @@ export class Worker extends EventEmitter {
    if(points){this.log('Climbing out of the tunnel an interrupted gather left ('+points.length+' steps)');try{await this.climbTunnel({tunnel:points},token);}catch(e){this.check(token);this.log('Could not climb back up the tunnel: '+e.message);}}
   }
   if(spec.type==='goto'){await this.walk(pos(spec.position),token,1);return;}
+  if(spec.type==='ascend')return this.ascend(job,token);
   if(spec.type==='gather')return this.gather(job,token);
   if(spec.type==='craft')return this.craft(job,token);
   if(spec.type==='deposit')return this.deposit(job,token);
@@ -2374,7 +2375,8 @@ export class Worker extends EventEmitter {
       this.update(job,Math.max(0,count_()-job.startDrop),`Collected ${Math.max(0,count_()-job.startDrop)}/${s.count} ${job.dropName}`);
       continue;
      }
-      try{await this.walk(target.position,token,2,20);}catch(e){this.check(token);}
+      let walkErr=null;
+      try{await this.walk(target.position,token,2,20);}catch(e){this.check(token);walkErr=e;}
       const underFoot=b.blockAt(b.entity.position.floored().offset(0,-1,0));
       if(underFoot&&/_log$/.test(underFoot.name)&&count_()-job.startDrop<s.count){
        // The walk reached a trunk column and the bot now stands ON it: mine the logs under
@@ -2392,7 +2394,7 @@ export class Worker extends EventEmitter {
          if(!b.canDigBlock(target))await this.canopyDrop(token,target);
         }
        }
-       if(!b.canDigBlock(target))throw Error('Cannot reach or harvest this block');
+       if(!b.canDigBlock(target))throw Error('Cannot reach or harvest this block'+(walkErr?' (walk: '+String(walkErr.message).slice(0,50)+'; bot at '+b.entity.position.floored()+', '+b.entity.position.distanceTo(target.position).toFixed(1)+' away)':''));
        const harvest=b.registry.blocks[target.type]?.harvestTools;if(harvest&&!harvest[b.heldItem?.type])throw Error('A suitable harvesting tool is required');
        if(target.position.equals(b.entity.position.floored().offset(0,-1,0)))throw Error('Walked onto the target; it is under the bot now');
        for(const delta of [new Vec3(0,1,0),new Vec3(1,0,0),new Vec3(-1,0,0),new Vec3(0,0,1),new Vec3(0,0,-1)])if(['lava','water'].includes(b.blockAt(target.position.plus(delta))?.name))throw Error('Fluid beside target');
@@ -3103,9 +3105,11 @@ export class Worker extends EventEmitter {
    this.check(token);await b.toss(it.type,null,k);left-=k;
   }
   (this.droppedJunk||(this.droppedJunk=new Map())).set(s.item,Date.now());
+  // Round 18 (round-17: all three pocket tosses `came back` - the step 3 back went into the
+  // staircase wall and the bot stayed beside the items): get 4+ from where they land, any way.
   if(toss&&b.entity?.position&&b.pathfinder){
-   const back=b.entity.position.floored().offset(-toss.dir.x*3,0,-toss.dir.z*3);
-   try{await this.navigate(new goals.GoalNear(back.x,back.y,back.z,1),token,4);}catch{}
+   const land=b.entity.position.floored().offset(toss.dir.x*2,0,toss.dir.z*2);
+   try{await this.navigate(new goals.GoalInvert(new goals.GoalNear(land.x,land.y,land.z,4)),token,5);}catch{}
   }
   await sleep(this.dropSettleMs??DROP_SETTLE_MS);
   if(this.count(s.item)>have-n)throw Error('Dropped '+s.item+' came back into the inventory');
@@ -3128,6 +3132,21 @@ export class Worker extends EventEmitter {
    if(toss&&toss.open>=DROP_MIN_OPEN)return toss;
   }
   return null;
+ }
+ // Round 18: back up to the surface (y) from deep underground - the recorded tunnel first (it
+ // is open by construction), then a path up with the normal movements (they dig and pillar).
+ async ascend(job,token){
+  const b=this.bot,y=job.spec.y,start=Math.floor(b.entity.position.y);
+  if(this.strandedTunnel?.points?.length){
+   try{await this.climbTunnel({tunnel:this.strandedTunnel.points},token);this.strandedTunnel=null;}
+   catch(e){this.check(token);this.log('Ascend: tunnel climb stopped ('+String(e.message).slice(0,60)+')');}
+  }
+  if(Math.floor(b.entity.position.y)<y-4){
+   try{await this.navigate(new goals.GoalY(y),token,90);}catch(e){this.check(token);this.log('Ascend: path up stopped ('+String(e.message).slice(0,60)+')');}
+  }
+  const now=Math.floor(b.entity.position.y);
+  this.log('Ascend: y='+start+' -> '+now+' (surface '+y+')');
+  if(now<=start+2)throw Error('Could not climb toward the surface from y='+start);
  }
  // A dropped item entity the bot tossed as junk a moment ago (drop job): not worth a walk.
  isDroppedJunk(e){

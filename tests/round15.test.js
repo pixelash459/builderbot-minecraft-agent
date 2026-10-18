@@ -55,3 +55,14 @@ test('round 16: a food emergency jumps the ladder; a skipped kit piece does not 
  assert.equal(plan(kit,{foodBar:20}).job?.item,'stone_shovel','the shovel is still wanted');
  assert.notEqual(plan(kit,{foodBar:20,kitSkip:{stone_shovel:Date.now()+60000}}).step,'stone','skipped: the stone step is done');
 });
+// ---- round 18 ----
+test('round 18: ascend climbs the recorded tunnel, then paths up; no progress fails',async()=>{
+ const logs=[];const bot={entity:{position:new Vec3(0.5,-9,0.5)}};
+ const w=Object.assign(Object.create(Worker.prototype),{bot,log(m){logs.push(m);},check(){},strandedTunnel:{points:[{x:0,y:-9,z:0}]},
+  async climbTunnel(){bot.entity.position=new Vec3(0.5,60,0.5);},async navigate(){bot.entity.position=new Vec3(0.5,131,0.5);}});
+ await w.ascend({spec:{type:'ascend',y:131}},0);
+ assert.equal(w.strandedTunnel,null);
+ assert.match(logs.at(-1),/Ascend: y=-9 -> 131/);
+ const stuck=Object.assign(Object.create(Worker.prototype),{bot:{entity:{position:new Vec3(0.5,-9,0.5)}},log(){},check(){},async navigate(){throw Error('No path to the goal!');}});
+ await assert.rejects(stuck.ascend({spec:{type:'ascend',y:131}},0),/Could not climb/);
+});

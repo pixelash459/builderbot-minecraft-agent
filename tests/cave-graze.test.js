@@ -15,8 +15,10 @@ test('the food explore carries a floor a few blocks under its anchor',()=>{
  assert.equal(step,'food');assert.equal(job.type,'explore');
  assert.equal(job.surfaceCeiling,139);assert.equal(job.surfaceFloor,125);
  assert.equal(jobSchema.safeParse(job).success,true,'the strict schema takes it');
+ ({job}=food({lastSurfaceY:131,standY:120}));
+ assert.equal(job.surfaceFloor,120,'already below: it may not descend further, but the leg starts');
  ({job}=food({lastSurfaceY:131,standY:110}));
- assert.equal(job.surfaceFloor,110,'already below: it may not descend further, but the leg starts');
+ assert.equal(job.type,'ascend','21 below the anchor (round 18): climb up first');
 });
 test('an explore with a floor arms the surface check and a path cost below it, then clears both',async()=>{
  const moves={exclusionAreasStep:[]};let seen=null;

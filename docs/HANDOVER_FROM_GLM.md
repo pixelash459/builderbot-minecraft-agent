@@ -1774,3 +1774,13 @@ Round 16 soak: **0 deaths**, the **first bed** (normal1: 3 sheep, `craft white_b
 - **Night mine deeper and longer**: `NIGHT_MINE_DEPTH` 6 -> 10, `NIGHT_MINE_MS` 4 -> 6 min, `NIGHT_MINE_STRIP` 12 -> 16. The night is the hard runs' only long stretch of digging time.
 
 Still open: why hard1 never night-mined (sealed, quiet until dawn); bed placement and sleeping (`white_bed` held, no `Home set`, no `Sleeping`); normal1 after a failed tunnel climb at y=-47 looped `gather coal_ore targetY 32` 29 times; bucket fills still out of reach.
+
+## Round 18 (2026-10-18)
+
+Round 17 soak: **0 deaths** again; **the first hard-run iron pickaxes** (hard1 at 482 s, hard2 at 602 s); every hard run night-mined (hard2 27 steps, cobble 16 -> 78); no diamonds; no bed. Two weak spots:
+
+- **Starving underground** (normal2: bar 0 and 1 hp for 300 s; 18 food explores through caves at y=-9..47 - no animals down there; normal3: 30 food explores `stopped early` at y=77, bar 5). The food step now climbs back up first when the bot stands more than `ASCEND_BELOW`=16 under its surface anchor (`lastSurfaceY`): a new `ascend` job (`{type:'ascend', y, forFood}`) climbs the stranded tunnel if one is recorded, then paths up with `GoalY` (normal movements dig and pillar), and fails if it gained under 3 blocks. It is a survival job (runs at any bar/health). Log: `Ascend: y=A -> B (surface S)`.
+- **Pocket toss came back** (3 of 3 `Drop: dug a 5-cell pocket`, each followed by `came back into the inventory`): after the toss the bot stepped "back" into the staircase wall and stayed beside the items. It now paths anywhere 4+ from where the items land (`GoalInvert(GoalNear(land, 4))`).
+- **Diagnostic**: `Cannot reach or harvest this block` now says why the walk failed (`walk: <error>; bot at ..., N away`), for the dark-oak logs the hard runs keep refusing in about a second each.
+
+Still open: diamonds (trips stopped at y=29, -48, -17 this round), bed, bucket (out of reach / clay in the way).

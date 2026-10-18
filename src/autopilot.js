@@ -62,7 +62,7 @@ export function grazeDirection(bot){
 // M5 (iron): [item, ingots, sticks] crafted first, in this order; then the rest of the kit.
 const IRON_CORE=[['iron_pickaxe',3,2],['iron_sword',2,1],['shield',1,0]];
 // The food graze may go this far below its anchor (hills, not caves).
-const GRAZE_DEPTH=6;
+const GRAZE_DEPTH=6,ASCEND_BELOW=16;
 const STONE_KIT=[['stone_pickaxe',3],['stone_sword',2],['stone_axe',3],['stone_shovel',1]];
 // Round 16: kit pieces the ladder can go on without (a craft that keeps failing is skipped).
 export const OPTIONAL_KIT=new Set(['stone_shovel','stone_axe']),KIT_SKIP_MS=10*60000;
@@ -587,6 +587,9 @@ export const STEPS=[
   // current-Y anchor ratchets up again. A bot already above the cap may not climb further,
   // but its legs must still start (navigation rejects any position above the cap).
   const anchorY=Number.isFinite(ctx.lastSurfaceY)?ctx.lastSurfaceY:ctx.standY;
+  // Round 18 (round-17 normal2: bar 0 and 1 hp for 300 s at y=-9..47, 18 food explores through
+  // caves with no animals in them): far below the surface, climb back up before the graze.
+  if(Number.isFinite(anchorY)&&Number.isFinite(ctx.standY)&&ctx.standY<anchorY-ASCEND_BELOW)return {type:'ascend',y:anchorY,forFood:true};
   let cap=Number.isFinite(anchorY)?anchorY+8:undefined;
   if(cap!=null&&Number.isFinite(ctx.standY)&&ctx.standY>cap)cap=ctx.standY;
   // The floor mirrors the cap: the graze is a surface activity, never a cave walk (round 3
