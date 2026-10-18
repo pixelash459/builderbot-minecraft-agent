@@ -1094,3 +1094,15 @@ Lowest bar on a meal line is 14. Sample mins are 16, 0, 5, 20, 20, 20. The only 
 - normal3, from 01:25:24.189Z to 01:29:34.718Z (251 s), the same food explore repeats 30 times: `explore` north, `surfaceCeiling 93`, `forFood true`. `Explore stopped early at (315, 77, 110)` is on 29 lines in that span. The bot was already on that cell from t=2198. Bar 5, hp 18, cobble 66, iron pick still held.
 - `No room for crafting result` is three lines (00:02:10.407Z, 00:07:15.581Z, 00:38:12.342Z), each with a bag-full line, not a minutes-long craft loop.
 - `Health or food is low` is five job lines from 00:41:57.131Z to 00:47:42.703Z (normal2, bar still above 0 at that point) and a one-second burst at 01:24:55Z (normal3). Zero `swimming up` lines.
+
+## 2026-10-18 09:21–09:26 IST — combat (`a0bc73f`)
+
+`git pull --rebase` was already up to date at `a0bc73f` (round 18: climb to the surface before a food search, step clear of tossed junk, say why a gather target is out of reach). Unit tests, every `tests/*.test.js` except `resources.test.js`, `--max-old-space-size=2048 --test-timeout=60000 --test-skip-pattern resources`: **559 passed, 0 failed** (41.5 s). The note expected 550; nothing failed.
+
+Services restarted with `AGENT_MODEL=off`. `Stop-Agent.ps1` saved the test world and stopped the services. Supervisor log: `model server disabled (config.model.enabled=false): skipping llama-server, saving ~6.5 GB commit`.
+
+`python -u tests/combat_integration.py`, model off. Exit 0, 310 s (03:51:35Z–03:56:40Z). `All combat acceptance tests passed`. One run.
+
+`4_creeper` (lane): ttk 7.3 s, hits 5, `damage_taken=0`, end health 20, killed, no crater at the spawn, the midpoint, or the bot start. Dashboard: `Combat: pillar-up 2 at 1499,-60,1518 (creeper at 7.1)` at 03:53:23.582Z. Fight result at 03:53:30.289Z: `tactic=bow hits=5 shots=0 released=0 landed=0 damage taken=0`.
+
+`4b_creeper_roofed`: ttk 7.2 s, hits 3, `damage_taken=0`, end health 20, killed, no crater. At 03:53:38.765Z `Combat: pillar-up 2 at 1496,-60,1497 (creeper at 7.8)`, then `pillar perched 2 up` at 03:53:39.540Z. Fight result at 03:53:44.590Z: `tactic=bow hits=3 shots=1 released=1 landed=1 damage taken=0`.
