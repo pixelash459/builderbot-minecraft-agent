@@ -1336,3 +1336,17 @@ Zero lines that name `water_bucket`. A bucket was crafted at 07:46:36.027Z. The 
 - normal2 and normal3 stood on the wood gather. normal2 has 81 spruce failures and normal3 has 96, almost all `Navigation made no progress` with the bot at (312, 128, 32) and the log 23 away at (335, 132, 29). The harness unstuck that cell and returned the bot from y=98 or y=97 three times on each run (the return cap). After the third return both runs stayed down: the last sample of each is [331, 97, 57], still `working: gather` on wood, logs 0.
 - normal1, after the ascend stalled, repeated `iron failed 3 times deep underground; no cave explore` seven times from 08:11:03.963Z to 08:16:32.741Z while standing on [382, -16, 141]. That is the rest of the run.
 - hard1 sat sealed from 09:48:44.982Z until morning at 09:58:37.040Z. hard3 sat sealed from 10:31:14.323Z through the bell. The dashboard in those spans has no night-mine line.
+
+## 2026-10-18 16:32–16:37 IST — units and combat (`f99d6d7`)
+
+`git pull --rebase` was already up to date at `f99d6d7` (round 20: never wedge the pathfinder on a null block; clear a stale digging flag after every walk). Unit tests, every `tests/*.test.js` except `resources.test.js`, `--max-old-space-size=2048 --test-timeout=60000 --test-skip-pattern resources`: **562 passed, 0 failed** (43.0 s). The note expected 553; nothing failed.
+
+Services restarted with `AGENT_MODEL=off`. `Stop-Agent.ps1` saved the test world and stopped the services. The old test-server and dashboard PIDs were dead, and 8765/8766/8081/25569 were not listening. `Start-Agent.ps1 -NoBrowser` then brought the dashboard up. Supervisor log: `model server disabled (config.model.enabled=false): skipping llama-server, saving ~6.5 GB commit`.
+
+`python -u tests/combat_integration.py`, model off. Exit 0, 313 s (16:32:38–16:37:50 IST, 11:02:38Z–11:07:50Z). `All combat acceptance tests passed`. One run.
+
+`4_creeper` (lane): ttk 7.4 s, hits 5, `damage_taken=0`, end health 20, killed, no crater at the spawn, the midpoint, or the bot start. Dashboard: `Combat: pillar-up 2 at 1499,-60,1518 (creeper at 7.3)` at 11:04:31.059Z, then `pillar perched 2 up` at 11:04:31.882Z, then `perch 2 up is inside the fuse ring; knocking the creeper back (at 3.6)` and three `pillar-strike` lines. Fight result at 11:04:37.714Z: `tactic=bow hits=5 shots=0 released=0 landed=0 damage taken=0`.
+
+`4b_creeper_roofed`: ttk 5.3 s, hits 2, `damage_taken=0`, end health 20, killed, no crater. At 11:04:46.358Z `Combat: pillar-up 2 at 1496,-60,1497 (creeper at 8.0)`, then `pillar perched 2 up` at 11:04:47.108Z. Two arrows released (3.03 and 3 b/t) and both landed. Fight result at 11:04:50.908Z: `tactic=bow hits=2 shots=2 released=2 landed=2 damage taken=0`.
+
+The witch leg printed `NOTE: witch survived the duel (job failed, lost 0 hp)` and the suite still exited 0. That is the recorded 26.3 limit, not a suite failure.
