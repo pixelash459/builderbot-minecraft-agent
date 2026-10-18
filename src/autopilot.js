@@ -445,8 +445,8 @@ export function pickupJob(counts,ctx){
 export const FORCED_DROP_MS=60000,NO_ROOM_MS=5*60000,BUCKET_FAIL_MS=5*60000,BUCKET_OFF_MS=15*60000;
 export const INV_FULL=0.75,INV_PASS=8,INV_PASS_MIN=16,HOME_DEPOSIT_RANGE=48,INV_OFF_MS=5*60000,DROP_LOOP_MS=3*60000;
 const SAPLING=/_sapling$/,FLOWER=/^(dandelion|poppy|blue_orchid|allium|azure_bluet|.*_tulip|oxeye_daisy|cornflower|lily_of_the_valley|sunflower|lilac|rose_bush|peony|pink_petals|short_grass|tall_grass|fern|dead_bush)$/;
-export const JUNK_KEEP={dirt:32,cobblestone:64,cobbled_deepslate:32,netherrack:16,wheat_seeds:16,gravel:0,andesite:0,diorite:0,granite:0,tuff:0,calcite:0,rotten_flesh:0,sand:0,red_sand:0,pointed_dripstone:0,poisonous_potato:0,spider_eye:0};
-const JUNK_DROP=new Set(['gravel','andesite','diorite','granite','tuff','calcite','rotten_flesh','poisonous_potato','dirt','cobblestone','cobbled_deepslate','netherrack','wheat_seeds']);
+export const JUNK_KEEP={dirt:32,cobblestone:64,cobbled_deepslate:32,netherrack:16,wheat_seeds:16,gravel:0,andesite:0,diorite:0,granite:0,tuff:0,calcite:0,rotten_flesh:0,sand:0,red_sand:0,pointed_dripstone:0,poisonous_potato:0,spider_eye:0,snowball:0,clay_ball:0,flint:8}; // round 22: snowball/clay_ball filled bag slots
+const JUNK_DROP=new Set(['snowball','clay_ball','gravel','andesite','diorite','granite','tuff','calcite','rotten_flesh','poisonous_potato','dirt','cobblestone','cobbled_deepslate','netherrack','wheat_seeds']);
 const keepOf=name=>JUNK_KEEP[name]??(SAPLING.test(name)?2:FLOWER.test(name)?0:null);
 // Round 11 (`Inventory nearly full; deposit items first` and never a deposit): what the ladder
 // still uses - tools, armour, food, fuel, the iron/diamond kit's materials, the bed's - stays on
