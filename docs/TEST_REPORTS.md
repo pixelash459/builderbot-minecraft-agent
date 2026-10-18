@@ -1469,3 +1469,15 @@ Zero lines that name `water_bucket`. Buckets were crafted at 11:24:13.980Z, 11:5
 - normal3's iron back-off, t=1325 to t=1896 at [256, 69, 60], the same `Inventory nearly full` / `deep underground` pair, ending in the drown.
 - hard1's dark-oak refusals, 36 `walk ok` attempts from 13:16:14.344Z to 13:22:32.321Z, then the sealed stand from 13:24:41.661Z until morning with `Night mine: not from here`.
 - hard2 sat at [128, 122, 35] from 13:46:42.577Z `night pillar until morning` through the bell. The dashboard in that span has no night-mine line.
+
+## 2026-10-18 20:16–20:33 IST — units and integration (`510f660`)
+
+`git pull --rebase` was already up to date at `510f660` (round 21: an empty path is a failure, leave the deep dark, run from wardens, swim up after 8 s under water). HEAD is that bot commit. Unit tests, every `tests/*.test.js` except `resources.test.js`, `--max-old-space-size=2048 --test-timeout=60000 --test-skip-pattern resources`: **565 passed, 0 failed** (41.6 s). The note expected 556; nothing failed.
+
+Services restarted with `AGENT_MODEL=off`. `Stop-Agent.ps1` saved the test world and stopped the services. The old test-server and dashboard PIDs were dead, and 8765/8766/8081/25569 were not listening. `Start-Agent.ps1 -NoBrowser` then brought the dashboard up. Supervisor log: `model server disabled (config.model.enabled=false): skipping llama-server, saving ~6.5 GB commit`.
+
+`python -u tests/integration.py`, model off. Exit 0, 1070 s (20:16:08–20:33:58 IST, 14:46:08Z–15:03:58Z). `All in-game integration tests passed`. No test failed on the new empty-path rule. The dashboard window (469 timestamped lines) has zero `empty path` lines and zero `No path to the goal!` lines.
+
+Reflex line from the suite: `Reflex paused the gather: Reflex: preempted by Mob Defense`. Dashboard at 15:02:12.913Z: `Pause trace: gather -> Reflex: preempted by Mob Defense`, then 15:02:14.080Z `Reflex: resumed the gather job`. The suite also logged `PASS: armed bot reflex killed the zombie`, `PASS: unarmed bot fled to 9.8 blocks`, `PASS: creeper avoided at 11.0 blocks`, `PASS: reflex auto-ate without a job (12 -> 18)`, `PASS: reflex auto-equipped the iron chestplate`, and `PASS: reflex surfaced the drowning bot`.
+
+`PASS: A4 escaped the lava trench (hp 19.8, at [1653, -59, 1652])`. The dashboard shows the escape start at 15:03:56.626Z `Reflex: Misc World Survival Chain engaging`, after a teleport to (1653, -60, 1651).
