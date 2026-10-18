@@ -127,6 +127,11 @@ export function openStandNear(b,radius=12){
  }
  return null;
 }
+// Round 20: the pathfinder's `digging` flag outliving every dig (no bot dig in progress) wedges
+// all pathing; setGoal(null) armed its diggingAborted listener, so firing it clears the flag.
+export function unstickDigging(bot){
+ try{if(bot.pathfinder?.isMining?.()&&!bot.targetDigBlock)bot.emit('diggingAborted',null);}catch{}
+}
 // The horizontal direction with the longest open run from the bot's feet (up to 8 cells):
 // {dir:{x,z},open}. Null without a world to look at.
 export function dropDirection(b){
@@ -667,7 +672,7 @@ export class Worker extends EventEmitter {
    track=trackProgress(bot.entity.position,Date.now(),track);
    if(track.stuck)reject(new Error('Navigation made no progress at '+bot.entity.position.floored()+' (last path: '+last+')'));
   },250);}),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error(`Navigation timed out at ${bot.entity.position.floored()} (onGround ${bot.entity.onGround}, last path: ${last})`)),seconds*1000);})]);this.check(token);}
-  finally{bot.off('path_update',onPath);clearTimeout(timer);clearInterval(monitor);if(token===this.epoch){bot.pathfinder.setGoal(null);bot.clearControlStates();}}
+  finally{bot.off('path_update',onPath);clearTimeout(timer);clearInterval(monitor);if(token===this.epoch){bot.pathfinder.setGoal(null);unstickDigging(bot);bot.clearControlStates();}}
  }
  async walk(target,token,range=2,seconds=45){await this.navigate(new goals.GoalNear(target.x,target.y,target.z,range),token,seconds);}
  // Research 4: pathfinder mob avoidance while unarmed or low - creepers are hard-avoided

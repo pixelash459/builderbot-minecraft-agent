@@ -84,3 +84,14 @@ test('round 19: deep underground means far under the anchor with no sky light',a
  assert.equal(mk(86,15).deepUnderground(),false,'a valley under open sky');
  assert.equal(mk(125,0).deepUnderground(),false,'near the anchor');
 });
+// ---- round 20 ----
+import {unstickDigging} from '../src/worker.js';
+import {installToolWear} from '../src/toolWear.js';
+test('round 20: a null block never throws in the tool lookup, and a stale digging flag is cleared',()=>{
+ const bot={inventory:{items:()=>[]},pathfinder:{bestHarvestTool(){throw Error('digTime of null');}},tool:null};
+ installToolWear(bot);
+ assert.equal(bot.pathfinder.bestHarvestTool(null),null);
+ let fired=0;const b2={pathfinder:{isMining:()=>true},targetDigBlock:null,emit(ev){if(ev==='diggingAborted')fired++;}};
+ unstickDigging(b2);assert.equal(fired,1,'flag set with no dig running: aborted');
+ b2.targetDigBlock={name:'stone'};unstickDigging(b2);assert.equal(fired,1,'a real dig is left alone');
+});

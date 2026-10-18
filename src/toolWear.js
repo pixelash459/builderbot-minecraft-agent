@@ -45,7 +45,11 @@ export function installToolWear(bot){
  }
  if(bot.pathfinder&&!bot.pathfinder._conserve){
   const best=bot.pathfinder.bestHarvestTool;
-  bot.pathfinder.bestHarvestTool=block=>conserveTool(bot,block)||best(block);
+  // Round 20 (round-19 soak: 5 of 6 runs never made a wooden pick): the pathfinder sets its
+  // `digging` flag and THEN asks for the tool; a block in an unloaded chunk (null) threw here,
+  // the flag stayed set forever and every later path was ignored (`made no progress`, last
+  // path none) for 2.5 hours. No block: no tool, and the dig fails and resets the flag.
+  bot.pathfinder.bestHarvestTool=block=>{if(!block)return null;try{return conserveTool(bot,block)||best(block);}catch{return null;}};
   bot.pathfinder._conserve=true;
  }
 }

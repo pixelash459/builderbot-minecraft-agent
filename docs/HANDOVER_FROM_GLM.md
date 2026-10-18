@@ -1797,3 +1797,14 @@ Round 18 soak: 2 deaths, both after a full bag stalled the ladder; no diamonds; 
 - **Diagnostic**: every `Cannot reach or harvest` now carries `walk ok;` or the walk error, the bot's cell and the eye-to-block distance (336 of 356 round-18 lines had no walk error at all: the walk "succeeded" but the log was still out of reach).
 
 Ascend did not fire in round 18 (the bar never fell low underground). Still open: the dark-oak reach problem, diamonds, bed placement/sleep, bucket.
+
+## Round 20 (2026-10-18)
+
+Round 19 soak: 0 deaths, but **5 of 6 runs never made a wooden pick**. normal1 was fine (iron pick at 391 s) until its food step's `ascend` asked for a `GoalY(122)` path from y=-19: `Took to long to decide path to goal!`, and from then on every walk in every later run failed `Navigation made no progress ... (last path: none)` - 198 times - for 2.5 hours.
+
+Cause (`logs/dashboard-uncaught.log`, `Cannot read properties of null (reading 'digTime')` at `bestHarvestTool`): mineflayer-pathfinder's `monitorMovement` sets its private `digging = true` and only then calls `bestHarvestTool(block)`; a path into an unloaded chunk gives `block = null`, the tool lookup throws, and `digging` is never cleared - the pathfinder then returns early on every physics tick and never plans again. It is latent (seen 2026-10-16 too); the 140-block GoalY made it certain.
+
+- `toolWear.js`: the `bestHarvestTool` wrapper returns null for a null block and never throws (the dig then fails and the pathfinder resets the flag itself).
+- `worker.navigate` finally: `unstickDigging(bot)` - after `setGoal(null)` (which arms the pathfinder's `diggingAborted` listener), a `digging` flag with no bot dig in progress is cleared by emitting `diggingAborted`.
+
+Round 19's other changes held: `Inventory nearly full` 4x each followed by a drop; 7x `deep underground; no cave explore` and no cave walk; 2 hazard cancels; no drowning. Pockets still came back 4 of 4 (next round). Ascend never reached the surface (that run's pathfinder wedge).
