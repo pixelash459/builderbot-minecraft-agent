@@ -1481,3 +1481,13 @@ Services restarted with `AGENT_MODEL=off`. `Stop-Agent.ps1` saved the test world
 Reflex line from the suite: `Reflex paused the gather: Reflex: preempted by Mob Defense`. Dashboard at 15:02:12.913Z: `Pause trace: gather -> Reflex: preempted by Mob Defense`, then 15:02:14.080Z `Reflex: resumed the gather job`. The suite also logged `PASS: armed bot reflex killed the zombie`, `PASS: unarmed bot fled to 9.8 blocks`, `PASS: creeper avoided at 11.0 blocks`, `PASS: reflex auto-ate without a job (12 -> 18)`, `PASS: reflex auto-equipped the iron chestplate`, and `PASS: reflex surfaced the drowning bot`.
 
 `PASS: A4 escaped the lava trench (hp 19.8, at [1653, -59, 1652])`. The dashboard shows the escape start at 15:03:56.626Z `Reflex: Misc World Survival Chain engaging`, after a teleport to (1653, -60, 1651).
+
+## 2026-10-18 20:36–20:41 IST — combat (`5031ea7`, bot code `510f660`)
+
+`python -u tests/combat_integration.py`, model off, same process as the integration restart. Exit 0, 319 s (20:36:26–20:41:45 IST, 15:06:26Z–15:11:45Z). `All combat acceptance tests passed`. One run. The dashboard window (283 timestamped lines) has zero `empty path` lines and zero `No path to the goal!` lines.
+
+`4_creeper` (lane): ttk 7.3 s, hits 5, `damage_taken=0`, end health 20, killed, no crater at the spawn, the midpoint, or the bot start. Dashboard: `Combat: pillar-up 2 at 1499,-60,1518 (creeper at 7.3)` at 15:08:18.316Z, then `pillar perched 2 up` at 15:08:19.156Z, then `perch 2 up is inside the fuse ring; knocking the creeper back (at 3.6)` and three `pillar-strike` lines. Fight result at 15:08:24.978Z: `tactic=bow hits=5 shots=0 released=0 landed=0 damage taken=0`.
+
+`4b_creeper_roofed`: ttk 6.2 s, hits 2, `damage_taken=0`, end health 20, killed, no crater. At 15:08:33.414Z `Combat: pillar-up 2 at 1496,-60,1497 (creeper at 8.0)`, then `pillar perched 2 up` at 15:08:34.179Z. Two arrows released (both 2.98 b/t) and both landed. Fight result at 15:08:38.029Z: `tactic=bow hits=2 shots=2 released=2 landed=2 damage taken=0`.
+
+The witch leg printed `NOTE: witch survived the duel (job failed, lost 0 hp)` and the suite still exited 0. That is the recorded 26.3 limit, not a suite failure.
