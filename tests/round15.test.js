@@ -123,7 +123,12 @@ test('round 21: a head under water for 8 s is drowning even with a stale air rea
  const blocks={'0,-59,0':{name:'water'},'0,-60,0':{name:'water'}};
  const bot={oxygenLevel:20,entity:{position:new Vec3(0.5,-60,0.5),isInWater:false},blockAt:p=>blocks[Math.floor(p.x)+','+Math.floor(p.y)+','+Math.floor(p.z)]||null,setControlState(){}};
  w._handleDrowning(bot,{});assert.equal(w._drowning,false,'just under: air reads 20');
- w._headWetSince=Date.now()-9000;w._handleDrowning(bot,{});assert.equal(w._drowning,true,'9 s under: swim up');
+ w._headWetSince=Date.now()-9000;w._airChanged=Date.now()-9000;w._handleDrowning(bot,{});assert.equal(w._drowning,true,'9 s under with a stale reading: swim up');
+ // round 24: a live reading (it moved) is trusted - no backstop
+ const w2=new WorldSurvivalChain();bot.oxygenLevel=19;w2._handleDrowning(bot,{});w2._headWetSince=Date.now()-9000;bot.oxygenLevel=17;w2._handleDrowning(bot,{});
+ assert.equal(w2._drowning,false,'air reading live and above 6: not drowning');
+ // round 24: raw ticks (0-300) are scaled to bubbles: 400 reads as full, 60 as 4
+ bot.oxygenLevel=60;w2._headWetSince=0;w2._handleDrowning(bot,{});assert.equal(w2._drowning,true,'60 ticks = 4 bubbles: drowning');
 });
 // ---- round 22 ----
 test('round 22: an empty path under mob avoidance is retried without it, then a boxed-in bot stairs out',async()=>{
@@ -171,4 +176,12 @@ test('round 23: a deep-dark refusal climbs out and sets diamond trips aside',asy
  assert.equal(ap.escapeDark,true);assert.ok(ap.diamondOffUntil>Date.now()+DIAMOND_OFF_MS-1000);
  ap.counts=()=>({});ap.decide({});
  assert.deepEqual(submitted[0],['escape',{type:'ascend',y:122}]);
+});
+// ---- round 24 ----
+import {creeperDistance,CREEPER_RELEASE} from '../src/worker.js';
+test('round 24: creeper distance for the override hysteresis',()=>{
+ const bot={entity:{position:new Vec3(0,64,0)},entities:{1:{name:'creeper',position:new Vec3(7,64,0)},2:{name:'zombie',position:new Vec3(1,64,0)}}};
+ assert.equal(creeperDistance(bot),7);
+ assert.ok(creeperDistance(bot)<=CREEPER_RELEASE,'7 away: a latched override holds');
+ assert.equal(creeperDistance({entity:{position:new Vec3(0,64,0)},entities:{}}),Infinity);
 });

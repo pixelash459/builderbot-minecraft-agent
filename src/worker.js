@@ -205,6 +205,14 @@ export const SURVIVAL_JOBS=new Set(['sleep','eat','shelter']);
 const EQUIP_SLOTS={5:'head',6:'chest',7:'legs',8:'feet',45:'off-hand'};
 export const equipment=b=>{const slots=b?.inventory?.slots||[];return Object.entries(EQUIP_SLOTS).filter(([i])=>slots[i]).map(([i,slot])=>({slot,name:slots[i].name,count:slots[i].count}));};
 // Distance to a creeper close enough to override a survival hold: within 6, or fusing within 10.
+// Round 24: the nearest creeper's distance (Infinity when none).
+export const CREEPER_RELEASE=9;
+export function creeperDistance(bot){
+ const me=bot&&bot.entity&&bot.entity.position;if(!me)return Infinity;
+ let best=Infinity;
+ for(const e of Object.values(bot.entities||{})){if(!e||e.name!=='creeper'||!e.position||e.isValid===false)continue;const d=e.position.distanceTo?e.position.distanceTo(me):Infinity;if(d<best)best=d;}
+ return best;
+}
 export function creeperThreat(bot){
  const me=bot&&bot.entity&&bot.entity.position;if(!me)return null;
  let best=null;
@@ -426,7 +434,7 @@ export class Worker extends EventEmitter {
   setDefaultMoveContext({...ctxBase,move:this.move});
   const self=this;
   const gate=chain=>{ // the reflexes toggle gates survival chains; user tasks always run
-   let wasActive=false;
+   let wasActive=false,creeperLatched=false;
    return {
    name:chain.name,
    userService:chain.userService, // the runner's no-preempt contract must survive the wrap
@@ -448,7 +456,10 @@ export class Worker extends EventEmitter {
     // Round 8: a creeper within 6 (or fusing within 10) always gets Mob Defense, even over an
     // eat job, a bed walk or a shelter still placing its walls - only a sealed box or a bed
     // the bot is already in keeps the hold (the walls are the answer there).
-    const creeper=hold&&chain.name==='Mob Defense'&&!hold.sealed&&!bot.isSleeping?creeperThreat(bot)!=null:false;
+    const creeperNow=hold&&chain.name==='Mob Defense'&&!hold.sealed&&!bot.isSleeping?creeperThreat(bot)!=null:false;
+    // Round 24: hysteresis - an override that is on stays on while a creeper is within 9.
+    const creeper=creeperNow||(creeperLatched&&!!hold&&chain.name==='Mob Defense'&&!hold.sealed&&!bot.isSleeping&&creeperDistance(bot)<=CREEPER_RELEASE);
+    if(chain.name==='Mob Defense')creeperLatched=creeper;
     if(creeper&&!wasActive)self.log('Reflex: creeper at '+creeperThreat(bot).toFixed(1)+' overrides the '+hold.job.spec.type+' hold');
     if(hold&&chain.name!==WORLD_CHAIN&&!creeper){
      const building=hold.job.status==='running'&&hold.job.spec.type==='shelter'&&!hold.sealed;

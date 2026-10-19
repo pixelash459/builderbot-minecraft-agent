@@ -124,7 +124,12 @@ export class WorldSurvivalChain extends SingleTaskChain{
   const air=airOf(bot);
   const now=Date.now();
   if(wet(head)){if(!this._headWetSince)this._headWetSince=now;}else this._headWetSince=0;
-  const longUnder=!!this._headWetSince&&now-this._headWetSince>=HEAD_WET_MS;
+  // Round 24 (round-23 normal3: 9.3 min of `swimming up` at y=-45, the air reading live and
+  // moving): the backstop is for a reading that never comes - it fires only when the air value
+  // has not changed for HEAD_WET_MS while the head stayed under.
+  if(air!==this._lastAir){this._lastAir=air;this._airChanged=now;}
+  const stale=now-(this._airChanged||0)>=HEAD_WET_MS;
+  const longUnder=!!this._headWetSince&&now-this._headWetSince>=HEAD_WET_MS&&stale;
   const lowAir=air<=6||longUnder; // surface at the old reflex's threshold: below it the test's <10 floor must be reachable
   if(touchingWater&&lowAir)this._drowning=true;
   // Round 19 (round-18 normal1 drowned: released with the air at 2 while the head bobbed at
@@ -166,4 +171,6 @@ export class WorldSurvivalChain extends SingleTaskChain{
  }
 }
 const WET=/^(water|bubble_column|seagrass|tall_seagrass|kelp|kelp_plant)$/,HEAD_WET_MS=8000;
-const airOf=bot=>typeof bot.oxygenLevel==='number'?bot.oxygenLevel:(typeof bot.oxygen==='number'?bot.oxygen:20);
+// Round 24: a reading above 20 is the raw air supply in ticks (0-300; the round-23 report saw
+// 10-400): scaled to the 0-20 bubbles every threshold here uses.
+const airOf=bot=>{const a=typeof bot.oxygenLevel==='number'?bot.oxygenLevel:(typeof bot.oxygen==='number'?bot.oxygen:20);return a>20?Math.min(20,a/15):a;};

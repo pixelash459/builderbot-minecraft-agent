@@ -1837,3 +1837,10 @@ Round 22 soak: **the best yet** - 0 deaths, **all 6 runs made a wooden pick, a s
 - **Deep dark leave** (normal1: `Deep dark: sculk_catalyst ...; leaving (warden)` 26 times in 5 min on the same cell): a deep-dark refusal now submits an `ascend` to the surface anchor next tick and sets diamond trips aside for `DIAMOND_OFF_MS` (`deep dark - climbing out`).
 
 Still open: diamonds (deepest trip y=-44, the strip at -53 not reached), bucket fills (`No path` / out of reach every time), normal3 ended at food bar 2 with `waiting: bag full (food craft)`.
+
+## Round 24 (2026-10-19)
+
+Round 23 soak: all 6 runs again made a wooden pick, stone pick and furnace; iron pick 3/3 normal; **the first water bucket** (normal2); the deep-dark refusal fired once and climbed (stopped at y=-18). 1 death: hard2, killed by a zombie while a creeper at 5.6-6.0 flipped the shelter override on and off every ~0.3 s and each shelter resume `moved ... building a new box here` (8 boxes in 8 s). normal3 sat 9.3 min in `swimming up` at y=-45 with the air reading moving between 10 and 400. No bed this round (hard1 killed 2 sheep: 2 wool).
+
+- **Creeper override hysteresis**: once a creeper (<= 6, or fusing <= 10) overrides a survival hold, Mob Defense keeps it until the nearest creeper is past `CREEPER_RELEASE`=9 (`creeperDistance`).
+- **Air reading**: a value above 20 is the raw air supply in ticks (0-300) and is scaled to bubbles (/15). The 8 s head-under backstop (round 21) now fires only when the air value has also not changed for 8 s - a live reading is trusted.
