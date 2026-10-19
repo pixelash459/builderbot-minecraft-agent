@@ -1895,7 +1895,7 @@ Zero `Boxed in` lines. Nothing was dug as a stair-out. Round 22 had four lines, 
 33 gather attempts (66 lines with the skip twin). **Zero say `walk ok`.** Round 22 was also zero `walk ok`.
 
 - spruce_log 1, normal1, 22:51:15.061Z `(331, 131, 29)`, `walk: Navigation left the surface at (321, 126, 33)`, 10.9 from the eye. The wooden pick is still the t=90 sample.
-- The other normal1 attempts are navigation timeouts on the way down (354,59 / 364,45 / 406,8–9 / 408,15–27), 9 attempts.
+- The other normal1 attempts are navigation timeouts on the way down (354,59 / 364,45 / 406,8–9 / 408,15–27), 8 attempts.
 - hard1 2. One `The goal was changed before it could be completed!` at (130, 143, -48). One timeout at (136, 134, -51).
 - hard2 stone 12, 01:16:31.445Z–01:16:42.680Z, all `walk: No path to the goal!`, bot at (137, 128, 31), 11.6–13.2 from the eye. The stone pick is still the t=211 sample.
 - hard3 stone 10, 01:36:24.730Z–01:36:32.888Z, the same `No path` clause, bot at (127, 127, 27), 16.0–18.3 from the eye. The stone pick is still the t=211 sample.
