@@ -2664,3 +2664,25 @@ normal2 declared it once, on the second diamond submit quoted above. normal1 has
 ### Uncaught
 
 `logs/dashboard-uncaught.log` gained no bytes during the soak (size stayed 2576174, mtime 2026-10-16 14:40:15 IST, the same size rounds 22 through 27 reported). There is no new line from this soak window.
+
+## 2026-10-20 03:39–03:57 IST — units and integration (`0cd8eca`)
+
+`git pull --rebase` needed a stash of local `data/` dumps first. After the stash, origin was already up to date, and the stash was popped. HEAD is `0cd8eca` (`Round 29: answer every keep-alive, hold food trips back in a crowd`). This round is units, a fresh model-off restart, then integration once. No combat. The soak follows this report.
+
+Unit tests, every `tests/*.test.js` except `resources.test.js`, `--max-old-space-size=2048 --test-timeout=60000 --test-skip-pattern resources`: **576 passed, 0 failed** (41.5 s). The note expected 567; nothing failed.
+
+Services restarted with `AGENT_MODEL=off`. `Stop-Agent.ps1` saved the test world and stopped the services. The recorded PIDs were dead and ports 8765, 8766, 8081, and 25569 were free before start. `Start-Agent.ps1 -NoBrowser` then brought the dashboard up. Supervisor log first line: `model server disabled (config.model.enabled=false): skipping llama-server, saving ~6.5 GB commit`. Port 8081 stayed closed.
+
+`python -u tests/integration.py`, model off. Exit 0, 1060 s (03:39:41–03:57:21 IST, 22:09:41Z–22:27:21Z). `All in-game integration tests passed`. The keep-alive change (`compat.js` answers every keep-alive id, and only an exact repeat of the same id is dropped) did not fail the suite. No disconnect or kick in the server-log bytes appended during the window (offset 14877770 through 14922812, 503 lines, from `[03:39:42 INFO]`). Counts in that slice: `lost connection` 0, `out-of-order` 0, `too many packets` 0, `keepalive` 0, `Disconnecting` 0, `left the game` 0, `timed out` 0. The dashboard window (offset 55330241 through 55369397, 564 lines, 22:09:43.387Z–22:27:19.851Z) has no `disconnect.timeout`, no `Connection ended`, and no `Disconnected`.
+
+The drowning-surface test passed. `PASS: reflex surfaced the drowning bot`. One air line: `2026-10-19T22:25:23.739Z WorldSurvival: drowning (air 8), swimming up`, and the same timestamp `Reflex: Misc World Survival Chain engaging`. The harness teleported the bot back to `(0, -60, 0)` at 22:25:25.852Z, about 2.1 s after that air-8 line. No second `swimming up` line. Round 27's integration was also air 8, with the return about 2.2 s later.
+
+Reflex line from the suite: `Reflex paused the gather: Reflex: preempted by Mob Defense`. Dashboard at 22:25:34.721Z: `Pause trace: gather -> Reflex: preempted by Mob Defense`, then `22:25:35.905Z Reflex: resumed the gather job`. The suite also logged `PASS: armed bot reflex killed the zombie`, `PASS: unarmed bot fled to 9.8 blocks`, `PASS: creeper avoided at 11.0 blocks`, `PASS: reflex auto-ate without a job (11 -> 17)`, `PASS: reflex auto-equipped the iron chestplate`, and `PASS: gather paused by a reflex resumed and completed`.
+
+`PASS: A4 escaped the lava trench (hp 18.8, at [1654, -60, 1652])`. Round 27's integration was hp 18.8 at [1648, -60, 1648].
+
+Zero `last path: none` lines. Zero `Navigation made no progress` lines.
+
+`logs/dashboard-uncaught.log` gained no bytes during the integration (size stayed 2576174).
+
+The soak is next.
