@@ -309,12 +309,21 @@ function replacementJob(c,ctx){
  }
  if(!worn.length)return null;
  worn.sort((a,b)=>a.priority-b.priority);
- const {kind}=worn[0],cost=REPLACE_COST[kind],sticks=REPLACE_STICKS[kind]||0;
- for(const [tier,material] of REPLACE_TIERS[ARMOURED.has(kind)?'armour':'weapon']){
-  const pay=material?c(material):ctx.planksTotal;
-  if(pay>=cost&&c('stick')>=sticks)return {type:'craft',item:tier+'_'+kind,count:1};
+ // Round 27 (round-26 normal2 held 14 stone pickaxes, normal3 7): a worn iron pickaxe with no
+ // iron to spare was "replaced" by a stone one every tick - only iron pickaxes were counted. A
+ // sound one of the same kind at the payable tier or better is the replacement already made.
+ const sound=name=>c(name)-c('_worn_'+name)>=1;
+ for(const {kind} of worn){
+  const cost=REPLACE_COST[kind],sticks=REPLACE_STICKS[kind]||0,tiers=REPLACE_TIERS[ARMOURED.has(kind)?'armour':'weapon'];
+  for(let i=0;i<tiers.length;i++){
+   const [tier,material]=tiers[i];
+   const pay=material?c(material):ctx.planksTotal;
+   if(!(pay>=cost&&c('stick')>=sticks))continue;
+   if(tiers.slice(0,i+1).some(([t])=>sound(t+'_'+kind)))break; // already holds one this good
+   return {type:'craft',item:tier+'_'+kind,count:1};
+  }
  }
- return null; // no materials for a spare: keep using the worn item
+ return null; // no materials for a spare, or a sound one is held: keep going
 }
 
 // Round 9: the food step must never hold the ladder. Round-8 normal1 cooked 3 porkchops, ate

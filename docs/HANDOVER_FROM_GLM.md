@@ -1860,3 +1860,11 @@ Round 25 soak: **0 deaths, `last path: none` 0** (round 24: 170), no drowning, n
 - **Stale memory across runs** (hard1 never made a wooden pick: first job `Could not get back to the furnace at 308,85,76` - normal3's furnace, hundreds of blocks away - then dark-oak attempts at (210,124,87)): `forgetFar` runs every decide and drops a loaded furnace batch, a left table or a stranded tunnel more than `FORGET_FAR`=96 from the bot (`forgot the furnace batch ... (too far)`).
 
 Still open: bed placement/sleep (only hard runs have nights; no hard bed this round), diamonds (trips stop at deep-dark sensors, -12/-6/-4), pockets still come back about 4 s after the toss, night mine 0 ore on the hard runs this round.
+
+## Round 27 (2026-10-19)
+
+Round 26 soak: **0 deaths, 0 `last path: none` (second clean round), all 6 runs through the furnace** (hard 271/301/271 s), iron pick 3/3 normal (451/482/512 s), no run started on a leftover furnace, hard2's night mine brought back 2 raw iron.
+
+- **Stone pickaxe craft loop** (normal2 held 14 stone pickaxes, normal3 7; 39 iron-step pickaxe crafts): `replacementJob` replaced a worn iron pickaxe with a stone one when no iron was spare, but only counted iron pickaxes as the replacement, so it crafted another every tick. A worn tool now counts as replaced when a sound one of the same kind is held at the tier it would craft or better (a worn iron sword with ingots on hand is still replaced in iron).
+
+Still open: bed (no sheep found this round; no hard-run bed), night mine never climbs back into the box (`Took to long to decide path to goal!` x3), diamonds (water under the staircase at y=59, deep dark at y=12), normal3's clay balls coming back once a minute, placing a furnace while the food chain holds meat.

@@ -215,3 +215,12 @@ test('round 26: a furnace batch, left table or stranded tunnel far away is forgo
  ap.forgetFar({entity:{position:new Vec3(141,131,30)}});
  assert.ok(ap.worker.furnaceRun,'9 blocks away: kept (under '+FORGET_FAR+')');
 });
+// ---- round 27 ----
+test('round 27: a worn iron pickaxe with no iron is replaced by one stone pickaxe, not fourteen',()=>{
+ const STONE={oak_planks:8,stick:10,crafting_table:1,wooden_pickaxe:1,wooden_sword:1,wooden_axe:1,stone_pickaxe:1,stone_sword:1,stone_axe:1,stone_shovel:1,furnace:1,cobblestone:40,_edible:8,coal:16,torch:16};
+ const base={...STONE,iron_pickaxe:1,_worn_iron_pickaxe:1,iron_ingot:0,stone_pickaxe:0};
+ let r=plan(base,{});
+ assert.equal(r.job?.item,'stone_pickaxe','no iron: the stone replacement');
+ r=plan({...base,stone_pickaxe:2},{}); // the iron step keeps STONE_PICKS=2 spares on purpose
+ assert.notEqual(r.job?.item,'stone_pickaxe','two sound stone pickaxes: no more crafted');
+});
