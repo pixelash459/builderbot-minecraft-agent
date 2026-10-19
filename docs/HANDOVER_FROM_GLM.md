@@ -1870,3 +1870,11 @@ Round 26 soak: **0 deaths, 0 `last path: none` (second clean round), all 6 runs 
 - **Planning time**: `bot.pathfinder.thinkTimeout` 5 s -> 10 s (every night-mine climb home failed `Took to long to decide path to goal!`, 3 of 3; the A* still thinks 40 ms per tick).
 
 Still open: bed (no sheep found this round; no hard-run bed), diamonds (water under the staircase at y=59, deep dark at y=12), normal3's clay balls coming back once a minute, placing a furnace while the food chain holds meat.
+
+## Round 28 (2026-10-19)
+
+Round 27 soak: all 6 runs through the furnace again (hard 241/331/331 s), iron pick 3/3 normal (452/452/572 s), stone pickaxes never above 2 (round 26: 14), `last path: none` 0 (third round running), hard3's night mine got back into the box (pillared up the sump). 1 death: hard1 `slain by Zombie` at (221,100,25), ~577 s into the run (tod ~11500) during a food-step pig fight and drop collect in a dark-forest crowd.
+
+- **No food trips at dusk**: between `DUSK_PREP` (10000) and `SUNSET` a food-step hunt/fight/collect/explore is replaced by the next step (the plan is re-run with food blocked; `dusk: no hunting`) unless it is a food emergency (`duskHuntOff`). Food waits for the morning; the dusk kit, cobble and shelter run instead.
+
+Still open: bed (no sheep found on most runs; hard runs never craft one), diamonds (water beside the staircase at y=-7, a broken pickaxe at y=12), hard-run iron pick, a smelt walking back to the previous run's furnace 30 blocks away.

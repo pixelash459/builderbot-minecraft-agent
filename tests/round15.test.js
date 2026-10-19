@@ -224,3 +224,14 @@ test('round 27: a worn iron pickaxe with no iron is replaced by one stone pickax
  r=plan({...base,stone_pickaxe:2},{}); // the iron step keeps STONE_PICKS=2 spares on purpose
  assert.notEqual(r.job?.item,'stone_pickaxe','two sound stone pickaxes: no more crafted');
 });
+// ---- round 28 ----
+import {duskHuntOff} from '../src/autopilot.js';
+test('round 28: no food trips between dusk prep and sunset unless it is an emergency',()=>{
+ const c=counts({_edible:0});
+ const hunt={step:'food',job:{type:'fight',entity:'pig'}};
+ assert.equal(duskHuntOff(11500,hunt,c,{foodBar:15}),true,'dusk, bar 15: wait for morning');
+ assert.equal(duskHuntOff(11500,hunt,c,{foodBar:5}),false,'dusk but starving: go');
+ assert.equal(duskHuntOff(6000,hunt,c,{foodBar:15}),false,'midday: hunt');
+ assert.equal(duskHuntOff(11500,{step:'food',job:{type:'smelt'}},c,{foodBar:15}),false,'cooking held meat is fine');
+ assert.equal(duskHuntOff(11500,{step:'iron',job:{type:'gather'}},c,{foodBar:15}),false,'other steps untouched');
+});

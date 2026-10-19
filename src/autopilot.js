@@ -333,6 +333,13 @@ function replacementJob(c,ctx){
 // bot is hungry (bar <= FOOD_HUNGRY) with nothing to eat. A food step that keeps failing is
 // set aside (ctx.foodOff, FOOD_OFF_MS) and comes back only on that hunger (ctx.foodDeferred).
 export const FOOD_CRITICAL=6,FOOD_ENOUGH=4,FOOD_HUNGRY=14,FOOD_LEGS=6,FOOD_OFF_MS=8*60000,FOOD_BATCH=6;
+// Round 28: a food-step trip (hunt, fight, collect, explore) between DUSK_PREP and sunset that
+// is not a food emergency.
+export function duskHuntOff(tod,choice,c,ctx){
+ if(!(tod!=null&&tod>=DUSK_PREP&&tod<SUNSET))return false;
+ if(choice?.step!=='food'||!['fight','hunt','collect','explore'].includes(choice.job?.type))return false;
+ return !foodEmergency(c,ctx);
+}
 export function foodEmergency(c,ctx){
  if(c('_edible')>=1||!Number.isFinite(ctx?.foodBar))return false;
  return ctx.foodBar<=FOOD_CRITICAL||(!!ctx.lowHealth&&ctx.foodBar<18);
@@ -1250,7 +1257,11 @@ export class Autopilot{
    coalNear:this.oreNear(b,['coal_ore','deepslate_coal_ore'],32),waterAt:this.waterSource(b),sheepNear:this.sheepNear(b),bedNear:this.bedNear(b),lastEquip:this.lastEquip||null,coalOff:Date.now()<(this.coalOffUntil||0),bedOff:Date.now()<(this.bedOffUntil||0),bedSearch:(this.bedSearch?.legs||0)<BED_SEARCH_LEGS,sheepFar:this.sheepFar(b),searchDistance:BED_SEARCH_DIST[Math.min(this.bedSearch?.legs||0,BED_SEARCH_DIST.length-1)],diamondOff:Date.now()<(this.diamondOffUntil||0),
    breedable:this.breedable(b,counts),hayNear:this.hayNear(b),
    foodBar:typeof b.food==='number'?b.food:null,lowHealth:typeof b.health==='number'&&b.health<(this.worker.config?.limits?.minHealth??10),foodOff:Date.now()<(this.food?.offUntil||0),foodDeferred:!!this.food?.deferred};
-  const choice=plan(counts,{...ctx,kitSkip:this.kitSkip||null,blocked:this.state.startsWith('blocked: ')?this.state.slice(9).split(' ')[0]:null});
+  let choice=plan(counts,{...ctx,kitSkip:this.kitSkip||null,blocked:this.state.startsWith('blocked: ')?this.state.slice(9).split(' ')[0]:null});
+  // Round 28 (round-27 hard1: a pig fight and a drop collect at tod ~11500 in a dark-forest crowd,
+  // killed by a zombie 23 s before sunset): from DUSK_PREP no food trip leaves for the hunting
+  // grounds unless it is an emergency - food waits for morning, the dusk prep and shelter run.
+  if(duskHuntOff(dayTicks(b),choice,c=>counts[c]||0,ctx)){this.state='dusk: no hunting';choice=plan(counts,{...ctx,kitSkip:this.kitSkip||null,blocked:'food'});}
   if(!choice.step){this.state='all steps satisfied';return;}
   // A batch for the furnace: load it and move on (efficiency 1).
   if(choice.job&&choice.job.type==='smelt'&&!choice.job.take&&choice.job.count>=SMELT_LEAVE_AT&&!this.worker.furnaceRun)choice.job={...choice.job,leave:true};
