@@ -2141,3 +2141,23 @@ Two `gather diamond_ore` submits, each `targetY -53`, `strip:true`, count 3: 03:
 ### Uncaught
 
 `logs/dashboard-uncaught.log` gained no bytes during the soak (size stayed 2576174, the same size rounds 22 and 23 reported). Zero lines in that file carry a timestamp inside 03:16:55Z–06:24:56Z. There is no line to quote from the soak window.
+
+## 2026-10-19 12:14–12:32 IST — units and integration (`c664547`)
+
+`git pull --rebase` needed a stash of local `data/` dumps first. After the stash, origin was already up to date, and the stash was popped. HEAD is `c664547` (`Round 25: two more pathfinder wedges closed, swim up at air 8, step out of the water after a bucket fill`). This round is units, integration, combat, then the soak. The handover closes two pathfinder wedges (LOSWhenPlacingBlocks off at spawn, and `unstickDigging` calling `stopDigging`) and raises the swim-up air threshold to 8, then walks to a dry stand after a bucket fill.
+
+Unit tests, every `tests/*.test.js` except `resources.test.js`, `--max-old-space-size=2048 --test-timeout=60000 --test-skip-pattern resources`: **571 passed, 0 failed** (41.4 s). The note expected 562; nothing failed.
+
+Services restarted with `AGENT_MODEL=off`. `Stop-Agent.ps1` saved the test world and stopped the services. `Start-Agent.ps1 -NoBrowser` then brought the dashboard up. Supervisor log first line: `model server disabled (config.model.enabled=false): skipping llama-server, saving ~6.5 GB commit`.
+
+`python -u tests/integration.py`, model off. Exit 0, 1069 s (12:14:46–12:32:33 IST, 06:44:46Z–07:02:33Z). `All in-game integration tests passed`.
+
+The drowning-surface test passed. `PASS: reflex surfaced the drowning bot`. The dashboard window (487 timestamped lines, 06:44:46Z–07:02:33Z) has one air line: `2026-10-19T07:00:31.619Z WorldSurvival: drowning (air 8), swimming up`, and the same timestamp `Reflex: Misc World Survival Chain engaging`. The harness teleported the bot back to `(0, -60, 0)` at 07:00:33.771Z, so the surface wait finished about 2.2 s after that air-8 line. No second `swimming up` line. Round 24's integration line was air 6 and the return was about 2.4 s later. The new threshold of 8 is what this run logged.
+
+Reflex line from the suite: `Reflex paused the gather: Reflex: preempted by Mob Defense`. Dashboard at 07:00:42.573Z: `Pause trace: gather -> Reflex: preempted by Mob Defense`. The suite also logged `PASS: armed bot reflex killed the zombie`, `PASS: unarmed bot fled to 9.8 blocks`, `PASS: creeper avoided at 11.2 blocks`, `PASS: reflex auto-ate without a job (12 -> 18)`, `PASS: reflex auto-equipped the iron chestplate`, and `PASS: gather paused by a reflex resumed and completed`.
+
+`PASS: A4 escaped the lava trench (hp 19.8, at [1652, -59, 1650])`. Round 24 was hp 19.8 at [1656, -59, 1651].
+
+Zero `last path: none` lines in the window. Zero `Navigation made no progress` lines. Zero `place ... threw` lines. Zero `pillar-up failed` lines.
+
+Combat is next.
