@@ -1878,3 +1878,10 @@ Round 27 soak: all 6 runs through the furnace again (hard 241/331/331 s), iron p
 - **No food trips at dusk**: between `DUSK_PREP` (10000) and `SUNSET` a food-step hunt/fight/collect/explore is replaced by the next step (the plan is re-run with food blocked; `dusk: no hunting`) unless it is a food emergency (`duskHuntOff`). Food waits for the morning; the dusk kit, cobble and shelter run instead.
 
 Still open: bed (no sheep found on most runs; hard runs never craft one), diamonds (water beside the staircase at y=-7, a broken pickaxe at y=12), hard-run iron pick, a smelt walking back to the previous run's furnace 30 blocks away.
+
+## Round 29 (2026-10-20)
+
+Round 28 soak: 5 valid runs (all through the furnace; iron pick 3/3 normal at 482/632/422 s; hard1's night mine came back with 16 ore items), but **hard3 never started** (3 attempts `INVALID - dawn/clear not confirmed (observe: timeOfDay=None weather=None)`), and the 1 death was hard2 `shot by Skeleton` at tod ~9950 during a pig fight in a crowd. `dusk: no hunting` never fired (no food trip reached the window).
+
+- **Keep-alive kick** (why hard3 never started: the bot was gone): hard2 was disconnected at 02:47:59 IST - the server log says `Disconnecting BuilderBot for sending keepalive response ... out-of-order!` - and the harness could not observe the next run. `compat.js` paced keep-alive replies to one per 500 ms and DROPPED the rest; two requests close together (after a stall) lost a reply and the next carried the wrong id. Same class of bug as the round-3 teleport-confirm dedupe. Now only an exact repeat of the same id is dropped; every request gets its reply, in order.
+- **Crowd rule for food trips**: a food-step hunt/fight/collect/explore also waits while `CROWD_NEAR`=3+ hostiles are within 16 (dark-forest canopy spawns by day), unless it is a food emergency (`crowd: no hunting`, logged once per state change).

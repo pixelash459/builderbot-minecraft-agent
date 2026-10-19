@@ -42,7 +42,7 @@ export function installMovementFix(bot){
  // input packets at 30 per second; dropped intermediate positions are superseded by the next.
  let packetCount=0,packetSecond=Date.now(),lastName='';
  let movementSent=0,movementSecond=Date.now(),inputSent=0,inputSecond=Date.now();
- let lastKeepAlive=0,lastTeleportConfirm=0,lastConfirmedTeleportId=null;
+ let lastKeepAlive=null,lastTeleportConfirm=0,lastConfirmedTeleportId=null;
  let staleLook=false,sentRot=null; // rotation the server last received (notchian degrees)
  const allowPace=(sentRef,secondRef)=>{
   const now=Date.now();
@@ -69,12 +69,14 @@ export function installMovementFix(bot){
  });
  client.write=(name,data)=>{
   countPacket(name);
-  // The protocol layer's keep-alive timer also catches up in bursts on Windows; the server
-  // only needs one reply per request, so pace those too.
+  // Every keep-alive request needs its own reply, in order. Round 28 (hard2, 02:47:59 IST):
+  // Paper kicked the bot `for sending keepalive response out-of-order` - the old 500 ms pacing
+  // here dropped a reply when two requests arrived close together (after a stall), and the
+  // next reply then carried the wrong id. Only an exact repeat of the same id is dropped.
   if(name==='keep_alive'){
-   const now=Date.now();
-   if(now-lastKeepAlive<500)return undefined;
-   lastKeepAlive=now;
+   const id=data&&data.keepAliveId!=null?String(data.keepAliveId):null;
+   if(id!=null&&id===lastKeepAlive)return undefined;
+   lastKeepAlive=id;
   }
   // Physics catch-up sends position_look (not bare position) whenever yaw also changes.
   // That packet was uncapped, so a bed teleport plus a look every tick crossed Paper's

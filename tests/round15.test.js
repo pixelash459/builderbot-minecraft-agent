@@ -235,3 +235,9 @@ test('round 28: no food trips between dusk prep and sunset unless it is an emerg
  assert.equal(duskHuntOff(11500,{step:'food',job:{type:'smelt'}},c,{foodBar:15}),false,'cooking held meat is fine');
  assert.equal(duskHuntOff(11500,{step:'iron',job:{type:'gather'}},c,{foodBar:15}),false,'other steps untouched');
 });
+test('round 29: a crowd of hostiles holds food trips back even by day',()=>{
+ const c=counts({_edible:0});const hunt={step:'food',job:{type:'fight',entity:'pig'}};
+ assert.equal(duskHuntOff(6000,hunt,c,{foodBar:15,crowd:3}),true);
+ assert.equal(duskHuntOff(6000,hunt,c,{foodBar:15,crowd:2}),false);
+ assert.equal(duskHuntOff(6000,hunt,c,{foodBar:4,crowd:5}),false,'starving: still go');
+});

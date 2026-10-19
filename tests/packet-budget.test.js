@@ -91,3 +91,13 @@ test('a movement that gets through always carries its tick boundary, even at the
  assert.equal(packets.at(-1).name,'tick_end');assert.equal(packets.filter(p=>p.name==='position').length,1);
  b.emit('end');
 });
+// Round 28 (hard2 kicked `for sending keepalive response out-of-order`): every keep-alive id
+// gets its reply, however close together they come; only an exact repeat is dropped.
+test('keep-alive replies are never paced away, only exact repeats are dropped',()=>{
+ const {b,packets}=compatBot();
+ b._client.write('keep_alive',{keepAliveId:100n});
+ b._client.write('keep_alive',{keepAliveId:101n}); // a few ms later: must still go out
+ b._client.write('keep_alive',{keepAliveId:101n}); // the same id twice: one reply
+ assert.deepEqual(packets.filter(p=>p.name==='keep_alive').map(p=>p.data.keepAliveId),[100n,101n]);
+ b.emit('end');
+});

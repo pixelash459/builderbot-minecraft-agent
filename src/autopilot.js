@@ -336,7 +336,11 @@ export const FOOD_CRITICAL=6,FOOD_ENOUGH=4,FOOD_HUNGRY=14,FOOD_LEGS=6,FOOD_OFF_M
 // Round 28: a food-step trip (hunt, fight, collect, explore) between DUSK_PREP and sunset that
 // is not a food emergency.
 export function duskHuntOff(tod,choice,c,ctx){
- if(!(tod!=null&&tod>=DUSK_PREP&&tod<SUNSET))return false;
+ // Round 29 (round-28 hard2 `shot by Skeleton` at tod ~9950 chasing a pig through a crowd under
+ // the dark-forest canopy, where mobs spawn by day): a crowd of CROWD_NEAR+ hostiles within 16
+ // holds food trips back too.
+ const crowd=(ctx?.crowd||0)>=CROWD_NEAR;
+ if(!crowd&&!(tod!=null&&tod>=DUSK_PREP&&tod<SUNSET))return false;
  if(choice?.step!=='food'||!['fight','hunt','collect','explore'].includes(choice.job?.type))return false;
  return !foodEmergency(c,ctx);
 }
@@ -458,7 +462,7 @@ export function pickupJob(counts,ctx){
 // from base. Over INV_FULL the surplus goes into the home chest (placed beside home, crafted
 // when needed) while home is within HOME_DEPOSIT_RANGE; passing within INV_PASS of the chest
 // deposits it too; full and far from home, pure junk is dropped.
-export const FORGET_FAR=96,FORCED_DROP_MS=60000,NO_ROOM_MS=5*60000,BUCKET_FAIL_MS=5*60000,BUCKET_OFF_MS=15*60000;
+export const CROWD_NEAR=3,FORGET_FAR=96,FORCED_DROP_MS=60000,NO_ROOM_MS=5*60000,BUCKET_FAIL_MS=5*60000,BUCKET_OFF_MS=15*60000;
 export const INV_FULL=0.75,INV_PASS=8,INV_PASS_MIN=16,HOME_DEPOSIT_RANGE=48,INV_OFF_MS=5*60000,DROP_LOOP_MS=3*60000;
 const SAPLING=/_sapling$/,FLOWER=/^(dandelion|poppy|blue_orchid|allium|azure_bluet|.*_tulip|oxeye_daisy|cornflower|lily_of_the_valley|sunflower|lilac|rose_bush|peony|pink_petals|short_grass|tall_grass|fern|dead_bush)$/;
 export const JUNK_KEEP={dirt:32,cobblestone:64,cobbled_deepslate:32,netherrack:16,wheat_seeds:16,gravel:0,andesite:0,diorite:0,granite:0,tuff:0,calcite:0,rotten_flesh:0,sand:0,red_sand:0,pointed_dripstone:0,poisonous_potato:0,spider_eye:0,snowball:0,clay_ball:0,flint:8}; // round 22: snowball/clay_ball filled bag slots
@@ -1261,7 +1265,8 @@ export class Autopilot{
   // Round 28 (round-27 hard1: a pig fight and a drop collect at tod ~11500 in a dark-forest crowd,
   // killed by a zombie 23 s before sunset): from DUSK_PREP no food trip leaves for the hunting
   // grounds unless it is an emergency - food waits for morning, the dusk prep and shelter run.
-  if(duskHuntOff(dayTicks(b),choice,c=>counts[c]||0,ctx)){this.state='dusk: no hunting';choice=plan(counts,{...ctx,kitSkip:this.kitSkip||null,blocked:'food'});}
+  const crowd=Object.values(b.entities||{}).filter(e=>e&&e.type==='hostile'&&e.position&&b.entity?.position&&e.position.distanceTo(b.entity.position)<=16).length;
+  if(duskHuntOff(dayTicks(b),choice,c=>counts[c]||0,{...ctx,crowd})){const st=crowd>=CROWD_NEAR?'crowd: no hunting':'dusk: no hunting';if(this.state!==st)this.log('Autopilot: '+st+' ('+crowd+' hostiles within 16)');this.state=st;choice=plan(counts,{...ctx,kitSkip:this.kitSkip||null,blocked:'food'});}
   if(!choice.step){this.state='all steps satisfied';return;}
   // A batch for the furnace: load it and move on (efficiency 1).
   if(choice.job&&choice.job.type==='smelt'&&!choice.job.take&&choice.job.count>=SMELT_LEAVE_AT&&!this.worker.furnaceRun)choice.job={...choice.job,leave:true};
