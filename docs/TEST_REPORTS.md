@@ -1808,3 +1808,177 @@ Services restarted with `AGENT_MODEL=off`. `Stop-Agent.ps1` saved the test world
 The witch leg printed `NOTE: witch survived the duel (job failed, lost 0 hp) - recorded as a measured 26.3 limit` and the suite still exited 0. Dashboard at 22:44:08.797Z: `Combat: avoid witch` and `avoid: the witch kites and out-potions the rush`, then 22:44:08.928Z `Job: Fight timed out; witch is still standing`. That is the recorded 26.3 limit, not a suite failure.
 
 The soak is next.
+
+
+## 2026-10-19 04:17–07:25 IST — dual soak (`467a65e`, bot code `edd3b0c`)
+
+`AGENT_MODEL=off`, one soak, exit 0, 11281 s (04:17:46–07:25:46 IST, 22:47:46Z–01:55:46Z). `SOAK DONE (clean)`, promoted to `data/soak-results.json`. Anchors this seed: hard [142, 131, 31] (canopy light 10), normal [310, 131, 30] (open sky 15). Interventions 2, resumes 1, deaths 1. Six valid runs. The dashboard window used below is 22:47:46Z–01:55:47Z (2719 timestamped lines). The runs are the `Autopilot started` / `Autopilot stopped` pairs: normal1 22:50:54.341Z–23:31:02.348Z (04:20:54–05:01:02 IST), normal2 23:31:14.284Z–00:11:22.474Z (05:01:14–05:41:22 IST), normal3 00:11:34.246Z–00:51:41.807Z (05:41:34–06:21:41 IST), hard1 00:51:56.292Z–01:13:00.130Z (06:21:56–06:43:00 IST), hard2 01:13:11.851Z–01:34:15.562Z (06:43:11–07:04:15 IST; a second `Autopilot started` at 01:28:14.532Z is the resume after the death), hard3 01:34:27.318Z–01:55:30.990Z (07:04:27–07:25:30 IST). After the stop, the flat world was restored (`level-name=agent-test-world`, `server-ip=0.0.0.0`, `difficulty=peaceful`, properties written 07:25:48 IST). Supervisor log first line is still `model server disabled (config.model.enabled=false): skipping llama-server, saving ~6.5 GB commit`. No second soak. The combat report commit `467a65e` is docs-only; the bot code is `edd3b0c`.
+
+The wood / stone-pick / furnace / iron-pick columns are the first sample that held the item. **All 6 runs made a wooden pick, a stone pick, and a furnace.** Round 22 (`e1e2f1c` / soak report `eb493c9`) was also 6 of 6, with hard wood 120/90/120, hard stone 181/181/151, hard furnace 301/331/241, and normal iron 391/572/542. This round the hard times are wood 90/120/90, stone 150/211/211, furnace 241/301/361. hard1's furnace is gone at the bell (stone pick still 1), so its end `stone` predicate is no, the same shape as round 22 hard1. hard2's end kit is empty because of the death below, so its end `wood` and `stone` are no; the rung times were already recorded. normal2's end `stone` is no (stone pick 0, stone shovel 0, furnace still 1). All three normal runs still reached an iron pick (round 22 was 391/572/542; this round is 512/572/722). normal2's iron pick was gone at the bell (`iron_pickaxe` 0, `iron_sword` 1). No hard run held an iron pick.
+
+| Run | Wood | Stone pick | Furnace | Iron pick | Torches | Armour worn | Bed | Diamonds | Food | Deaths |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| normal1a1 | 90 | 211 | 301 | 512 | 17 | 4 at 873 | — | 0 | ate 2 (food min 15) | 0 |
+| normal2a2 | 120 | 181 | 241 | 572 | 16 | 2 at 842 | — | 0 | ate 1 (food min 14) | 0 |
+| normal3a3 | 90 | 241 | 331 | 722 | 17 | 2 at 903 | — | 0 | ate 1 (food min 13; one eat timed out) | 0 |
+| hard1a1 | 90 | 150 | 241 | — | 8 | 0 | — | 0 | not hungry enough (food min 20) | 0 |
+| hard2a2 | 120 | 211 | 301 | — | 0 | 0 | — | 0 | not hungry enough (food min 20) | 1 |
+| hard3a3 | 90 | 211 | 361 | — | 0 | 0 | — | 0 | not hungry enough (food min 20) | 0 |
+
+### Deaths
+
+One death. The soak counter is 1 on hard2 and 0 on the other five. Dashboard: `2026-10-19T01:27:47.571Z Bot died at 116, 123, 12 (killed by zombie)` and `2026-10-19T01:27:47.574Z Bot died; inspect the world before resuming`. No `drowned`, `slain`, `burned`, or `obliterated` line. The terminal then printed `operator: resumed the ladder after death 1`.
+
+The 30 s before that (01:27:17Z–01:27:47Z) is the shelter being rebuilt while a creeper at 5.6–6.0 keeps preempting it. The spine, quoted:
+
+- 01:27:12.090Z `Shelter: sealed at (126, 131, 28) (24 blocks placed)` then 01:27:12.353Z `Night mine: down from the shelter at (126, 131, 28) (tod 16952)`.
+- 01:27:28.356Z `Reflex: creeper at 6.0 overrides the shelter hold` and `Night: knocked off the pillar`, then `Reflex: fleeing creeper (never melee a creeper)`.
+- 01:27:28.563Z `Shelter: moved from 126,131,28 to (126, 129, 28); building a new box here`.
+- 01:27:30.764Z `Autopilot: the night job cancelled (Reflex: preempted by Mob Defense); sheltering again`.
+- 01:27:36.853Z `Shelter: moved from 123,128,25 to (121, 126, 23)`.
+- 01:27:38.361Z `Reflex: night crowd (3 hostiles); pillaring up instead of fleeing` and `Night: caught outside in a crowd; pillar-up 3 at 121,126,23`. 01:27:38.661Z `Night: pillar-up failed (left the column at 0/3; rose 1.41, 1 clicks, holding cobblestone, on grass_block, airborne)`.
+- 01:27:39.166Z through 01:27:43.265Z the box moves again: `(120, 126, 20)`, `(120, 126, 19)`, `(120, 126, 18)`, `(120, 124, 18)`, `(119, 124, 15)`, `(118, 124, 14)`, `(118, 123, 14)`. Between each move the same pair repeats: `Reflex: creeper at 5.7–6.0 overrides the shelter hold` / `Job: Reflex: preempted by Mob Defense`.
+- 01:27:46.111Z `Reflex: creeper fuse (swell 1) sprinting past 7`.
+- 01:27:47.571Z `Bot died at 116, 123, 12 (killed by zombie)`.
+
+The death message names a zombie. The 30 s of log names the creeper. After the resume the bot seals at `(101, 128, -8)` at 01:28:52.063Z (`19 blocks placed`) with an empty inventory, and samples from t=933 to the bell (t=1264) stay at [101, 128, -8], `working: shelter`, food bar 20, saturation 3. Dawn 01:33:04.944Z `tod 12`. The run stops at 01:34:15.562Z with no morning-open line.
+
+### Bed
+
+Zero `craft white_bed` lines. Zero `place white_bed` lines. Zero `Home set` lines. Zero `Sleeping` lines. Bed 0 on every sample, including the hard runs. Round 22 hard1 crafted a white bed at 481 s; every place was refused (`the block is still air`); no Home set; no sleep. This round never got as far as a place, so the new foot/head placement was not exercised.
+
+- normal1 23:03:20.691Z `craft shears`. 23:20:17.241Z `no sheep after 3 search legs; bed set aside for 10 min`.
+- normal2 23:47:48.134Z `no sheep after 3 search legs; bed set aside for 10 min`. Later slot lists still hold `black_wool:1` (first at 00:01:38.378Z, still there at 00:09:16.044Z). No bed craft after that wool.
+- normal3 00:41:35.753Z `no sheep after 3 search legs; bed set aside for 10 min`.
+- hard1 hunted sheep and both fights finished, and still no bed item. 00:58:32.683Z `fight` sheep, result 00:58:45.665Z `Fight result: sheep tactic=melee hits=3 ... result=finished`. 00:59:20.176Z `hunt` sheep, result 00:59:25.754Z `Fight result: sheep tactic=melee hits=3 ... result=finished`. End inventory `bed` 0.
+- hard3 01:42:33.561Z `hunt` sheep, then 01:44:03.610Z `Job: Hunt timed out fighting sheep`.
+
+### Deep dark
+
+One refusal, on normal2. It did not repeat. Round 22 normal1 repeated `leaving (warden)` 26 times in about 5 min on the same sculk catalyst after mining one deepslate diamond ore at y=-27.
+
+- 23:58:36.531Z `Job: Tunnel stopped: deep dark (sculk_sensor at (420, -52, 87))`.
+- 23:58:37.136Z `Autopilot: deep dark - climbing out; diamond trips set aside for 20 min`.
+- 23:58:40.079Z `Ascend: path up stopped (No path to the goal!)`.
+- 23:58:40.079Z `Ascend: y=-24 -> -18 (surface 96)`.
+
+No second `deep dark` line, no second `Ascend:` line, and zero `warden` lines. The lowest normal2 sample is [413, -42, 90] at t=1625. The next sample (t=1655) is [413, -12, 120], and from t=1685 to t=2167 the bot stays near y=-9 to y=-7. Diamonds held stay 0. The climb stopped 114 blocks under the surface it named, and the y=-53 strip was not mined.
+
+### Trying without it
+
+485 lines, `Navigation: no path with mob avoidance at (...); trying without it`, in 309 bursts. Round 22 was 608 lines in 307 bursts. Line counts: normal1 66, normal2 27, normal3 46, hard1 201, hard2 118, hard3 27.
+
+Four bursts are 8 lines or longer, all under a minute:
+
+- hard1, 15 lines at (143, 125, 33), 00:55:13.312Z–00:55:50.767Z. The same second is `Could not climb back up the tunnel: No path to the goal!`. The furnace is still the t=241 sample (about 00:55:57).
+- hard1, 99 lines at (131, 143, -15), 00:56:32.672Z–00:57:29.206Z. The next line is 00:57:29.673Z `Completed gather`. The retry reached the gather.
+- hard2, 19 lines at (134, 133, 34), 01:13:31.493Z–01:13:41.392Z, and 18 lines at (135, 135, 31), 01:14:02.462Z–01:14:11.752Z. Both are in the first 90 s. The wooden pick is the t=120 sample, the stone pick t=211, the furnace t=301.
+
+### Boxed in
+
+Zero `Boxed in` lines. Nothing was dug as a stair-out. Round 22 had four lines, all `no way to stair out`, zero steps dug.
+
+### Empty path
+
+`empty path` lines: normal1 5, normal2 0, normal3 4, hard1 1, hard2 0, hard3 0. Round 22 was 5/4/1/0/0/0. Every one this round is `Left the furnace`, and every search visited 83–440 nodes. None visited 1–2 nodes. No cell repeats for minutes.
+
+- 23:06:49.259Z at (351, 62, 92), `partial, 0 steps, 241 nodes`.
+- 23:08:32.443Z at (361, 54, 89), `partial, 0 steps, 196 nodes`.
+- 23:24:51.368Z at (406, 22, 102), `partial, 0 steps, 233 nodes`.
+- 23:26:24.155Z and 23:27:22.644Z at (404, 35, 103), `noPath, 0 steps, 83 nodes` then `98 nodes`.
+- 00:19:19.217Z at (255, 128, 51), `partial, 0 steps, 233 nodes`.
+- 00:19:46.178Z, 00:23:18.237Z, 00:26:03.096Z at (254, 127, 52), `partial, 0 steps, 248 / 440 / 236 nodes`.
+- 01:00:46.090Z at (131, 143, -49), `partial, 0 steps, 268 nodes`.
+
+### Cannot reach
+
+33 gather attempts (66 lines with the skip twin). **Zero say `walk ok`.** Round 22 was also zero `walk ok`.
+
+- spruce_log 1, normal1, 22:51:15.061Z `(331, 131, 29)`, `walk: Navigation left the surface at (321, 126, 33)`, 10.9 from the eye. The wooden pick is still the t=90 sample.
+- The other normal1 attempts are navigation timeouts on the way down (354,59 / 364,45 / 406,8–9 / 408,15–27), 9 attempts.
+- hard1 2. One `The goal was changed before it could be completed!` at (130, 143, -48). One timeout at (136, 134, -51).
+- hard2 stone 12, 01:16:31.445Z–01:16:42.680Z, all `walk: No path to the goal!`, bot at (137, 128, 31), 11.6–13.2 from the eye. The stone pick is still the t=211 sample.
+- hard3 stone 10, 01:36:24.730Z–01:36:32.888Z, the same `No path` clause, bot at (127, 127, 27), 16.0–18.3 from the eye. The stone pick is still the t=211 sample.
+
+### Silverfish
+
+Zero `silverfish`, `Silverfish`, and `endermite` lines.
+
+### Full bag
+
+`Inventory nearly full` is 19 job lines. No `waiting: bag full` sample. `the bag is full; no crafting for 5 min, clearing junk first` is 20 lines, all on normal1 (23:06:49.604Z–23:29:31.782Z) and normal2 (00:01:38.639Z–00:09:24.092Z). `No room for crafting result` is once, 23:27:31.290Z, immediately before one of the normal1 clears.
+
+Each quoted slot list:
+
+- 23:06:49.260Z `cobblestone:3 dirt:2 stone_pickaxe:2 iron_ingot:1 spruce_planks:1 cooked_beef:1 spruce_sapling:1 cooked_porkchop:1 spruce_log:1 wooden_pickaxe:1`
+- 23:07:18.472Z `cobblestone:2 dirt:2 stone_pickaxe:2 iron_ingot:1 spruce_planks:1 cooked_beef:1 spruce_sapling:1 cooked_porkchop:1 spruce_log:1 wooden_pickaxe:1`
+- 23:12:36.483Z `cobblestone:5 dirt:2 stone_shovel:1 spruce_planks:1 coal:1 spruce_sapling:1 cooked_porkchop:1 wooden_pickaxe:1 wooden_axe:1 leather:1`
+- 23:17:22.919Z `cobblestone:3 andesite:2 stone_pickaxe:2 dirt:2 iron_ingot:1 coal:1 spruce_sapling:1 cooked_porkchop:1 wooden_pickaxe:1 wooden_axe:1`
+- 23:17:39.134Z `andesite:2 cobblestone:2 stone_pickaxe:2 dirt:2 iron_ingot:1 coal:1 spruce_sapling:1 cooked_porkchop:1 wooden_pickaxe:1 wooden_axe:1`
+- 23:18:16.434Z `cobblestone:4 andesite:2 stone_pickaxe:2 iron_ingot:1 coal:1 spruce_sapling:1 cooked_porkchop:1 wooden_pickaxe:1 wooden_axe:1 leather:1`
+- 23:19:42.676Z `cobblestone:4 dirt:2 stone_pickaxe:2 iron_ingot:1 coal:1 spruce_sapling:1 cooked_porkchop:1 andesite:1 wooden_pickaxe:1 wooden_axe:1`
+- 23:20:37.378Z `stone_pickaxe:2 cobblestone:2 andesite:1 dirt:1 coal:1 spruce_sapling:1 cooked_porkchop:1 moss_block:1 wooden_pickaxe:1 wooden_axe:1`
+- 23:22:05.976Z `clay_ball:2 cobblestone:2 stone_pickaxe:2 dirt:1 coal:1 spruce_sapling:1 cooked_porkchop:1 moss_block:1 wooden_pickaxe:1 wooden_axe:1`
+- 23:28:23.622Z `cobblestone:2 stone_pickaxe:2 iron_shovel:1 spruce_sapling:1 coal:1 iron_ingot:1 moss_block:1 wooden_pickaxe:1 wooden_axe:1 leather:1`
+- 23:29:27.871Z `cobblestone:4 stone_pickaxe:2 iron_shovel:1 spruce_sapling:1 coal:1 iron_ingot:1 moss_block:1 wooden_pickaxe:1 wooden_axe:1 leather:1`
+- 00:01:38.378Z `cobblestone:3 cobbled_deepslate:2 furnace:1 wooden_sword:1 leather:1 clay_ball:1 raw_iron:1 wooden_axe:1 dirt:1 black_wool:1`
+- 00:01:58.884Z `clay_ball:2 cobbled_deepslate:2 furnace:1 wooden_sword:1 leather:1 raw_iron:1 wooden_axe:1 dirt:1 black_wool:1 cooked_porkchop:1`
+- 00:02:18.043Z `cobblestone:3 cobbled_deepslate:2 furnace:1 wooden_sword:1 leather:1 raw_iron:1 wooden_axe:1 dirt:1 black_wool:1 cooked_porkchop:1`
+- 00:06:40.241Z `cobbled_deepslate:4 clay_ball:2 furnace:1 wooden_sword:1 leather:1 raw_iron:1 wooden_axe:1 water_bucket:1 black_wool:1 cooked_porkchop:1`
+- 00:08:02.654Z, 00:08:11.495Z, and 00:08:51.792Z `clay_ball:2 cobblestone:2 cobbled_deepslate:2 furnace:1 wooden_sword:1 leather:1 raw_iron:1 wooden_axe:1 water_bucket:1 black_wool:1`
+- 00:09:16.044Z `cobblestone:2 cobbled_deepslate:2 furnace:1 wooden_sword:1 leather:1 clay_ball:1 raw_iron:1 wooden_axe:1 water_bucket:1 black_wool:1`
+
+Clay, a second stone pick, leather, moss, and `black_wool:1` are still in those lists. `water_bucket:1` is in the normal2 lists from 00:06:40.241Z on.
+
+Drops that completed:
+
+- normal1: 46 dirt, 2 cobblestone, 2 spruce_sapling, 2 cobblestone, 79 cobblestone, 66 dirt, 79 cobblestone, 66 dirt, 87 cobblestone, 66 dirt, 216 cobblestone, 78 dirt, 216 cobblestone, 99 andesite, 129 cobblestone, 99 andesite, 159 cobblestone, 74 dirt, 35 andesite, 92 clay_ball, 51 cobblestone, 132 cobblestone, 44 clay_ball, 13 granite, 7 andesite, 2 spruce_sapling, 2 gravel, 2 diorite, 44 clay_ball, 129 cobblestone, 129 cobblestone, 44 clay_ball.
+- normal2: 69 cobblestone, 56 clay_ball, 106 cobblestone, 77 cobbled_deepslate, 106 cobblestone, 106 cobblestone, 124 clay_ball, 106 cobblestone, 124 clay_ball, 106 cobblestone, 124 clay_ball, 106 cobblestone, 64 clay_ball, 63 andesite, 48 cobbled_deepslate, 11 diorite, 7 dirt, 48 cobbled_deepslate, 64 clay_ball, 53 cobbled_deepslate.
+- normal3: 34 dirt, 46 dirt, 177 cobblestone, 64 clay_ball, 177 cobblestone.
+
+Pockets:
+
+- 23:17:34.909Z east (normal1). 23:17:38.760Z `Dropped cobblestone came back into the inventory` (3.9 s).
+- 23:17:56.475Z east (normal1). The next came-back is dirt at 23:18:16.231Z (20 s), so not within 4 s.
+- 00:40:53.759Z east (normal3). Then 177 cobblestone, 64 clay_ball, 177 cobblestone (00:40:57.660Z–00:41:07.726Z). No came-back after that pocket.
+
+Came-backs, all ten: cobblestone 23:17:38.760Z and 23:43:38.931Z, dirt 23:18:16.231Z, andesite 23:20:03.182Z, clay_ball 23:20:56.810Z, cobbled_deepslate 00:06:44.660Z, clay_ball 00:08:51.232Z, 00:09:03.084Z, and 00:09:11.115Z, diorite 00:09:39.400Z. One of the three pockets came back within 4 s. Round 22 was also 1 of 3.
+
+### Hard runs
+
+All three started on a confirmed dawn. Furthest rung is the furnace on all three. No hard run held an iron pick.
+
+- hard1 furthest rung is the furnace (241 s; stone pick 150 s, wooden pick 90 s). The 99-line avoidance retry above ends at `Completed gather`. Sealed at 01:01:50.364Z `(138, 133, -51)` (`3 blocks placed`). 01:02:18.997Z `Night mine: down from the shelter at (138, 133, -51) (tod 12604)`. 01:04:24.411Z `could not climb back into (138, 133, -51): No path to the goal!`, then `walking the tunnel back by hand from (137, 132, -49)`, then `not back in the shelter (done; 27 steps, 8 ore items, 6 wall digs)`. Resealed at (137, 132, -49) at 01:04:34.301Z (`14 blocks placed`). Dawn 01:11:48.991Z `tod 4`. Morning 01:12:39.006Z `tod 1004, nearest hostile 19.8`. End kit: stone pick 1, furnace 0, bed 0, raw iron 9, cobble 158, torches 5. The furnace is gone at the bell, as in round 22 hard1.
+- hard2 furthest rung is the furnace (301 s; stone pick 211 s, wooden pick 120 s). The twelve stone `No path` attempts above are at 01:16, and the stone pick is still the t=211 sample. Sealed at 01:23:16.270Z `(132, 125, 29)` (`15 blocks placed`). 01:23:34.920Z `Night mine: down from the shelter at (132, 125, 29) (tod 12612)`. 01:25:35.744Z `could not climb back: Navigation timed out at (126, 128, 28)`, then `not back in the shelter (done; 27 steps, 4 ore items, 3 wall digs)`. Resealed at (126, 131, 28) at 01:27:12.090Z (`24 blocks placed`). A second descent at 01:27:12.353Z `(tod 16952)` is the death above. After the resume, samples stay at [101, 128, -8] with an empty inventory through the bell. Dawn 01:33:04.944Z `tod 12`. No morning-open line.
+- hard3 furthest rung is the furnace (361 s; stone pick 211 s, wooden pick 90 s). The ten stone `No path` attempts above are at 01:36, and the stone pick is still the t=211 sample. Sealed at 01:45:57.939Z `(126, 134, 1)` (`22 blocks placed`). 01:45:58.202Z `Night mine: down from the shelter at (126, 134, 1) (tod 13963)`. 01:46:15.080Z `climb back failed: No path to the goal!`. 01:46:29.537Z `could not climb back: Took to long to decide path to goal!`, then `opened onto a cave at 122,132,3; 2 steps, 0 ore items, 0 wall digs`. Resealed at (127, 134, 1) at 01:46:37.640Z (`12 blocks placed`). Dawn 01:54:19.862Z `tod 3`. The run stops at 01:55:30.990Z with no morning-open line. End kit: furnace 1, stone pick 1, cobble 0, iron ore 0.
+
+### Diamond trips
+
+Three `gather diamond_ore` submits, each `targetY -53`, `strip:true`, count 3: 23:09:58.084Z (normal1), 23:49:30.233Z (normal2), 00:30:42.483Z (normal3). Diamonds held 0 on every sample. No `diamond_pickaxe` line. No line names a diamond ore block mined. No hard run submitted one. None reached a sample at y=-53.
+
+- normal1's lowest sample on that rung is [382, 28, 93] at t=1264, then it is back on stone/iron at y=45. The run's lowest sample overall is [367, -1, 93] at t=1775, step `bed-rung`, diamonds 0. The y=-53 strip was not reached. No diamond pick.
+- normal2's lowest sample is [413, -42, 90] at t=1625, diamonds 0. The tunnel stop names a sculk sensor at y=-52 (above). The ascend then stopped at y=-18. No diamond pick.
+- normal3's lowest sample is [222, -50, 154] at t=1745, step `diamond-rung`, diamonds 0. The next sample (t=1776) is `stone` `working: craft` at [220, -48, 154]. It did not reach y=-53. No diamond pick. From t=1836 to the bell (t=2407) it stands at [220, -45, 147], `waiting: Misc World Survival Chain` (the drowning loop below).
+
+### Bucket
+
+Buckets were crafted at 23:01:18.150Z (normal1), 23:43:23.293Z (normal2), and 00:26:07.541Z (normal3). Each use ended `Completed use`: 23:03:49.103Z `(353, 68, 87)` completed 23:03:57.930Z; 23:48:06.522Z `(418, 70, 64)` completed 23:49:00.659Z; 00:29:46.633Z `(254, 62, 131)` completed 00:29:55.159Z. There is no `the bucket failed twice` line. Round 22's uses failed on `No path` or a path timeout and never logged `water_bucket`.
+
+normal2's slot lists name `water_bucket:1` from 00:06:40.241Z through 00:09:16.044Z. normal1 and normal3 never log the words `water_bucket`. normal3, after its completed use, hits lava: 00:42:01.652Z and 00:42:01.703Z `Bucket-into-lava skipped: No ground below to pour against`, then 00:42:02.714Z `WorldSurvival: dousing (onFire true, lavaWindow true)`.
+
+### Food
+
+No `Health or food is low` line and no `Health below` line. Lowest food bar in the samples: normal1 15, normal2 14, normal3 13, hard runs 20. Meals: normal1 ate 2 (bar 15..20), normal2 ate 1 (bar 14..20), normal3 ate 1 (bar 13..20) and one eat failed (`23 failed: Promise timed out. (2 tries)`). Hard runs: not hungry enough, food min 20. hard2's saturation is 3 after the death while the food bar stays 20.
+
+### Other loops
+
+- normal3's drowning stand. 00:42:01.646Z `Reflex: Misc World Survival Chain engaging`, then the lava-bucket skip above, then `WorldSurvival: drowning (air ...), swimming up` from 00:42:13.860Z through 00:51:30.561Z (about 9.3 min, air bouncing between 10 and 400). Samples from t=1836 to t=2407 stay at [220, -45, 147], food 16 down to 13, diamonds 0. The run ends there. Round 22 had zero `swimming up` and zero `WorldSurvival: drowning`.
+- hard2's shelter-move cascade and the empty stand at [101, 128, -8] from t=933 to t=1264 after the zombie death.
+- hard1's 99-line avoidance retry at (131, 143, -15), 57 s, then `Completed gather`.
+- normal2's deep-dark climb, one shot, stopped at y=-18 with the surface named as 96.
+- Place refusals that are not a bed: 22:56:14.262Z `place furnace` at (316, 87, 70) `the block is still air`; 23:44:50.146Z and 23:46:00.750Z `place crafting_table` at (388, 96, 71) `the block is still air`; 00:59:26.560Z `place furnace` at (129, 143, -48) `the block is still air`. The furnace rung still landed on every run.
+- One harness return: `operator: returned the bot from y=119` during normal1. Zero `LOOP_STALL`. Zero `LOOP_SLOW`. Zero `Navigation made no progress`.
+
+### Uncaught
+
+`logs/dashboard-uncaught.log` gained no bytes during the soak (size stayed 2576174, the same size round 22 reported). Zero lines in that file carry a timestamp inside 22:47:46Z–01:55:47Z. There is no line to quote from the soak window.
