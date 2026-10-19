@@ -2376,3 +2376,25 @@ normal3 dug one pocket at `12:41:49.358Z`. Cobblestone came back at `12:41:53.71
 ### Uncaught
 
 `logs/dashboard-uncaught.log` gained no bytes during the soak (size stayed 2576174, the same size rounds 22 through 25 reported). Zero lines in that file carry a timestamp inside 10:52:29Z–14:00:16Z. There is no line to quote from the soak window.
+
+## 2026-10-19 19:45–20:06 IST — units and integration (`f71c159`, also `7d10253`)
+
+`git pull --rebase` needed a stash of local `data/` dumps first. After the stash, origin was already up to date, and the stash was popped. HEAD is `f71c159` (`Round 27: give the pathfinder 10 s to plan`). The other round-27 commit is `7d10253` (`Round 27: replace a worn tool once, not every tick`). Both are bot code. This round is units, a fresh model-off restart, then integration once. No combat. The soak follows this report.
+
+Unit tests, every `tests/*.test.js` except `resources.test.js`, `--max-old-space-size=2048 --test-timeout=60000 --test-skip-pattern resources`: **573 passed, 0 failed** (41.5 s). The note expected 564; nothing failed.
+
+Services restarted with `AGENT_MODEL=off`. `Stop-Agent.ps1` saved the test world and stopped the services. The recorded PIDs were dead and ports 8765, 8766, 8081, and 25569 were free before start. `Start-Agent.ps1 -NoBrowser` then brought the dashboard up. Supervisor log first line: `model server disabled (config.model.enabled=false): skipping llama-server, saving ~6.5 GB commit`. Port 8081 stayed closed.
+
+`python -u tests/integration.py`, model off. Exit 0, 1082 s (19:48:17–20:06:17 IST, 14:18:17Z–14:36:17Z). `All in-game integration tests passed`. The planning-time change (`bot.pathfinder.thinkTimeout` 5 s to 10 s) did not fail the suite.
+
+The drowning-surface test passed. `PASS: reflex surfaced the drowning bot`. The dashboard bytes appended during the window (535 lines, 14:18:17Z–14:36:17Z) have one air line: `2026-10-19T14:34:20.131Z WorldSurvival: drowning (air 8), swimming up`, and the same timestamp `Reflex: Misc World Survival Chain engaging`. The harness teleported the bot back to `(0, -60, 0)` at 14:34:22.283Z, so the surface wait finished about 2.2 s after that air-8 line. No second `swimming up` line. Round 25's integration line was also air 8, with the return about 2.2 s later.
+
+Reflex line from the suite: `Reflex paused the gather: Reflex: preempted by Mob Defense`. Dashboard at 14:34:31.130Z: `Pause trace: gather -> Reflex: preempted by Mob Defense`, then `14:34:32.383Z Reflex: resumed the gather job`. The suite also logged `PASS: armed bot reflex killed the zombie`, `PASS: unarmed bot fled to 9.5 blocks`, `PASS: creeper avoided at 11.2 blocks`, `PASS: reflex auto-ate without a job (10 -> 17)`, `PASS: reflex auto-equipped the iron chestplate`, and `PASS: gather paused by a reflex resumed and completed`.
+
+`PASS: A4 escaped the lava trench (hp 18.8, at [1648, -60, 1648])`. Round 25's integration was hp 19.8 at [1652, -59, 1650].
+
+Zero `Took to long to decide path` lines. Zero `Took too long to decide path` lines. The logged spelling in earlier soaks is `Took to long to decide path to goal!`; neither spelling appears in this window. Zero `last path: none` lines. Zero `Navigation made no progress` lines. Zero `empty path` lines.
+
+`logs/dashboard-uncaught.log` gained no bytes during the integration (size stayed 2576174).
+
+The soak is next.
