@@ -2000,3 +2000,144 @@ Reflex line from the suite: `Reflex paused the gather: Reflex: preempted by Mob 
 `PASS: A4 escaped the lava trench (hp 19.8, at [1656, -59, 1651])`.
 
 The soak is next.
+
+## 2026-10-19 08:46–11:54 IST — dual soak (`dbd046b`, bot code `7148db4`)
+
+`AGENT_MODEL=off`, one soak, exit 0, 11283 s (08:46:55–11:54:56 IST, 03:16:55Z–06:24:56Z). `SOAK DONE (clean)`, promoted to `data/soak-results.json`. Anchors this seed: hard [142, 131, 31] (canopy light 10), normal [310, 131, 30] (open sky 15). Interventions 23, resumes 2, deaths 2. Six valid runs. The dashboard window used below is 03:16:55Z–06:24:56Z (2280 timestamped lines). The runs are the `Autopilot started` / `Autopilot stopped` pairs: normal1 03:20:07.586Z–04:00:14.970Z (08:50:07–09:30:14 IST), normal2 04:00:26.722Z–04:40:34.253Z (09:30:26–10:10:34 IST; a second `Autopilot started` at 04:29:02.117Z is the resume after the drown), normal3 04:40:45.966Z–05:20:53.060Z (10:10:45–10:50:53 IST), hard1 05:21:07.522Z–05:42:10.944Z (10:51:07–11:12:10 IST), hard2 05:42:22.701Z–06:03:26.234Z (11:12:22–11:33:26 IST; a second `Autopilot started` at 05:47:23.576Z is the resume after the suffocation), hard3 06:03:38.031Z–06:24:41.479Z (11:33:38–11:54:41 IST). After the stop, the flat world was restored (`level-name=agent-test-world`, `server-ip=0.0.0.0`, `difficulty=peaceful`, properties written 11:54:58 IST). Supervisor log first line is still `model server disabled (config.model.enabled=false): skipping llama-server, saving ~6.5 GB commit`. No second soak. The integration report commit `dbd046b` is docs-only; the bot code is `7148db4`.
+
+The wood / stone-pick / furnace / iron-pick columns are the first sample that held the item. **None of the three hard runs made a wooden pick.** Round 22 (`e1e2f1c` / soak report `eb493c9`) and round 23 (`edd3b0c` / soak report `f4b1c99`) were both 6 of 6 through the furnace. Round 22 hard times were wood 120/90/120, stone 181/181/151, furnace 301/331/241, normal iron 391/572/542. Round 23 hard times were wood 90/120/90, stone 150/211/211, furnace 241/301/361, normal iron 512/572/722. This round the hard columns are all dashes. The three normal runs still reached an iron pick, at 542/421/1565. Round 23 was 512/572/722. normal3's iron pick is late because navigation wedged (below) after the furnace. normal2's end `stone` is no (furnace 0, stone pick still 1) and its end kit still has the iron pick. normal3's end `wood` is no (table 0, wooden pick still 1) and its end `stone` is no (furnace 0, stone pick still 1). No hard run held an iron pick. hard1's end kit is 1 log and 4 planks. hard3's end kit is 4 planks. hard2's end kit is empty after the death.
+
+| Run | Wood | Stone pick | Furnace | Iron pick | Torches | Armour worn | Bed | Diamonds | Food | Deaths |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| normal1a1 | 90 | 181 | 271 | 542 | 19 | 4 at 872 | — | 0 | ate 2 (food min 15) | 0 |
+| normal2a2 | 120 | 180 | 271 | 421 | 18 | 4 at 722 | — | 0 | ate 1 (food min 7) | 1 |
+| normal3a3 | 241 | 331 | 782 | 1565 | 12 | 0 | — | 0 | not hungry enough (food min 15) | 0 |
+| hard1a1 | — | — | — | — | 0 | 0 | — | 0 | not hungry enough (food min 20) | 0 |
+| hard2a2 | — | — | — | — | 0 | 0 | — | 0 | not hungry enough (food min 20) | 1 |
+| hard3a3 | — | — | — | — | 0 | 0 | — | 0 | not hungry enough (food min 17) | 0 |
+
+### Deaths
+
+Two deaths. The soak counter is 1 on normal2, 1 on hard2, and 0 on the other four. No `killed by`, `slain`, `burned`, or `obliterated` line.
+
+normal2 drowned. Dashboard: `2026-10-19T04:28:37.421Z BuilderBot drowned` and `2026-10-19T04:28:37.422Z Bot died at 348, 78, -89`. The terminal then printed `operator: resumed the ladder after death 1`.
+
+The 30 s before that (04:28:07Z–04:28:37Z) is a swim that never leaves the cell. The spine, quoted:
+
+- 04:28:09.665Z `Completed craft` and 04:28:09.846Z `Chains: equipped iron_boots`.
+- 04:28:09.945Z `WorldSurvival: drowning (air 1), swimming up`.
+- 04:28:10.660Z `WorldSurvival: drowning (air 0), swimming up`.
+- 04:28:12.290Z `WorldSurvival: drowning (air -1), swimming up`.
+- 04:28:13.547Z through 04:28:35.973Z the server sets position to `(348, 78, -89)` on every correction (teleports #132, #162, #190, #217, #244, #271, #298, #325, #352, #361, #392, #417). The cell does not change.
+- 04:28:31.542Z `WorldSurvival: drowning (air 6), swimming up`, then `Pause trace: gather -> Reflex: preempted by Misc World Survival Chain`.
+- 04:28:33.735Z and 04:28:34.096Z `drowning (air 5)`. 04:28:33.921Z `Reflex: the gather job led into a hazard; cancelled, not resumed`.
+- 04:28:34.377Z `Autopilot [food] {"type":"ascend","y":135,"forFood":true}`.
+- 04:28:36.537Z `WorldSurvival: drowning (air 6), swimming up` and `Pause trace: ascend -> Reflex: preempted by Misc World Survival Chain`. 04:28:36.710Z `Reflex: resumed the ascend job`.
+- 04:28:37.421Z `BuilderBot drowned`.
+
+hard2 suffocated. Dashboard: `2026-10-19T05:47:10.049Z BuilderBot suffocated in a wall` and `2026-10-19T05:47:10.049Z Bot died at 149, 138, 27`. The terminal then printed `operator: resumed the ladder after death 1`.
+
+The 30 s before that is the harness unstuck landing inside a block, then a wood gather that is cancelled as a hazard about once a second. The spine, quoted:
+
+- The sample just before is `operator: unstuck the bot at [148, 134, 25]`. That teleport is x+2, y+4, z+2.
+- 05:46:53.498Z `Server set position to (150, 138, 27) (teleport #490)`.
+- 05:46:53.855Z `Reflex: Misc World Survival Chain engaging` and `Pause trace: gather -> Reflex: preempted by Misc World Survival Chain`. There is no `drowning`, `dousing`, or `powder snow` line with it.
+- 05:46:54.496Z `Reflex: the gather job led into a hazard; cancelled, not resumed`, then a new `Autopilot [wood]` gather. The same pair repeats at 05:46:55.555Z, 05:46:57.000Z, 05:46:58.596Z, 05:47:00.034Z, 05:47:01.648Z, and 05:47:02.950Z.
+- 05:47:04.547Z `Pause trace: gather -> Health or food is low`.
+- 05:47:04.588Z through 05:47:09.814Z `Misc World Survival Chain engaging` once a second, still with no drowning line.
+- 05:47:10.049Z `BuilderBot suffocated in a wall` at 149, 138, 27.
+
+After the resume the bot seals at `(118, 138, -34)` at 05:53:13.587Z (`3 blocks placed`). Samples from t=662 to the bell stay at [118, 138, -34], `working: shelter`, food bar 20. Dawn 06:02:15.948Z `tod 14`. The run stops at 06:03:26.234Z with no morning-open line.
+
+### Creeper overrides
+
+Zero lines in the window contain `creeper`. Zero `creeper at ... overrides` lines. Zero `Shelter: moved ... building a new box` lines. The round-24 hold-until-9 was not exercised. Round 23 hard2 died to a zombie while a creeper at 5.6–6.0 rebuilt the shelter eight times in 8 s. That pattern is absent here. hard2's death is the suffocation above.
+
+### Swimming up
+
+One episode, on normal2, and it is the death above. Seven lines, all `WorldSurvival: drowning (air N), swimming up`:
+
+- 04:28:09.945Z air 1
+- 04:28:10.660Z air 0
+- 04:28:12.290Z air -1
+- 04:28:31.542Z air 6
+- 04:28:33.735Z air 5
+- 04:28:34.096Z air 5
+- 04:28:36.537Z air 6
+
+The episode lasts 27.5 s (04:28:09.945Z–04:28:37.421Z) and ends `BuilderBot drowned` at (348, 78, -89). The air value goes to -1, which is below the 0–20 bubble scale the new reader is supposed to produce, and it is not the round-23 raw 10–400 range. The bot does not gain a block of height. Round 23 normal3 stood at [220, -45, 147] for about 9.3 min with air bouncing between 10 and 400. This episode is shorter, the position is stuck by server corrections, and it ends in a death. No other `swimming up` line.
+
+The use just before it: 04:27:11.583Z `use` bucket at `(346, 79, -90)`, `Completed use` at 04:27:56.578Z, then the drown at the neighbouring cell. No line names `water_bucket`.
+
+### Bed
+
+Zero `craft white_bed` lines. Zero `place white_bed` lines. Zero `Home set` lines. Zero `Sleeping` lines. Bed 0 on every sample, including the hard runs. Round 23 was the same (no craft, no place). Round 22 hard1 crafted a bed that never placed.
+
+- normal1 03:24:54.060Z `fight` sheep, result 03:25:17.220Z `Fight result: sheep tactic=melee hits=3 ... result=finished`. 03:38:30.942Z and 03:49:45.933Z `no sheep after 3 search legs; bed set aside for 10 min`.
+- normal2 04:15:39.125Z `no sheep after 3 search legs; bed set aside for 10 min`. After the drown, 04:32:47.982Z `fight` sheep finished at 04:33:12.920Z (`hits=3`), then 04:33:14.327Z `hunt` sheep finished at 04:33:18.151Z (`hits=2`). No bed craft after those two kills.
+- normal3 04:53:36.880Z `fight` sheep, 04:55:07.516Z `Job: Fight timed out; sheep is still standing`, 04:55:56.885Z `Job: No unshorn sheep within 24 blocks to shear`. Two later fights finished (04:56:09.247Z `hits=2`, 04:56:40.038Z `hits=3`). No bed craft.
+- The hard runs have no sheep line.
+
+### Deep dark
+
+One refusal, on normal2. It is not the round-22 five-minute `leaving (warden)` repeat, and it is not the round-23 single climb that stopped at y=-18.
+
+- 04:20:23.853Z `Job: Tunnel stopped: deep dark (sculk_sensor at (266, 3, -60))`.
+- 04:20:24.846Z `Autopilot: deep dark - climbing out; diamond trips set aside for 20 min`.
+- 04:21:54.864Z `Ascend: path up stopped (Navigation timed out at (322, 79, -49) ...)` and `Ascend: y=30 -> 79 (surface 135)`.
+- 04:22:17.629Z `Ascend: path up stopped (Took to long to decide path to goal!)` and `Ascend: y=75 -> 82 (surface 135)`.
+- 04:22:33.923Z `Ascend: path up stopped (No path to the goal! (empty path at (327, 85, -47) ...))` and `Ascend: y=83 -> 85 (surface 135)`.
+- 04:22:34.913Z the same empty path, `Ascend: y=85 -> 85 (surface 135)`.
+- 04:22:42.970Z the same empty path again, `Ascend: y=85 -> 85 (surface 135)`.
+
+The path-up stop repeats three times in 9 s on the same cell at y=85, 50 blocks under the surface it named. No second `deep dark` line. Zero `warden` lines. A separate `Ascend: y=113 -> 131 (surface 131)` at 03:26:30.856Z is normal1's food climb, not a deep-dark leave.
+
+### Bucket
+
+Zero lines name `water_bucket`. Buckets were crafted at 03:32:35.512Z (normal1) and 04:09:19.087Z (normal2). normal3 has no bucket craft.
+
+- normal1 03:46:34.618Z `use` bucket `(351, 78, -163)` and 03:46:35.661Z `use` `(347, 82, -171)`. Both are the empty-path jobs at (343, 91, -158) (`noPath, 0 steps, 61 nodes` then `60 nodes`). 03:46:43.727Z `the bucket failed twice; no water fills for 15 min`.
+- normal2 04:09:26.163Z `use` `(317, 113, 18)` and 04:09:27.229Z `use` `(314, 114, 11)`. Both are the empty-path jobs at (334, 120, 19) (`partial, 0 steps, 566 nodes` then `1597 nodes`). 04:09:35.299Z `the bucket failed twice; no water fills for 15 min`. Those two water cells are the same cells round 22 failed.
+- normal2 tried again after the cooldown: 04:26:26.041Z `use` `(336, 83, -80)` failed at 04:27:11.120Z `Navigation timed out at (340, 79, -69)`. 04:27:11.583Z `use` `(346, 79, -90)` reached `Completed use` at 04:27:56.578Z. No `water_bucket` line. The drown above is the next minute, one block from that water.
+
+### Full bag
+
+Zero `Inventory nearly full` lines, so there is no slot list to quote. Zero `the bag is full` lines. Zero `No room for crafting result` lines. Zero `waiting: bag full` samples. Round 23 had 19 slot lists.
+
+Drops that completed: 140 cobblestone, 173 cobblestone, 30 cobblestone (normal1, 03:51:48.089Z–04:00:16.848Z), 120 clay_ball and 120 clay_ball (normal2, 04:21:59.037Z and 04:22:21.671Z), 207 cobblestone (normal3, 04:56:43.395Z).
+
+Pockets: one. 03:45:40.714Z `Drop: dug a 5-cell pocket east to toss into` (normal1). 03:45:45.046Z `Dropped cobblestone came back into the inventory` (4.3 s). The other came-backs are 04:28:00.197Z cobblestone (normal2, during the drown, no pocket line before it) and 04:40:04.905Z dirt (normal2, no pocket line). One pocket, and it came back.
+
+### Hard runs
+
+All three started on a confirmed dawn. Furthest rung is planks. No wooden pick, no stone pick, no furnace, no iron pick. No `Night mine` line on any run, so night-mine ore is 0, 0, 0. The first wood gather of each hard run fails the same way, `last path: none`, at the same cell:
+
+- hard1 05:21:20.095Z `Gather: attempt 1 on dark_oak_log at (139, 135, 22) failed: ... Navigation made no progress at (143, 131, 24) (last path: none); bot at (143, 131, 24), 5.4 from the eye`.
+- hard2 05:42:34.945Z the same sentence, the same log, the same cell, 5.4 from the eye.
+- hard3 06:03:50.957Z the same sentence for the log at (139, 135, 23), bot at (143, 131, 24), 5.2 from the eye, and again at 06:04:47.738Z for (139, 134, 21).
+
+`Navigation made no progress` is 166 lines and `last path: none` is 170 lines. Round 22 and round 23 had zero of both. Counts this window: normal1 0, normal2 0, normal3 73 / 71, hard1 33 / 39, hard2 23 / 23, hard3 37 / 37. The first of them is normal3 at 05:05:37.895Z `Job: Navigation made no progress at (159, 150, -68) (last path: success, 31 steps, 671 nodes)`, then 05:05:50.196Z `last path: none` at the same cell. It does not clear before the hard runs, and the hard wood attempts above are that stuck pathfinder.
+
+- hard1 furthest rung is 4 planks (no wooden pick). Five harness unstucks walk it from [143, 131, 24] to [153, 135, 25]. Sealed at 05:31:26.273Z `(159, 133, 23)` (`3 blocks placed`). No night-mine line. Samples from t=602 to the bell stay at [159, 133, 23], `working: shelter`. Dawn 05:41:00.948Z `tod 17`. The run stops at 05:42:10.944Z with no morning-open line. End kit: 1 log, 4 planks, pick 0.
+- hard2 furthest rung is nothing held (the death empties the bag; planks never reached 1 in a sample). The suffocation is above. After the resume, five more unstucks, then sealed at 05:53:13.587Z `(118, 138, -34)` (`3 blocks placed`). No night-mine line. Dawn 06:02:15.948Z `tod 14`. No morning-open line. End kit empty.
+- hard3 furthest rung is 4 planks (no wooden pick). Five unstucks, the same walk as hard1. Sealed at 06:13:41.171Z `(159, 133, 23)` (`1 blocks placed`). No night-mine line. Dawn 06:23:30.900Z `tod 9`. Morning 06:24:20.947Z `tod 1009, nearest hostile 27.1`. The last sample is back on `working: gather` for wood, at [159, 133, 23], food bar 17. End kit: 4 planks, pick 0.
+
+### Diamond trips
+
+Two `gather diamond_ore` submits, each `targetY -53`, `strip:true`, count 3: 03:39:05.415Z (normal1) and 04:16:23.282Z (normal2). Diamonds held 0 on every sample. No `diamond_pickaxe` line. No line names a diamond ore block mined. No hard run submitted one. None reached a sample at y=-53.
+
+- normal1's lowest sample is [241, 61, 55] at the bell, step `inventory`, diamonds 0. The y=-53 strip was not reached. No diamond pick. The run ends there, `working: drop`.
+- normal2's lowest sample is [278, 15, -56], step `diamond-rung`, diamonds 0. The tunnel stop names a sculk sensor at y=3 (above). The ascend then stopped at y=85 with the surface named as 135. No diamond pick.
+- normal3 submitted none. Its lowest sample is [159, 97, -80], step `pickup`, diamonds 0. From the wedge at 05:05 it stays near [159, 149, -68] through the bell, `backing off (3s): iron`, diamonds 0. The iron pick was already the t=1565 sample. No diamond pick.
+
+### Other loops
+
+- The pathfinder wedge. normal3 `Boxed in` 13 times from 04:57:27.341Z to 05:02:01.902Z, all around (159, 151, -68) and (162, 151, -66). Two of them dug (`dug 2 steps up south`, then `dug 4 steps up south`). The other eleven are `no way to stair out`. The `last path: none` lines start one minute later and run through all three hard runs. Round 23 had zero `Boxed in` lines and zero `last path: none`.
+- normal2's drown at a fixed cell, air reading -1, 27.5 s, dead.
+- hard1 and hard3's sealed stand at [159, 133, 23] with no pick and no night mine. hard2's sealed stand at [118, 138, -34] after the suffocation.
+- normal2's deep-dark climb stopping three times at y=85.
+- `trying without it` is 437 lines (normal1 96, normal2 98, normal3 243, hard runs 0). `empty path` is 16 lines, listed under bucket, furnace, and the ascend above. Zero `walk ok`. Zero `LOOP_STALL`. Zero `LOOP_SLOW`.
+
+### Uncaught
+
+`logs/dashboard-uncaught.log` gained no bytes during the soak (size stayed 2576174, the same size rounds 22 and 23 reported). Zero lines in that file carry a timestamp inside 03:16:55Z–06:24:56Z. There is no line to quote from the soak window.
