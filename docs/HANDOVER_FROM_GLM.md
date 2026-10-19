@@ -1852,3 +1852,11 @@ Round 24 soak: **the pathfinder wedge came back** - from 05:05:50Z (normal3) eve
 - **Wedge, cause 1**: mineflayer-pathfinder's `monitorMovement` returns early every tick while its private `returningPos` (set after a bridging placement when `LOSWhenPlacingBlocks` is on) has not been reached, and `resetPath` never clears it - a bot moved off that spot (a server correction, a harness teleport/unstuck) never plans again. `bot.pathfinder.LOSWhenPlacingBlocks=false` at spawn.
 - **Wedge, cause 2**: a pathfinder dig whose block update never came keeps both its `digging` flag and mineflayer's `targetDigBlock`; round 20's unstick skipped that. `unstickDigging` now calls `bot.stopDigging()` (clears the target, fires `diggingAborted`) after every walk while the pathfinder still reports mining, then fires the abort itself if needed.
 - **Drowning**: swim up at air <= `DROWN_AIR`=8 (was 6; the integration test waits for < 10 first). After a bucket fill the bot walks to the nearest dry stand within 6 (`leaveWater`: `Water: stepped out to ...`).
+
+## Round 26 (2026-10-19)
+
+Round 25 soak: **0 deaths, `last path: none` 0** (round 24: 170), no drowning, no placement failures with `LOSWhenPlacingBlocks` off, iron pick 3/3 normal (421/602/481 s), full iron armour on all three normal runs, two `black_bed` crafts (normal runs have no night, so no sleep), hard2/hard3 furnace at 301/271 s, `Water: stepped out` after a fill.
+
+- **Stale memory across runs** (hard1 never made a wooden pick: first job `Could not get back to the furnace at 308,85,76` - normal3's furnace, hundreds of blocks away - then dark-oak attempts at (210,124,87)): `forgetFar` runs every decide and drops a loaded furnace batch, a left table or a stranded tunnel more than `FORGET_FAR`=96 from the bot (`forgot the furnace batch ... (too far)`).
+
+Still open: bed placement/sleep (only hard runs have nights; no hard bed this round), diamonds (trips stop at deep-dark sensors, -12/-6/-4), pockets still come back about 4 s after the toss, night mine 0 ore on the hard runs this round.

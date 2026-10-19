@@ -202,3 +202,16 @@ test('round 25: after a fill the bot steps out of the water; air 8 is drowning',
  c._handleDrowning({oxygenLevel:8,entity:{position:new Vec3(0.5,-60,0.5),isInWater:true},blockAt:p=>blocks[Math.floor(p.x)+','+Math.floor(p.y)+','+Math.floor(p.z)]||null,setControlState(){}},{});
  assert.equal(c._drowning,true);
 });
+// ---- round 26 ----
+test('round 26: a furnace batch, left table or stranded tunnel far away is forgotten',async()=>{
+ const {Autopilot,FORGET_FAR}=await import('../src/autopilot.js');
+ const ap=Object.create(Autopilot.prototype);const logs=[];
+ ap.log=m=>logs.push(m);
+ ap.worker={furnaceRun:{x:308,y:85,z:76},leftTable:{x:300,y:80,z:70},strandedTunnel:{points:[{x:300,y:60,z:70}]}};
+ ap.forgetFar({entity:{position:new Vec3(141,131,30)}});
+ assert.equal(ap.worker.furnaceRun,null);assert.equal(ap.worker.leftTable,null);assert.equal(ap.worker.strandedTunnel,null);
+ assert.ok(logs.some(m=>/forgot the furnace batch/.test(m)));
+ ap.worker={furnaceRun:{x:150,y:131,z:30},leftTable:null,strandedTunnel:null};
+ ap.forgetFar({entity:{position:new Vec3(141,131,30)}});
+ assert.ok(ap.worker.furnaceRun,'9 blocks away: kept (under '+FORGET_FAR+')');
+});
