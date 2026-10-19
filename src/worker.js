@@ -159,7 +159,11 @@ export function deepDarkNear(b){
 // Round 20: the pathfinder's `digging` flag outliving every dig (no bot dig in progress) wedges
 // all pathing; setGoal(null) armed its diggingAborted listener, so firing it clears the flag.
 export function unstickDigging(bot){
- try{if(bot.pathfinder?.isMining?.()&&!bot.targetDigBlock)bot.emit('diggingAborted',null);}catch{}
+ try{
+  if(!bot.pathfinder?.isMining?.())return;
+  if(bot.targetDigBlock&&typeof bot.stopDigging==='function')try{bot.stopDigging();}catch{}
+  if(bot.pathfinder.isMining())bot.emit('diggingAborted',null);
+ }catch{}
 }
 // The horizontal direction with the longest open run from the bot's feet (up to 8 cells):
 // {dir:{x,z},open}. Null without a world to look at.
@@ -563,7 +567,7 @@ export class Worker extends EventEmitter {
   const bot=this.bot=mineflayer.createBot({...this.config.server,hideErrors:true});
   installMovementFix(bot);installWeatherFix(bot);this.trackMeals(bot);guardEquip(bot);
   bot.loadPlugin(pathfinder);bot.loadPlugin(toolPackage.plugin);
-  bot.once('spawn',()=>{this.ready=true;installToolWear(bot);if(!bot.inventory._lossWatch){bot.inventory._lossWatch=true;watchToolLoss(bot,m=>this.log(m));}const movement=this.movements=this.normalMovements(bot);bot.pathfinder.setMovements(movement);bot.pathfinder.searchRadius=128;// in blocks: bounds searches for unreachable goals; legit paths may still cost up to goal distance + 128
+  bot.once('spawn',()=>{this.ready=true;installToolWear(bot);if(!bot.inventory._lossWatch){bot.inventory._lossWatch=true;watchToolLoss(bot,m=>this.log(m));}const movement=this.movements=this.normalMovements(bot);bot.pathfinder.setMovements(movement);bot.pathfinder.searchRadius=128;bot.pathfinder.LOSWhenPlacingBlocks=false;/* round 25: its returningPos is never cleared by a reset and wedged all pathing */// in blocks: bounds searches for unreachable goals; legit paths may still cost up to goal distance + 128
   if(!this.trackersTimer){ // tracker refresh + preemption resume + idle armour, port of the reflex cadence
    this.loopWatch.start();
    this.trackersTimer=setInterval(()=>this.loopWatch.timeTick('cadence',()=>{
@@ -2055,7 +2059,7 @@ export class Worker extends EventEmitter {
     if(tries%3===2){b.setControlState('jump',true);await sleep(350);if(token===this.epoch)b.clearControlStates();}
     await sleep(300);
    }
-   if(this.count('water_bucket')>buckets){await this.settleBlockChange(src.position,'water',token);return;}
+   if(this.count('water_bucket')>buckets){await this.settleBlockChange(src.position,'water',token);await this.leaveWater(token);return;}
    why='no change after the use';
   }
   throw Error('Filling the bucket at '+src.position+' produced no water bucket ('+BUCKET_TRIES+' tries; '+why+')');
@@ -3230,6 +3234,23 @@ export class Worker extends EventEmitter {
   }
   this.log('Boxed in at '+start+': no way to stair out');
   return false;
+ }
+ // Round 25: standing in water (feet or head) - walk to the nearest dry stand within 6: open
+ // feet and head, no water in either, a solid floor.
+ async leaveWater(token){
+  const b=this.bot,at=p=>b.blockAt(p),f=b.entity.position.floored();
+  const wetCell=bl=>!!bl&&/water|bubble_column|seagrass|kelp/.test(bl.name);
+  if(!wetCell(at(f))&&!wetCell(at(f.offset(0,1,0))))return;
+  let best=null,bd=Infinity;
+  for(let dx=-6;dx<=6;dx++)for(let dz=-6;dz<=6;dz++)for(let dy=-2;dy<=3;dy++){
+   const p=f.offset(dx,dy,dz),feet=at(p),head=at(p.offset(0,1,0)),floor=at(p.offset(0,-1,0));
+   if(!feet||!head||!floor||feet.boundingBox==='block'||head.boundingBox==='block'||floor.boundingBox!=='block')continue;
+   if(wetCell(feet)||wetCell(head)||/lava/.test(feet.name))continue;
+   const d=Math.abs(dx)+Math.abs(dz)+Math.abs(dy);if(d<bd){bd=d;best=p;}
+  }
+  if(!best){this.log('Water: no dry stand within 6 of '+f);return;}
+  try{await this.navigate(new goals.GoalBlock(best.x,best.y,best.z),token,12);this.log('Water: stepped out to '+best);}
+  catch(e){this.check(token);this.log('Water: could not step out ('+String(e.message).slice(0,60)+')');}
  }
  async dropPocket(token){
   const b=this.bot,start=b.entity.position.floored();

@@ -93,7 +93,10 @@ test('round 20: a null block never throws in the tool lookup, and a stale diggin
  assert.equal(bot.pathfinder.bestHarvestTool(null),null);
  let fired=0;const b2={pathfinder:{isMining:()=>true},targetDigBlock:null,emit(ev){if(ev==='diggingAborted')fired++;}};
  unstickDigging(b2);assert.equal(fired,1,'flag set with no dig running: aborted');
- b2.targetDigBlock={name:'stone'};unstickDigging(b2);assert.equal(fired,1,'a real dig is left alone');
+ // round 25: after a walk a pathfinder dig that never finished is stopped (its block update
+ // never came): stopDigging clears the target and fires the abort itself.
+ let mining=true,stopped=0;const b3={pathfinder:{isMining:()=>mining},targetDigBlock:{name:'stone'},stopDigging(){stopped++;this.targetDigBlock=null;mining=false;},emit(){fired++;}};
+ unstickDigging(b3);assert.equal(stopped,1);assert.equal(fired,1,'stopDigging handled it: no extra abort');
 });
 // ---- round 21 ----
 import {deepDarkNear} from '../src/worker.js';
@@ -184,4 +187,18 @@ test('round 24: creeper distance for the override hysteresis',()=>{
  assert.equal(creeperDistance(bot),7);
  assert.ok(creeperDistance(bot)<=CREEPER_RELEASE,'7 away: a latched override holds');
  assert.equal(creeperDistance({entity:{position:new Vec3(0,64,0)},entities:{}}),Infinity);
+});
+// ---- round 25 ----
+test('round 25: after a fill the bot steps out of the water; air 8 is drowning',async()=>{
+ const water={name:'water',boundingBox:'empty'},air={name:'air',boundingBox:'empty'},stone={name:'stone',boundingBox:'block'};
+ // a pool x<=1 at y 64-65 over stone, dry land from x=2
+ const at=p=>p.y<64?stone:(p.x<=1?(p.y<=65?water:air):air);
+ let went=null;const logs=[];
+ const w=Object.assign(Object.create(Worker.prototype),{bot:{entity:{position:new Vec3(0.5,64,0.5)},blockAt:at},check(){},log(m){logs.push(m);},async navigate(g){went=g;}});
+ await w.leaveWater(0);
+ assert.ok(went&&went.x===2&&went.y===64,'the nearest dry stand: '+JSON.stringify(went));
+ const c=new WorldSurvivalChain();
+ const blocks={'0,-59,0':{name:'water'},'0,-60,0':{name:'water'}};
+ c._handleDrowning({oxygenLevel:8,entity:{position:new Vec3(0.5,-60,0.5),isInWater:true},blockAt:p=>blocks[Math.floor(p.x)+','+Math.floor(p.y)+','+Math.floor(p.z)]||null,setControlState(){}},{});
+ assert.equal(c._drowning,true);
 });

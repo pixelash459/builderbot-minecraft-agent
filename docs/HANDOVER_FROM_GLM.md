@@ -1844,3 +1844,11 @@ Round 23 soak: all 6 runs again made a wooden pick, stone pick and furnace; iron
 
 - **Creeper override hysteresis**: once a creeper (<= 6, or fusing <= 10) overrides a survival hold, Mob Defense keeps it until the nearest creeper is past `CREEPER_RELEASE`=9 (`creeperDistance`).
 - **Air reading**: a value above 20 is the raw air supply in ticks (0-300) and is scaled to bubbles (/15). The 8 s head-under backstop (round 21) now fires only when the air value has also not changed for 8 s - a live reading is trusted.
+
+## Round 25 (2026-10-19)
+
+Round 24 soak: **the pathfinder wedge came back** - from 05:05:50Z (normal3) every walk failed `Navigation made no progress ... (last path: none)`, and all three hard runs (same bot process) never made a wooden pick. No uncaught error this time. Deaths: normal2 drowned at (348,78,-89) (bucket filled standing in the pool, then a drop and a craft in place; first line `air 1`; then 12 server position corrections pinned it), hard2 suffocated in a wall at (149,138,27) with the pathfinder wedged.
+
+- **Wedge, cause 1**: mineflayer-pathfinder's `monitorMovement` returns early every tick while its private `returningPos` (set after a bridging placement when `LOSWhenPlacingBlocks` is on) has not been reached, and `resetPath` never clears it - a bot moved off that spot (a server correction, a harness teleport/unstuck) never plans again. `bot.pathfinder.LOSWhenPlacingBlocks=false` at spawn.
+- **Wedge, cause 2**: a pathfinder dig whose block update never came keeps both its `digging` flag and mineflayer's `targetDigBlock`; round 20's unstick skipped that. `unstickDigging` now calls `bot.stopDigging()` (clears the target, fires `diggingAborted`) after every walk while the pathfinder still reports mining, then fires the abort itself if needed.
+- **Drowning**: swim up at air <= `DROWN_AIR`=8 (was 6; the integration test waits for < 10 first). After a bucket fill the bot walks to the nearest dry stand within 6 (`leaveWater`: `Water: stepped out to ...`).
