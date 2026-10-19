@@ -1867,4 +1867,6 @@ Round 26 soak: **0 deaths, 0 `last path: none` (second clean round), all 6 runs 
 
 - **Stone pickaxe craft loop** (normal2 held 14 stone pickaxes, normal3 7; 39 iron-step pickaxe crafts): `replacementJob` replaced a worn iron pickaxe with a stone one when no iron was spare, but only counted iron pickaxes as the replacement, so it crafted another every tick. A worn tool now counts as replaced when a sound one of the same kind is held at the tier it would craft or better (a worn iron sword with ingots on hand is still replaced in iron).
 
-Still open: bed (no sheep found this round; no hard-run bed), night mine never climbs back into the box (`Took to long to decide path to goal!` x3), diamonds (water under the staircase at y=59, deep dark at y=12), normal3's clay balls coming back once a minute, placing a furnace while the food chain holds meat.
+- **Planning time**: `bot.pathfinder.thinkTimeout` 5 s -> 10 s (every night-mine climb home failed `Took to long to decide path to goal!`, 3 of 3; the A* still thinks 40 ms per tick).
+
+Still open: bed (no sheep found this round; no hard-run bed), diamonds (water under the staircase at y=59, deep dark at y=12), normal3's clay balls coming back once a minute, placing a furnace while the food chain holds meat.
