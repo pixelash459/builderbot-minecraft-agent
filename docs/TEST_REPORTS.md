@@ -2161,3 +2161,17 @@ Reflex line from the suite: `Reflex paused the gather: Reflex: preempted by Mob 
 Zero `last path: none` lines in the window. Zero `Navigation made no progress` lines. Zero `place ... threw` lines. Zero `pillar-up failed` lines.
 
 Combat is next.
+
+## 2026-10-19 12:33–12:39 IST — combat (`78c0509`, bot code `c664547`)
+
+`python -u tests/combat_integration.py`, model off, same process as the integration restart. Exit 0, 319 s (12:33:53–12:39:10 IST, 07:03:53Z–07:09:10Z). `All combat acceptance tests passed`. One run. Damage was measured, so there is no second run. The integration report `78c0509` is docs-only; the bot code is `c664547`.
+
+`4_creeper` (lane): ttk 7.2 s, hits 5, `damage_taken=0`, end health 20, killed, no crater at the spawn, the midpoint, or the bot start. Dashboard: `Combat: pillar-up 2 at 1499,-60,1518 (creeper at 7.1)` at 07:05:49.030Z, then `pillar perched 2 up` at 07:05:49.868Z, then `perch 2 up is inside the fuse ring; knocking the creeper back (at 3.8)` and three `pillar-strike` lines. Fight result at 07:05:55.669Z: `tactic=bow hits=5 shots=0 released=0 landed=0 damage taken=0`.
+
+`4b_creeper_roofed`: ttk 8.3 s, hits 5, `damage_taken=0`, end health 20, killed, no crater at the spawn corner or the arena center. At 07:06:03.547Z `Combat: pillar-up 2 at 1496,-60,1497 (creeper at 7.8)`, then `pillar perched 2 up` at 07:06:04.320Z, then `perch 2 up is inside the fuse ring; knocking the creeper back (at 3.7)` and three `pillar-strike` lines. Fight result at 07:06:10.447Z: `tactic=bow hits=5 shots=0 released=0 landed=0 damage taken=0`. Round 23's roofed leg released two arrows that landed. This leg released none.
+
+The dashboard window (283 timestamped lines, 07:03:53Z–07:09:10Z) has 24 `pillar` lines, both pillar-ups perched. Zero `pillar-up failed`. Zero `bridge` lines. Zero `place ... threw`. Zero `last path: none`. Zero `Navigation made no progress`.
+
+The witch leg printed `NOTE: witch survived the duel (job failed, lost 0 hp) - recorded as a measured 26.3 limit` and the suite still exited 0. That is the recorded limit, the same shape as round 23.
+
+The soak is next.
