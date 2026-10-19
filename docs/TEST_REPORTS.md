@@ -1982,3 +1982,21 @@ No `Health or food is low` line and no `Health below` line. Lowest food bar in t
 ### Uncaught
 
 `logs/dashboard-uncaught.log` gained no bytes during the soak (size stayed 2576174, the same size round 22 reported). Zero lines in that file carry a timestamp inside 22:47:46Z–01:55:47Z. There is no line to quote from the soak window.
+
+## 2026-10-19 08:24–08:44 IST — units and integration (`7148db4`)
+
+`git pull --rebase` needed a stash of local `data/` dumps first. After the stash, origin was already up to date, and the stash was popped. HEAD is `7148db4` (`Round 24: a creeper override that holds until the creeper is past 9, read raw air ticks, trust a live air reading`). This round is integration, then the soak. No combat run.
+
+Unit tests, every `tests/*.test.js` except `resources.test.js`, `--max-old-space-size=2048 --test-timeout=60000 --test-skip-pattern resources`: **570 passed, 0 failed** (41.5 s). The note expected 561; nothing failed.
+
+Services restarted with `AGENT_MODEL=off`. `Stop-Agent.ps1` saved the test world and stopped the services. The old test-server and dashboard PIDs were dead, and 8765/8766/8081/25569 were not listening. `Start-Agent.ps1 -NoBrowser` then brought the dashboard up. Supervisor log first line: `model server disabled (config.model.enabled=false): skipping llama-server, saving ~6.5 GB commit`.
+
+`python -u tests/integration.py`, model off. Exit 0, 1060 s (08:27:17–08:44:57 IST, 02:57:17Z–03:14:57Z). `All in-game integration tests passed`.
+
+The drowning-surface test passed. `PASS: reflex surfaced the drowning bot`. The dashboard window (493 timestamped lines, 02:57:17Z–03:14:57Z) has one air line: `2026-10-19T03:12:59.506Z WorldSurvival: drowning (air 6), swimming up`, and the same timestamp `Reflex: Misc World Survival Chain engaging`. The harness teleported the bot back to `(0, -60, 0)` at 03:13:01.859Z, so the surface wait finished about 2.4 s after that air-6 line. No second `swimming up` line. No air value above 20 (the round-23 raw 10–400 readings) appears in this window. The air-reading change did not fail the test.
+
+Reflex line from the suite: `Reflex paused the gather: Reflex: preempted by Mob Defense`. Dashboard at 03:13:10.629Z: `Pause trace: gather -> Reflex: preempted by Mob Defense`. The suite also logged `PASS: armed bot reflex killed the zombie`, `PASS: unarmed bot fled to 9.4 blocks`, `PASS: creeper avoided at 11.0 blocks`, `PASS: reflex auto-ate without a job (11 -> 17)`, `PASS: reflex auto-equipped the iron chestplate`, and `PASS: gather paused by a reflex resumed and completed`.
+
+`PASS: A4 escaped the lava trench (hp 19.8, at [1656, -59, 1651])`.
+
+The soak is next.
