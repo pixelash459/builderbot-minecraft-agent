@@ -147,19 +147,58 @@ export function bedSpots(at,feet){
 // the cell LEDGE_LOOK ahead along its motion opens onto a drop of LEDGE_DROP+, let go of the
 // keys. True when it stopped the bot.
 export const LEDGE_DROP=5,LEDGE_LOOK=0.9;
-export function ledgeGuard(bot){
- const e=bot&&bot.entity;if(!e||!e.onGround||!e.velocity||!bot.getControlState)return false;
- if(bot.pathfinder?.isMoving?.())return false;
- const moving=['forward','back','left','right'].some(k=>bot.getControlState(k));if(!moving)return false;
- const vx=e.velocity.x,vz=e.velocity.z,sp=Math.hypot(vx,vz);if(sp<0.04)return false;
+// The open cells (up to LEDGE_DROP) under the cell LEDGE_LOOK ahead along the bot's motion;
+// 0 for a wall, water or lava below, or no motion.
+export function dropAhead(bot){
+ const e=bot&&bot.entity;if(!e||!e.velocity||!e.position)return 0;
+ const vx=e.velocity.x,vz=e.velocity.z,sp=Math.hypot(vx,vz);if(sp<0.04)return 0;
  const ahead=e.position.offset(vx/sp*LEDGE_LOOK,0,vz/sp*LEDGE_LOOK).floored();
  const at=p=>bot.blockAt(p);
- const feet=at(ahead);if(!feet||feet.boundingBox==='block')return false; // a wall, not a ledge
+ const feet=at(ahead);if(!feet||feet.boundingBox==='block')return 0; // a wall, not a ledge
  let drop=0;
- for(let dy=1;dy<=LEDGE_DROP;dy++){const bl=at(ahead.offset(0,-dy,0));if(!bl)return false;if(bl.boundingBox==='block'||/water|lava/.test(bl.name))break;drop++;}
- if(drop<LEDGE_DROP)return false;
+ for(let dy=1;dy<=LEDGE_DROP;dy++){const bl=at(ahead.offset(0,-dy,0));if(!bl)return 0;if(bl.boundingBox==='block'||/water|lava/.test(bl.name))break;drop++;}
+ return drop;
+}
+export function ledgeGuard(bot){
+ const e=bot&&bot.entity;if(!e||!e.onGround||!e.velocity||!bot.getControlState)return false;
+ // Round 31 (round-30 normal2: `fell from a high place` 105 -> 71 on a food ascend, a silent
+ // pathfinder climb up a mountainside): the pathfinder sprints along cliff edges and a sprint
+ // overshoots a turn. Beside a LEDGE_DROP+ drop it walks: the sprint key is let go each tick
+ // (this listener runs after the pathfinder's, so the next physics step sees it off).
+ if(bot.pathfinder?.isMoving?.()){
+  if(bot.getControlState('sprint')&&dropAhead(bot)>=LEDGE_DROP)bot.setControlState('sprint',false);
+  return false;
+ }
+ const moving=['forward','back','left','right'].some(k=>bot.getControlState(k));if(!moving)return false;
+ if(dropAhead(bot)<LEDGE_DROP)return false;
  for(const k of ['forward','back','left','right','sprint','jump'])bot.setControlState(k,false);
  return true;
+}
+// Round 31: every fall of FALL_LOG+ blocks is logged once with where it began, so a death
+// `fell from a high place` names its start (round 30's normal2 fall had no line for 80 s).
+// `st` keeps {top} between ticks. Returns {from,at} the tick a fall first passes FALL_LOG.
+export const FALL_LOG=4;
+export function fallWatch(bot,st){
+ const e=bot&&bot.entity;if(!e||!e.position)return null;
+ if(e.onGround||e.isInWater||e.isInLava){st.top=null;st.told=false;return null;}
+ if(st.top==null||e.position.y>st.top.y)st.top=e.position.clone?e.position.clone():{x:e.position.x,y:e.position.y,z:e.position.z};
+ if(!st.told&&st.top.y-e.position.y>=FALL_LOG){st.told=true;return {from:st.top,at:e.position};}
+ return null;
+}
+// Round 31: the sky light at the head cell over feet `p` (0 when unknown).
+export const SKY_OPEN=12;
+export function headSky(b,p){
+ try{const h=b.blockAt(new Vec3(p.x,p.y+1,p.z));return h&&Number.isFinite(h.skyLight)?h.skyLight:0;}catch{return 0;}
+}
+// Round 31 (round-30 normal2 fell 34 climbing a mountainside toward y=137, its wood-step stand,
+// for food): a food ascend ends at open sky - grazing needs the surface, not the anchor's height.
+// Like GoalY otherwise (a cave with no sky still climbs to y).
+export class GoalSky{
+ constructor(b,y){this.b=b;this.y=y;}
+ heuristic(n){return Math.max(0,this.y-n.y);}
+ isEnd(n){return n.y>=this.y||headSky(this.b,n)>=SKY_OPEN;}
+ hasChanged(){return false;}
+ isValid(){return true;}
 }
 // Round 30: open cells straight under `p` (up to 6) - how far a bot falls once p is dug out.
 export function dropBelow(b,p){
@@ -603,7 +642,7 @@ export class Worker extends EventEmitter {
   const bot=this.bot=mineflayer.createBot({...this.config.server,hideErrors:true});
   installMovementFix(bot);installWeatherFix(bot);this.trackMeals(bot);guardEquip(bot);
   bot.loadPlugin(pathfinder);bot.loadPlugin(toolPackage.plugin);
-  bot.once('spawn',()=>{this.ready=true;installToolWear(bot);if(!bot.inventory._lossWatch){bot.inventory._lossWatch=true;watchToolLoss(bot,m=>this.log(m));}const movement=this.movements=this.normalMovements(bot);bot.pathfinder.setMovements(movement);bot.pathfinder.searchRadius=128;if(!bot._ledgeGuard){bot._ledgeGuard=true;let last=0;bot.on('physicsTick',()=>{try{if(ledgeGuard(bot)&&Date.now()-last>5000){last=Date.now();this.log('Ledge guard: stopped at '+bot.entity.position.floored()+' (a '+LEDGE_DROP+'+ drop ahead)');}}catch{}});}bot.pathfinder.LOSWhenPlacingBlocks=false;bot.pathfinder.thinkTimeout=10000;/* round 27: 5 s timed out every night-mine climb home (`Took to long to decide path to goal!`) *//* round 25: its returningPos is never cleared by a reset and wedged all pathing */// in blocks: bounds searches for unreachable goals; legit paths may still cost up to goal distance + 128
+  bot.once('spawn',()=>{this.ready=true;installToolWear(bot);if(!bot.inventory._lossWatch){bot.inventory._lossWatch=true;watchToolLoss(bot,m=>this.log(m));}const movement=this.movements=this.normalMovements(bot);bot.pathfinder.setMovements(movement);bot.pathfinder.searchRadius=128;if(!bot._ledgeGuard){bot._ledgeGuard=true;let last=0;const fall={};bot.on('physicsTick',()=>{try{if(ledgeGuard(bot)&&Date.now()-last>5000){last=Date.now();this.log('Ledge guard: stopped at '+bot.entity.position.floored()+' (a '+LEDGE_DROP+'+ drop ahead)');}const f=fallWatch(bot,fall);if(f)this.log('Fall: dropping from '+new Vec3(f.from.x,f.from.y,f.from.z).floored()+' (job '+((this.jobs||[]).find(j=>j.status==='running')?.spec?.type||'none')+', pathing '+!!bot.pathfinder?.isMoving?.()+', sprint '+!!bot.getControlState?.('sprint')+')');}catch{}});}bot.pathfinder.LOSWhenPlacingBlocks=false;bot.pathfinder.thinkTimeout=10000;/* round 27: 5 s timed out every night-mine climb home (`Took to long to decide path to goal!`) *//* round 25: its returningPos is never cleared by a reset and wedged all pathing */// in blocks: bounds searches for unreachable goals; legit paths may still cost up to goal distance + 128
   if(!this.trackersTimer){ // tracker refresh + preemption resume + idle armour, port of the reflex cadence
    this.loopWatch.start();
    this.trackersTimer=setInterval(()=>this.loopWatch.timeTick('cadence',()=>{
@@ -3326,11 +3365,13 @@ export class Worker extends EventEmitter {
    try{await this.climbTunnel({tunnel:this.strandedTunnel.points},token);this.strandedTunnel=null;}
    catch(e){this.check(token);this.log('Ascend: tunnel climb stopped ('+String(e.message).slice(0,60)+')');}
   }
-  if(Math.floor(b.entity.position.y)<y-4){
-   try{await this.navigate(new goals.GoalY(y),token,90);}catch(e){this.check(token);this.log('Ascend: path up stopped ('+String(e.message).slice(0,60)+')');}
+  if(Math.floor(b.entity.position.y)<y-4&&!(job.spec.forFood&&headSky(b,b.entity.position.floored())>=SKY_OPEN)){
+   const goal=job.spec.forFood?new GoalSky(b,y):new goals.GoalY(y);
+   try{await this.navigate(goal,token,90);}catch(e){this.check(token);this.log('Ascend: path up stopped ('+String(e.message).slice(0,60)+')');}
   }
   const now=Math.floor(b.entity.position.y);
   this.log('Ascend: y='+start+' -> '+now+' (surface '+y+')');
+  if(job.spec.forFood&&headSky(b,b.entity.position.floored())>=SKY_OPEN)return; // round 31: on the surface
   if(now<=start+2)throw Error('Could not climb toward the surface from y='+start);
  }
  // A dropped item entity the bot tossed as junk a moment ago (drop job): not worth a walk.

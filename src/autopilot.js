@@ -394,6 +394,10 @@ export function furnaceWork(run,counts,ctx){
 // regeneration stops there) and food held, an eat job tops it up first; then it waits for the
 // health, at most HEAL_WAIT_MS per episode, and goes ahead.
 export const RISKY_HEALTH=16,HEAL_WAIT_MS=90000;
+// Round 31: open sky over the bot's head (sky light 12+).
+export function underSky(b){
+ try{const p=b?.entity?.position;if(!p)return false;const h=b.blockAt(p.offset(0,1.6,0));return !!h&&Number.isFinite(h.skyLight)&&h.skyLight>=12;}catch{return false;}
+}
 export const riskyJob=job=>!!job&&job.type==='gather'&&(job.targetY!=null||!!job.strip);
 export function healFirst({job,health,food,edible,since=0,now=Date.now(),ate=false}){
  if(!riskyJob(job)||!(health<RISKY_HEALTH))return null;
@@ -609,7 +613,9 @@ export const STEPS=[
   const anchorY=Number.isFinite(ctx.lastSurfaceY)?ctx.lastSurfaceY:ctx.standY;
   // Round 18 (round-17 normal2: bar 0 and 1 hp for 300 s at y=-9..47, 18 food explores through
   // caves with no animals in them): far below the surface, climb back up before the graze.
-  if(Number.isFinite(anchorY)&&Number.isFinite(ctx.standY)&&ctx.standY<anchorY-ASCEND_BELOW)return {type:'ascend',y:anchorY,forFood:true};
+  // Round 31 (round-30 normal2 fell 34 on a mountainside climbing to its anchor): only with no
+  // sky overhead - a bot under open sky is on the surface, whatever its height.
+  if(Number.isFinite(anchorY)&&Number.isFinite(ctx.standY)&&ctx.standY<anchorY-ASCEND_BELOW&&!ctx.underSky)return {type:'ascend',y:anchorY,forFood:true};
   let cap=Number.isFinite(anchorY)?anchorY+8:undefined;
   if(cap!=null&&Number.isFinite(ctx.standY)&&ctx.standY>cap)cap=ctx.standY;
   // The floor mirrors the cap: the graze is a surface activity, never a cave walk (round 3
@@ -1256,7 +1262,7 @@ export class Autopilot{
   const worldTable=!!b.findBlock({matching:b.registry.blocksByName.crafting_table?.id,maxDistance:8})||!!(left&&left.distance<=32);
   const worldFurnace=!!b.findBlock({matching:b.registry.blocksByName.furnace?.id,maxDistance:16});
   const standY=b.entity&&b.entity.position?Math.floor(b.entity.position.y):null;
-  const ctx={slotsFull:items/36,animalsNearby:animals?animals.type:null,animalsClose:animals?animals.close:0,huntPhase:this.huntPhase,homeChest:this.homeChest,home:this.home,chestSpot:this.home?this.chestSpotNear(b):null,hostileDistance:this.hostileDistance(b),worldTable,worldFurnace,grazeDirection:grazeDirection(b),standY,lastSurfaceY:this.lastSurfaceY??this.foodAnchorY,
+  const ctx={slotsFull:items/36,animalsNearby:animals?animals.type:null,animalsClose:animals?animals.close:0,huntPhase:this.huntPhase,homeChest:this.homeChest,home:this.home,chestSpot:this.home?this.chestSpotNear(b):null,hostileDistance:this.hostileDistance(b),worldTable,worldFurnace,grazeDirection:grazeDirection(b),standY,underSky:underSky(b),lastSurfaceY:this.lastSurfaceY??this.foodAnchorY,
    // Round 8 rung: coal in reach, the bed's wool, the last equip (no equip loops).
    coalNear:this.oreNear(b,['coal_ore','deepslate_coal_ore'],32),waterAt:this.waterSource(b),sheepNear:this.sheepNear(b),bedNear:this.bedNear(b),lastEquip:this.lastEquip||null,coalOff:Date.now()<(this.coalOffUntil||0),bedOff:Date.now()<(this.bedOffUntil||0),bedSearch:(this.bedSearch?.legs||0)<BED_SEARCH_LEGS,sheepFar:this.sheepFar(b),searchDistance:BED_SEARCH_DIST[Math.min(this.bedSearch?.legs||0,BED_SEARCH_DIST.length-1)],diamondOff:Date.now()<(this.diamondOffUntil||0),
    breedable:this.breedable(b,counts),hayNear:this.hayNear(b),

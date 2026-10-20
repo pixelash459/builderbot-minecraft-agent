@@ -134,6 +134,11 @@ test('the food step hunts, collects and prefers cooking raw meat',()=>{
  r=plan(counts({...STONE,_edible:0}),{grazeDirection:'east',standY:100,lastSurfaceY:131});
  assert.deepEqual(r.job,{type:'ascend',y:131,forFood:true});
  assert.equal(jobSchema.safeParse(r.job).success,true);
+ // Round 31 (round-30 normal2 fell 34 climbing a mountainside to its anchor): under open sky
+ // the bot is on the surface already - it grazes from there.
+ r=plan(counts({...STONE,_edible:0}),{grazeDirection:'east',standY:100,lastSurfaceY:131,underSky:true});
+ assert.equal(r.job.type,'explore');
+ assert.equal(r.job.surfaceFloor<=100,true,'the graze floor lets it stay level');
  // A bot already above the cap may not climb further, but its leg must start: navigation
  // rejects every position above the cap, so a cap below the bot failed each leg at once.
  r=plan(counts({...STONE,_edible:0}),{grazeDirection:'east',standY:150,lastSurfaceY:131});

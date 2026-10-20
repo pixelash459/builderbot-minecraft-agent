@@ -1894,3 +1894,13 @@ Round 29 soak: **all 6 runs valid** (no kick: the keep-alive fix held), **iron p
 
 - **Ledge guard** (`ledgeGuard`, every physics tick): while the bot walks on the ground under raw controls (not a pathfinder walk) and the cell `LEDGE_LOOK`=0.9 ahead along its motion opens onto a drop of `LEDGE_DROP`=5+, all movement keys are released (`Ledge guard: stopped at ...`, logged at most every 5 s).
 - **Safe pickUp**: when the bot stands on the block it is about to dig, it steps to a stand beside it first (`standBeside`); if it cannot and there is a 3+ drop under it (`dropBelow`), the block is left (`Standing on the ... over a N+ drop; leaving it`). After the dig it only walks into the cell when there is ground under it.
+
+## Round 31 (2026-10-20)
+
+Round 30 soak: **all 6 runs valid**, no kick, iron pick on 5 of 6 (normal 451/572/421 s, hard1 1234 s, hard3 1174 s; hard2 none), furnace on all six. One `Ledge guard: stopped` line (hard1, a creeper flee; the collect then completed). One `Standing on the furnace over a 4+ drop; leaving it`. 1 death:
+- normal2 `fell from a high place` 105 -> 71 at (342, 71, 29) during `{"type":"ascend","y":137,"forFood":true}`: 80 s of silent pathfinder climbing from a cave at y~58 up a mountainside toward the wood-step stand (y=137), then a 34-block fall. Round 29's hard3 fall also had a food ascend running.
+
+- **Food ascend only underground** (`underSky`): the food rung climbs back toward its anchor only with no sky overhead (head sky light under 12). A bot under open sky is on the surface whatever its height, and grazes from there (the graze floor already lets it stay level).
+- **A food ascend ends at open sky** (`GoalSky`): the climb ends at the anchor height or at the first stand with sky light 12+ over its head, whichever is first. An ascend that is already under open sky is done (no `Could not climb` failure). Escape ascends (deep dark, dark) still use `GoalY`.
+- **No sprinting beside a cliff**: while the pathfinder walks and sprints, and the cell ahead opens onto a 5+ drop (`dropAhead`, shared with the ledge guard), the sprint key is released each tick (the pathfinder's own listener runs first, so the next physics step walks). No log line.
+- **Fall log** (`fallWatch`): every fall of 4+ blocks is logged once: `Fall: dropping from (x, y, z) (job ..., pathing ..., sprint ...)`, from the top of the arc.

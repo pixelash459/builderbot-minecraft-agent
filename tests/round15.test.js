@@ -262,3 +262,46 @@ test('round 30: dropBelow and standBeside for picking up a block safely',()=>{
  const side=standBeside(b,new Vec3(0,64,0));
  assert.ok(side&&side.y===65&&(side.x!==0||side.z!==0),'a stand beside it on the ground: '+JSON.stringify(side));
 });
+import {fallWatch,FALL_LOG,GoalSky,headSky,SKY_OPEN} from '../src/worker.js';
+import {underSky} from '../src/autopilot.js';
+test('round 31: a pathfinder walk lets go of sprint beside a big drop, and keeps it on flat ground',()=>{
+ const at=p=>p.x>=2?(p.y<54?{name:'stone',boundingBox:'block'}:{name:'air',boundingBox:'empty'}):(p.y<64?{name:'stone',boundingBox:'block'}:{name:'air',boundingBox:'empty'});
+ const ctl={forward:true,sprint:true};
+ const bot={entity:{onGround:true,position:new Vec3(1.6,64,0.5),velocity:new Vec3(0.2,0,0)},blockAt:at,
+  getControlState:k=>!!ctl[k],setControlState:(k,v)=>{ctl[k]=v;},pathfinder:{isMoving:()=>true}};
+ assert.equal(ledgeGuard(bot),false,'the pathfinder keeps the walk');
+ assert.equal(ctl.sprint,false,'but not the sprint');assert.equal(ctl.forward,true);
+ ctl.sprint=true;bot.entity.position=new Vec3(0.2,64,0.5);
+ assert.equal(ledgeGuard(bot),false);assert.equal(ctl.sprint,true,'flat ground ahead keeps the sprint');
+});
+test('round 31: fallWatch names a fall once, from its top',()=>{
+ const st={},e={onGround:true,position:new Vec3(5,105,5)},bot={entity:e};
+ assert.equal(fallWatch(bot,st),null);
+ e.onGround=false;e.position=new Vec3(5,106,5);assert.equal(fallWatch(bot,st),null,'a jump');
+ e.position=new Vec3(5,104,5);assert.equal(fallWatch(bot,st),null,'2 down: not yet');
+ e.position=new Vec3(5,106-FALL_LOG,5);const f=fallWatch(bot,st);
+ assert.ok(f&&f.from.y===106,'logged from the top of the arc: '+JSON.stringify(f));
+ e.position=new Vec3(5,90,5);assert.equal(fallWatch(bot,st),null,'only once per fall');
+ e.onGround=true;fallWatch(bot,st);e.onGround=false;e.position=new Vec3(5,89.5,5);
+ assert.equal(fallWatch(bot,st),null,'landing resets it');
+});
+test('round 31: a food ascend ends at open sky (GoalSky), a cave still climbs to y',()=>{
+ // sky light 15 over the hillside x>=10; a covered cave elsewhere
+ const b={blockAt:p=>({name:'air',boundingBox:'empty',skyLight:p.x>=10?15:0})};
+ const g=new GoalSky(b,137);
+ assert.equal(g.isEnd({x:12,y:100,z:0}),true,'open sky at y=100 is the surface');
+ assert.equal(g.isEnd({x:0,y:100,z:0}),false,'a cave is not');
+ assert.equal(g.isEnd({x:0,y:137,z:0}),true,'the anchor height still ends it');
+ assert.equal(g.heuristic({x:0,y:100,z:0}),37);
+ assert.equal(headSky(b,new Vec3(12,100,0))>=SKY_OPEN,true);
+ assert.equal(underSky({entity:{position:new Vec3(12.5,100,0.5)},blockAt:b.blockAt}),true);
+ assert.equal(underSky({entity:{position:new Vec3(0.5,100,0.5)},blockAt:b.blockAt}),false);
+});
+test('round 31: a food ascend under open sky is done where it stands',async()=>{
+ const w=Object.create(Worker.prototype);let walked=0;const logs=[];
+ w.bot={entity:{position:new Vec3(339.5,105,27.5)},blockAt:()=>({name:'air',boundingBox:'empty',skyLight:15})};
+ w.navigate=async()=>{walked++;};w.log=m=>logs.push(m);w.check=()=>{};
+ await w.ascend({spec:{type:'ascend',y:137,forFood:true}},1);
+ assert.equal(walked,0,'no climb toward y=137');
+ await assert.rejects(()=>w.ascend({spec:{type:'ascend',y:137}},1),/Could not climb/,'an escape ascend still needs height');
+});
