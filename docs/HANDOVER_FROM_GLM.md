@@ -1885,3 +1885,12 @@ Round 28 soak: 5 valid runs (all through the furnace; iron pick 3/3 normal at 48
 
 - **Keep-alive kick** (why hard3 never started: the bot was gone): hard2 was disconnected at 02:47:59 IST - the server log says `Disconnecting BuilderBot for sending keepalive response ... out-of-order!` - and the harness could not observe the next run. `compat.js` paced keep-alive replies to one per 500 ms and DROPPED the rest; two requests close together (after a stall) lost a reply and the next carried the wrong id. Same class of bug as the round-3 teleport-confirm dedupe. Now only an exact repeat of the same id is dropped; every request gets its reply, in order.
 - **Crowd rule for food trips**: a food-step hunt/fight/collect/explore also waits while `CROWD_NEAR`=3+ hostiles are within 16 (dark-forest canopy spawns by day), unless it is a food emergency (`crowd: no hunting`, logged once per state change).
+
+## Round 30 (2026-10-20)
+
+Round 29 soak: **all 6 runs valid** (no kick: the keep-alive fix held), **iron pickaxes on two hard runs** (hard1 422 s, hard2 572 s - the second time ever), iron pick 3/3 normal (512 s each), `crowd: no hunting` fired 5 times on hard1. 2 deaths, both `fell from a high place`:
+- hard1 127 -> 90 during a sheep fight: the fight controller walks with raw control states and never checks for a cliff.
+- hard3 118 -> 86 straight down at (119, ?, 30) right after `craft furnace ... collectTable`: `pickUp` walked to within 1 of the crafting table (onto it), dug it out from under its own feet over a cave, then walked into the hole.
+
+- **Ledge guard** (`ledgeGuard`, every physics tick): while the bot walks on the ground under raw controls (not a pathfinder walk) and the cell `LEDGE_LOOK`=0.9 ahead along its motion opens onto a drop of `LEDGE_DROP`=5+, all movement keys are released (`Ledge guard: stopped at ...`, logged at most every 5 s).
+- **Safe pickUp**: when the bot stands on the block it is about to dig, it steps to a stand beside it first (`standBeside`); if it cannot and there is a 3+ drop under it (`dropBelow`), the block is left (`Standing on the ... over a N+ drop; leaving it`). After the dig it only walks into the cell when there is ground under it.

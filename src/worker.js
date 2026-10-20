@@ -141,6 +141,42 @@ export function bedSpots(at,feet){
  }
  return out;
 }
+// Round 30 (round-29 hard1 `fell from a high place` 127 -> 90 chasing a sheep): the fight
+// controller walks with raw control states, which never look for a cliff (the pathfinder caps
+// its own drops). Each physics tick, while the bot walks under raw controls on the ground and
+// the cell LEDGE_LOOK ahead along its motion opens onto a drop of LEDGE_DROP+, let go of the
+// keys. True when it stopped the bot.
+export const LEDGE_DROP=5,LEDGE_LOOK=0.9;
+export function ledgeGuard(bot){
+ const e=bot&&bot.entity;if(!e||!e.onGround||!e.velocity||!bot.getControlState)return false;
+ if(bot.pathfinder?.isMoving?.())return false;
+ const moving=['forward','back','left','right'].some(k=>bot.getControlState(k));if(!moving)return false;
+ const vx=e.velocity.x,vz=e.velocity.z,sp=Math.hypot(vx,vz);if(sp<0.04)return false;
+ const ahead=e.position.offset(vx/sp*LEDGE_LOOK,0,vz/sp*LEDGE_LOOK).floored();
+ const at=p=>bot.blockAt(p);
+ const feet=at(ahead);if(!feet||feet.boundingBox==='block')return false; // a wall, not a ledge
+ let drop=0;
+ for(let dy=1;dy<=LEDGE_DROP;dy++){const bl=at(ahead.offset(0,-dy,0));if(!bl)return false;if(bl.boundingBox==='block'||/water|lava/.test(bl.name))break;drop++;}
+ if(drop<LEDGE_DROP)return false;
+ for(const k of ['forward','back','left','right','sprint','jump'])bot.setControlState(k,false);
+ return true;
+}
+// Round 30: open cells straight under `p` (up to 6) - how far a bot falls once p is dug out.
+export function dropBelow(b,p){
+ let n=0;
+ for(let dy=1;dy<=6;dy++){const bl=b.blockAt(new Vec3(p.x,p.y-dy,p.z));if(!bl||bl.boundingBox==='block'||/water/.test(bl.name))break;n++;}
+ return n;
+}
+// Round 30: a stand right beside `p` at its level or one up: solid floor, open feet and head.
+export function standBeside(b,p){
+ for(const dy of [1,0]){
+  for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]){
+   const c=new Vec3(p.x+dx,p.y+dy,p.z+dz),fl=b.blockAt(c.offset(0,-1,0)),f=b.blockAt(c),h=b.blockAt(c.offset(0,1,0));
+   if(fl&&fl.boundingBox==='block'&&f&&f.boundingBox!=='block'&&h&&h.boundingBox!=='block'&&!/lava|water/.test(f.name))return c;
+  }
+ }
+ return null;
+}
 // Round 21 diagnostic: what fills the bag - item names by slots used, most first (`name:slots`).
 export function slotUse(b){
  try{const m={};for(const i of b.inventory.items())m[i.name]=(m[i.name]||0)+1;
@@ -567,7 +603,7 @@ export class Worker extends EventEmitter {
   const bot=this.bot=mineflayer.createBot({...this.config.server,hideErrors:true});
   installMovementFix(bot);installWeatherFix(bot);this.trackMeals(bot);guardEquip(bot);
   bot.loadPlugin(pathfinder);bot.loadPlugin(toolPackage.plugin);
-  bot.once('spawn',()=>{this.ready=true;installToolWear(bot);if(!bot.inventory._lossWatch){bot.inventory._lossWatch=true;watchToolLoss(bot,m=>this.log(m));}const movement=this.movements=this.normalMovements(bot);bot.pathfinder.setMovements(movement);bot.pathfinder.searchRadius=128;bot.pathfinder.LOSWhenPlacingBlocks=false;bot.pathfinder.thinkTimeout=10000;/* round 27: 5 s timed out every night-mine climb home (`Took to long to decide path to goal!`) *//* round 25: its returningPos is never cleared by a reset and wedged all pathing */// in blocks: bounds searches for unreachable goals; legit paths may still cost up to goal distance + 128
+  bot.once('spawn',()=>{this.ready=true;installToolWear(bot);if(!bot.inventory._lossWatch){bot.inventory._lossWatch=true;watchToolLoss(bot,m=>this.log(m));}const movement=this.movements=this.normalMovements(bot);bot.pathfinder.setMovements(movement);bot.pathfinder.searchRadius=128;if(!bot._ledgeGuard){bot._ledgeGuard=true;let last=0;bot.on('physicsTick',()=>{try{if(ledgeGuard(bot)&&Date.now()-last>5000){last=Date.now();this.log('Ledge guard: stopped at '+bot.entity.position.floored()+' (a '+LEDGE_DROP+'+ drop ahead)');}}catch{}});}bot.pathfinder.LOSWhenPlacingBlocks=false;bot.pathfinder.thinkTimeout=10000;/* round 27: 5 s timed out every night-mine climb home (`Took to long to decide path to goal!`) *//* round 25: its returningPos is never cleared by a reset and wedged all pathing */// in blocks: bounds searches for unreachable goals; legit paths may still cost up to goal distance + 128
   if(!this.trackersTimer){ // tracker refresh + preemption resume + idle armour, port of the reflex cadence
    this.loopWatch.start();
    this.trackersTimer=setInterval(()=>this.loopWatch.timeTick('cadence',()=>{
@@ -3154,9 +3190,21 @@ export class Worker extends EventEmitter {
   const b=this.bot,before=this.count(name);
   await this.walk(point,token,1);
   const block=b.blockAt(point);if(block?.name!==name)return;
+  // Round 30 (round-29 hard3 `fell from a high place` 118 -> 86: it stood ON its crafting table
+  // over a cave, dug it out from under its own feet, then walked into the hole). Step off a
+  // block before digging it; a drop under it is never walked into.
+  const p0=new Vec3(point.x,point.y,point.z);
+  const onTop=()=>{const f=b.entity?.position?.floored?.();return !!f&&f.x===p0.x&&f.z===p0.z&&f.y-1===p0.y;};
+  if(onTop()){
+   const side=standBeside(b,p0);
+   if(side)try{await this.navigate(new goals.GoalBlock(side.x,side.y,side.z),token,8);}catch{this.check(token);}
+   if(onTop()&&dropBelow(b,p0)>=3)throw Error('Standing on the '+name+' over a '+dropBelow(b,p0)+'+ drop; leaving it');
+  }
   // A furnace drops nothing to a bare hand: take the right tool first (an axe for a table).
   try{await b.tool.equipForBlock(block,{});}catch{}this.check(token);
-  await b.dig(block);this.check(token);await sleep(600);await this.walk(point,token,0.8);await sleep(400);await this.sweepDrops(token);
+  await b.dig(block);this.check(token);await sleep(600);
+  if(typeof b.blockAt!=='function'||dropBelow(b,p0)<2)await this.walk(point,token,0.8);
+  await sleep(400);await this.sweepDrops(token);
   if(b.blockAt(point)?.name===name)throw Error('Could not pick up the '+name);
   if(this.count(name)<=before)throw Error('The '+name+' drop was not collected');
  }

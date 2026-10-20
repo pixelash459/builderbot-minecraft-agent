@@ -241,3 +241,24 @@ test('round 29: a crowd of hostiles holds food trips back even by day',()=>{
  assert.equal(duskHuntOff(6000,hunt,c,{foodBar:15,crowd:2}),false);
  assert.equal(duskHuntOff(6000,hunt,c,{foodBar:4,crowd:5}),false,'starving: still go');
 });
+// ---- round 30 ----
+import {ledgeGuard,dropBelow,standBeside} from '../src/worker.js';
+test('round 30: the ledge guard lets go of raw controls before a big drop',()=>{
+ // ground at y=63 for x<=1, a 10-deep drop from x=2
+ const at=p=>p.x>=2?(p.y<54?{name:'stone',boundingBox:'block'}:{name:'air',boundingBox:'empty'}):(p.y<64?{name:'stone',boundingBox:'block'}:{name:'air',boundingBox:'empty'});
+ const ctl={forward:true,sprint:true};
+ const bot={entity:{onGround:true,position:new Vec3(1.6,64,0.5),velocity:new Vec3(0.2,0,0)},blockAt:at,
+  getControlState:k=>!!ctl[k],setControlState:(k,v)=>{ctl[k]=v;},pathfinder:{isMoving:()=>false}};
+ assert.equal(ledgeGuard(bot),true);assert.equal(ctl.forward,false);
+ ctl.forward=true;bot.pathfinder.isMoving=()=>true;
+ assert.equal(ledgeGuard(bot),false,'pathfinder walks are its own business');
+ bot.pathfinder.isMoving=()=>false;bot.entity.position=new Vec3(0.2,64,0.5);
+ assert.equal(ledgeGuard(bot),false,'flat ground ahead');
+});
+test('round 30: dropBelow and standBeside for picking up a block safely',()=>{
+ const at=p=>{if(p.x===0&&p.z===0&&p.y<64&&p.y>50)return {name:'air',boundingBox:'empty'};return p.y<=64?{name:'stone',boundingBox:'block'}:{name:'air',boundingBox:'empty'};};
+ const b={blockAt:at};
+ assert.equal(dropBelow(b,new Vec3(0,64,0)),6,'a deep shaft under the table');
+ const side=standBeside(b,new Vec3(0,64,0));
+ assert.ok(side&&side.y===65&&(side.x!==0||side.z!==0),'a stand beside it on the ground: '+JSON.stringify(side));
+});
