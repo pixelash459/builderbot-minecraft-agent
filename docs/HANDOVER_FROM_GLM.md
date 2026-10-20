@@ -1916,3 +1916,10 @@ Round 32 soak (cut short at 17:29 by a host crash, 37 min into normal1, no repor
 
 - **Replacement stick counts** match the recipes (`REPLACE_STICKS`: pickaxe 2, shovel 2 - the shovel said 1, so 1 diamond + 1 stick looked payable).
 - **A replacement craft that failed 3 times is skipped for 10 min** (`kitSkip`, like the optional stone kit), so the deep-underground retry cannot resubmit it.
+
+## Round 33 (2026-10-21)
+
+Round 32 rerun soak (`4d6baf8`): **0 deaths in all six runs** (round 31 had 7 on hard1), iron pick on 4 (normal 662/361/542 s, hard2 602 s), **a diamond pickaxe on normal2** (5 diamonds, crafted at 1445 s, then one diamond shovel - the shovel loop is gone), one black bed crafted (normal1, never placed). Two `Burrow: not here (open wall beside ...)` refusals (hard2, hard3); both then held a night pillar at hp 20 to morning. Two falls, neither hurt. 1 no-progress, 3 took-too-long. New loop: normal1 submitted `craft iron_leggings` 102 times in its last 14 min (`Missing ingredients: need a crafting table, or 4 planks to make one`, at y=45); the 3-failure skip only covers optional kit and replacements, so the iron step kept returning it.
+
+- **Back to the left table** (`ensureTable`): with no table within 6 and none held, the worker walks back (30 s) to the table it left (`leftTable`, within 32 - the radius the autopilot counts as `worldTable`). If it cannot get within reach it logs `Craft: could not get back to the crafting table at ...; forgetting it` and clears the record, so the ladder stops counting it.
+- **Planks before a table craft** (`tableFirst`, applied to every ladder step's job): a craft that needs a 3x3 grid, with no table held, none in the world and under 4 planks, first fetches the planks (logs when short); the worker then makes the table itself.

@@ -359,3 +359,18 @@ test('round 32: a night shelter with no blocks burrows first, and holds the burr
  assert.deepEqual(calls,['burrow','hold'],'no walk to dig dirt first');
  assert.equal(job.burrowTried,true,'one burrow attempt per job');
 });
+test('round 33: ensureTable walks back to the table it left, and forgets one it cannot reach',async()=>{
+ const w=Object.create(Worker.prototype);const logs=[];let walked=0;
+ const table=new Vec3(20,64,0);
+ w.bot={entity:{position:new Vec3(0.5,64,0.5)},blockAt:p=>p.equals(table)?{name:'crafting_table',position:table}:{name:'stone'},
+  findBlock:()=>null,registry:{blocksByName:{crafting_table:{id:1}},itemsByName:{crafting_table:{id:1}}},recipesFor:()=>[]};
+ w.count=()=>0;w.log=m=>logs.push(m);w.check=()=>{};w.usableRecipe=()=>null;
+ w.leftTable={x:20,y:64,z:0};
+ w.walk=async()=>{walked++;w.bot.entity.position=new Vec3(18.5,64,0.5);};
+ const r=await w.ensureTable(1);
+ assert.equal(walked,1);assert.ok(r.block&&r.block.name==='crafting_table');
+ w.bot.entity.position=new Vec3(0.5,64,0.5);w.walk=async()=>{walked++;};
+ await assert.rejects(()=>w.ensureTable(1),/need a crafting table/);
+ assert.equal(w.leftTable,null,'an unreachable table is forgotten');
+ assert.ok(logs.some(l=>/could not get back to the crafting table/.test(l)));
+});

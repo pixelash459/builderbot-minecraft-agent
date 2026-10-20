@@ -780,9 +780,18 @@ export function plan(counts,ctx={}){
  for(const entry of STEPS){
   if(ctx.blocked===entry.name)continue;
   if(entry.done(c,ctx))continue;
-  return {step:entry.name,job:entry.next(c,ctx)};
+  return {step:entry.name,job:tableFirst(c,ctx,entry.next(c,ctx))};
  }
  return {step:null,job:null};
+}
+// Round 33 (round-32 normal1: `iron_leggings` 102 times, `need a crafting table, or 4 planks to
+// make one`, at y=45): a craft that needs a crafting table, with none held, none in the world
+// and under 4 planks, first fetches the planks (logs when short) - the worker makes the table.
+const HAND_CRAFT=/_planks$|^(stick|crafting_table|torch)$/;
+export function tableFirst(c,ctx,job){
+ if(!job||job.type!=='craft'||HAND_CRAFT.test(job.item))return job;
+ if(c('crafting_table')>=1||ctx.worldTable||ctx.planksTotal>=4)return job;
+ return planksJob(c,ctx,4)||job;
 }
 
 export class Autopilot{

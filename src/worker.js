@@ -3153,6 +3153,20 @@ export class Worker extends EventEmitter {
    }
    return {block:existing,created:null};
   }
+  // Round 33 (round-32 normal1: `iron_leggings` submitted 102 times, `need a crafting table, or 4
+  // planks`): the autopilot counts the table it left within 32 blocks, so the ladder kept the
+  // craft while this only looked within 6. Walk back to it; one that cannot be reached is
+  // forgotten, so the ladder stops counting it.
+  const left=this.leftTable;
+  if(left&&!this.count('crafting_table')){
+   const at=new Vec3(left.x,left.y,left.z),bl=b.blockAt(at);
+   if(bl&&bl.name==='crafting_table'&&b.entity.position.distanceTo(at)<=32){
+    try{await this.walk(at,token,3,30);}catch(e){this.check(token);}
+    if(b.entity.position.distanceTo(at.offset(0.5,0.5,0.5))<=4.5)return {block:b.blockAt(at),created:null};
+    this.log('Craft: could not get back to the crafting table at '+at+'; forgetting it');
+   }
+   this.leftTable=null;
+  }
   if(!this.count('crafting_table')){
    const picked=this.usableRecipe(b,b.recipesFor(b.registry.itemsByName.crafting_table.id,null,1,null),null);
    if(!picked)throw Error('Missing ingredients: need a crafting table, or 4 planks to make one');

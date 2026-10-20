@@ -502,3 +502,14 @@ test('round 32: a worn shovel replacement needs 2 sticks, and a craft that faile
  r=plan(counts({...have,stick:2}),{kitSkip:{diamond_shovel:Date.now()+60000}});
  assert.notEqual(r.job?.item,'diamond_shovel','set aside after 3 failed crafts');
 });
+import {tableFirst} from '../src/autopilot.js';
+test('round 33: a table craft with no table and no planks fetches planks first',()=>{
+ const c=n=>({oak_log:0}[n]||0);
+ const craft={type:'craft',item:'iron_leggings',count:1};
+ assert.equal(tableFirst(c,{planksTotal:0,logsTotal:0},craft).type,'gather','no logs: gather logs');
+ assert.deepEqual(tableFirst(c,{planksTotal:0,logsTotal:3,heldLog:'oak_log'},craft),{type:'craft',item:'oak_planks',count:4});
+ assert.equal(tableFirst(c,{planksTotal:4,logsTotal:0},craft),craft,'4 planks make the table');
+ assert.equal(tableFirst(c,{planksTotal:0,logsTotal:0,worldTable:true},craft),craft,'a table in the world');
+ assert.equal(tableFirst(n=>n==='crafting_table'?1:0,{planksTotal:0,logsTotal:0},craft),craft,'a table held');
+ assert.equal(tableFirst(c,{planksTotal:0,logsTotal:0},{type:'craft',item:'stick',count:1}).item,'stick','hand crafts need no table');
+});
