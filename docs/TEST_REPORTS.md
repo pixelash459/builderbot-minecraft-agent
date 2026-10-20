@@ -2686,3 +2686,141 @@ Zero `last path: none` lines. Zero `Navigation made no progress` lines.
 `logs/dashboard-uncaught.log` gained no bytes during the integration (size stayed 2576174).
 
 The soak is next.
+
+## 2026-10-20 03:59–07:07 IST — dual soak (`71e7d2f`, bot code `0cd8eca`)
+
+`AGENT_MODEL=off`, one soak, exit 0, 11288 s wall (03:59:09–07:07:17 IST, 22:29:09Z–01:37:17Z). `SOAK DONE (clean)`, promoted to `data/soak-results.json`. Anchors this seed: hard [142, 131, 31] (canopy light 10), normal [310, 131, 30] (open sky 15). Interventions 7, resumes 2, deaths 2. All six runs were valid. Each header was `dawn, clear weather`. Zero `observe: timeOfDay=None`. Zero `INVALID`. Round 28's hard3 never started after three of those invalids; this round hard3 ran. The dashboard window is the bytes appended after the pre-soak size 55369397 (2671 timestamped lines, 22:29:11.304Z through the restore). The runs are the `Autopilot started` / `Autopilot stopped` pairs: normal1 22:32:21.840Z–23:12:30.954Z (04:02:21–04:42:30 IST), normal2 23:12:42.714Z–23:52:51.288Z (04:42:42–05:22:51 IST), normal3 23:53:03.028Z–00:33:11.913Z (05:23:03–06:03:11 IST), hard1 00:33:26.419Z–00:54:30.455Z (06:03:26–06:24:30 IST, with a second `Autopilot started` at 00:41:28.181Z after the fall), hard2 00:54:42.261Z–01:15:46.896Z (06:24:42–06:45:46 IST), hard3 01:15:58.854Z–01:37:02.768Z (06:45:58–07:07:02 IST, with a second `Autopilot started` at 01:23:00.418Z after the fall). After the stop, the flat world was restored (`level-name=agent-test-world`, `server-ip=0.0.0.0`, `difficulty=peaceful`, properties written 07:07:20 IST). Supervisor log first line is still `model server disabled (config.model.enabled=false): skipping llama-server, saving ~6.5 GB commit`. Port 8081 was closed. No second soak. The integration report `71e7d2f` is docs-only; the bot code is `0cd8eca`.
+
+The wood / stone-pick / furnace / iron-pick columns are the first sample that held the item. **All six runs reached a wooden pick and a stone pick. Four of six sampled a furnace.** hard2 and hard3 never held a furnace in a sample, so this is not 6 of 6 through the furnace on that clock. Round 27 (`f71c159` / soak report `ae343a4`) was 6 of 6: hard wood 90/120/181, stone 181/241/211, furnace 241/331/331, normal iron 452/452/572, no hard iron. Round 28 (`9bace1e` / soak report `79e6883`) was five valid runs, all five through the furnace: hard wood 90/181, stone 151/271, furnace 271/361, normal iron 482/632/422, hard3 never started, no hard iron. This round hard wood is 90/120/151, stone 150/211/331, furnace 241/—/—. Normal iron is 512/512/512. Hard iron picks landed on hard1 (422 s) and hard2 (572 s). hard3 never held one. hard2 did craft a furnace and leave it standing (below); the sample column stays "—" because the item was not in the bag. hard1 finished empty after the fall (harness `wood=no stone=no`). hard2 finished still holding the iron pick, 2 stone picks, and a wooden pick, with furnace 0. Worn armour is 4 at 722 / 2 at 783 / 4 at 873 on the normal runs, 0 on every hard run. Torches 16/16/16 on normal, 0/16/0 on hard.
+
+| Run | Wood | Stone pick | Furnace | Iron pick | Torches | Armour worn | Bed | Diamonds | Food | Deaths |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| normal1a1 | 90 | 181 | 271 | 512 | 16 | 4 at 722 | — | 0 | ate 3 | 0 |
+| normal2a2 | 90 | 271 | 361 | 512 | 16 | 2 at 783 | — | 0 | ate 1 | 0 |
+| normal3a3 | 60 | 181 | 331 | 512 | 16 | 4 at 873 | — | 0 | ate 11 | 0 |
+| hard1a1 | 90 | 150 | 241 | 422 | 0 | 0 | — | 0 | not hungry enough (food min 20) | 1 |
+| hard2a2 | 120 | 211 | — | 572 | 16 | 0 | — | 0 | not hungry enough (food min 20) | 0 |
+| hard3a3 | 151 | 331 | — | — | 0 | 0 | — | 0 | not hungry enough (food min 20) | 1 |
+
+### Disconnects and kicks
+
+The server-log bytes appended during the soak (offset 14922812 through the end, 827 new lines) have two `lost connection` lines and no `out-of-order`, no `too many packets`, and no `keepalive`. Both disconnects are the soak's own service stops, at the world switch and at the restore:
+
+- `[03:59:11 INFO]: BuilderBot lost connection: Disconnected`
+- `[07:07:05 INFO]: BuilderBot lost connection: Disconnected`
+
+The same two moments are the only `Connection ended` / `Disconnected. Connect again to retry.` lines in the dashboard window (22:29:11.412Z, 22:29:25.768Z, and 01:37:05.639Z). Zero `disconnect.timeout` lines. Round 28's hard3 invalids followed a client `disconnect.timeout` and a server `out-of-order` keep-alive kick. Neither string appears in this window.
+
+### Dusk and crowd
+
+The string `dusk: no hunting` does not appear. Round 28 was the same. The dusk window is wall-clock from each run's first `Autopilot started`, using hard2's own clock: `Night mine: down from the shelter at (117, 128, 2) (tod 12601)` at 01:05:04.728Z is 622.5 s after hard2's start, which is 20.24 ticks/s. On that clock, time of day 10000–12000 is the 494–593 s after each start. No `Autopilot [food]` hunt, fight, collect, explore, or ascend was submitted inside any of those six windows. None of them was an emergency, because no food job was in the window at all. What ran instead:
+
+- normal1 22:40:35Z–22:42:14Z: a furnace-step smelt, then iron-step crafts (iron sword, shield, torches, planks, sticks) and iron-ore gathers.
+- normal2 23:20:56Z–23:22:35Z: an iron-ore gather, iron and furnace smelts, a coal gather, then stick, iron sword, shield, and torch crafts.
+- normal3 00:01:17Z–00:02:55Z: two coal gathers, a furnace-step smelt, then iron sword, shield, torches, and an iron-ore gather.
+- hard1 00:41:40Z–00:43:19Z: the bot was already dead. Wood crafts (dark oak planks, crafting table, sticks, wooden pickaxe), then `00:42:32.316Z Autopilot [dusk-dirt] {"type":"gather","block":"grass_block","count":25,"radius":32}`.
+- hard2 01:02:56Z–01:04:35Z: a coal gather, `smelt raw_iron` with `keepFurnace:true`, then stick, iron pickaxe, iron sword, shield, and torch crafts.
+- hard3 01:24:12Z–01:25:51Z: the same post-death wood crafts, then `01:25:05.109Z Autopilot [dusk-dirt]` the same grass gather.
+
+The two `dusk-dirt` lines are the only lines in the window that contain `dusk`.
+
+`crowd: no hunting` did fire, five times, all on hard1, all before that dusk window (tod about 5400–8400). A cow fight was replaced by iron work. The lines, and the job on the same timestamp:
+
+- `00:37:52.947Z Autopilot: crowd: no hunting (4 hostiles within 16)` then `[iron] craft stick`. The cow fight had started at 00:37:44.632Z and was `superseded` at 00:37:55.827Z.
+- `00:37:58.966Z Autopilot: crowd: no hunting (5 hostiles within 16)` then `[iron] craft stone_pickaxe`.
+- `00:38:15.476Z Autopilot: crowd: no hunting (5 hostiles within 16)` then `[iron] gather iron_ore`.
+- `00:40:16.562Z Autopilot: crowd: no hunting (4 hostiles within 16)` then `[iron] craft iron_pickaxe`.
+- `00:40:24.735Z Autopilot: crowd: no hunting (3 hostiles within 16)` then `[iron] smelt raw_iron`.
+
+A food job then started anyway. `00:40:49.108Z Autopilot [food] {"type":"collect","radius":16}` and `00:40:50.297Z Autopilot [food] {"type":"fight","entity":"sheep","maxSeconds":90}`, 25 s after the last crowd line, which still said 3 hostiles. There is no line saying the crowd had cleared. The food bar on every hard1 sample is 20, so this was not a food emergency. The fall below is that sheep fight.
+
+### Deaths
+
+Two deaths. The soak counters are 1 and 1. Both are falls. The server lines and the bot lines agree. Round 27's one death was hard1 `slain by Zombie`. Round 28's one death was hard2 `shot by Skeleton`, with the bot line saying zombie.
+
+hard1, 00:41:08.507Z (06:11:08 IST). `BuilderBot fell from a high place` and `Bot died at 119, 90, 25`. The sample 10 s earlier is still the fight, at [127, 127, 34], food 20. The dashboard then has no line until the fall (about 18 s). The timestamped lines in the 30 s before the death:
+
+- `00:40:45.975Z Smelt: took 2 iron_ingot from the furnace at 132,117,49`
+- `00:40:48.677Z Completed smelt`
+- `00:40:49.108Z Autopilot [food] {"type":"collect","radius":16}` and `Completed collect`
+- `00:40:50.297Z Autopilot [food] {"type":"fight","entity":"sheep","maxSeconds":90}`
+- `00:41:08.507Z BuilderBot fell from a high place`
+- `00:41:08.549Z Bot died at 119, 90, 25` (the iron pickaxe, both stone pickaxes, and the rest of the tools leave the inventory on this line)
+- `00:41:08.550Z Pause trace: fight -> Bot died; inspect the world before resuming`
+- `00:41:10.066Z Server set position to (101, 144, -32) (teleport #33)`
+- `00:41:28.181Z Autopilot started`
+
+The harness printed `operator: resumed the ladder after death 1`. The next sample is t=482 at [101, 144, -32], empty bag, `paused: died - resume to continue`.
+
+hard3, 01:22:46.507Z (06:52:46 IST). `BuilderBot fell from a high place` and `Bot died at 119, 86, 30`. The food bar on the samples is 20. The lines in the 30 s before the death:
+
+- `01:22:20.229Z Autopilot [stone] {"type":"craft","item":"stone_sword","count":1,"keepTable":true}` through the stone axe and stone shovel crafts
+- `01:22:36.763Z Autopilot [stone] {"type":"craft","item":"furnace","count":1,"keepTable":true,"collectTable":true}`
+- `01:22:45.657Z Navigation: no path with mob avoidance at (119, 111, 30); trying without it`
+- `01:22:45.799Z Left the crafting table at (119, 118, 30)` and `Completed craft`
+- `01:22:45.972Z Autopilot [food] {"type":"ascend","y":129,"forFood":true}`
+- `01:22:46.139Z Navigation: no path with mob avoidance at (119, 101, 30); trying without it`
+- `01:22:46.263Z Ascend: path up stopped (No path to the goal! (empty path at (119, 97, 30), last path)` and `Ascend: y=106 -> 97 (surface 129)` and `Job: Could not climb toward the surface from y=106`
+- `01:22:46.507Z BuilderBot fell from a high place`
+- `01:22:46.527Z Bot died at 119, 86, 30`
+- `01:22:48.035Z Server set position to (89, 76, -22) (teleport #150)`
+- `01:23:00.418Z Autopilot started`
+
+The harness printed `operator: resumed the ladder after death 1`. The ascend is a food job, and it is outside the dusk window (that window starts at 01:24:12Z). The bar was 20, so it was not an emergency.
+
+### Night mine
+
+hard2 went and did not get back into the box. The climb timed out one block outside it, and the line names 3 ore items. hard1 never went: it died first, and the restarted autopilot was on wood and then dusk-dirt. hard3 never went: it died during the furnace craft, and the restart was the same wood-then-dusk-dirt sequence. Round 28: hard1 went, timed out one block outside, 16 ore, not back; hard2 never went; hard3 did not run. Round 27: hard1 never, hard2 not back (0 ore), hard3's last climb got back (0 ore).
+
+- hard2 `01:05:04.728Z Night mine: down from the shelter at (117, 128, 2) (tod 12601)`. `01:06:13.492Z Night mine: could not climb back into (117, 128, 2): Took to long to decide path to goal!` then `walking the tunnel back by hand from (117, 128, 1)` then `not back in the shelter (opened onto a cave at 117,116,17; 15 steps, 3 ore items, 1 wall digs); bot at (117, 128, 1), the box is at (117, 128, 2)`.
+- hard1 and hard3 have no `Night mine:` line.
+
+### Bed
+
+Zero `black_bed` lines. Zero `white_bed` lines. Zero place attempts. Zero `Home set` lines. Zero `Sleeping` lines. Bed 0 on every sample. Round 28 had two `black_bed` crafts and no place. Round 27 had zero crafts.
+
+Wool did show up in two full-bag lists and was not crafted into a bed. normal1 `22:53:30.881Z` lists `light_gray_wool:1`. normal3 `00:26:07` lists `white_wool:1`. What the bed rung did instead was search and then give up:
+
+- normal1 one sheep hunt at `22:37:08.608Z`, then `22:51:46.591Z Autopilot: no sheep after 3 search legs; bed set aside for 10 min`.
+- normal2 `23:28:01.934Z` a sheep hunt for 2, then `23:29:05.636Z` the same no-sheep line, and again `23:50:22.443Z`.
+- normal3 `00:10:04.560Z` a sheep hunt, then `00:25:39.928Z` the same no-sheep line.
+- hard1, hard2, and hard3 have no `bed-rung` line.
+
+### Diamond trips
+
+Three `gather diamond_ore` submits, each `targetY -53`, `strip:true`, count 3. Diamonds held 0 on every sample. No `diamond_pickaxe` line. No `deep dark` line. No hard run submitted one. None reached y=-53.
+
+- normal1 submitted `22:53:30.880Z` and was refused on the same second: `Inventory nearly full; deposit items first (cobblestone:3 clay_ball:2 snowball:1 coal:1 azalea:1 feather:1 cooked_chicken:1 spruce_log:1 light_gray_wool:1 wooden_sword:1)`, then `the bag is full`. No descent. No sample is on step `diamond-rung`. The run's lowest sample is [251, 28, -96] at t=2168, step `furnace`. No diamond pick.
+- normal2 submitted `23:30:18.417Z`. The same second `Gather: descent stopped at y=63 (Tunnel stopped: water beside (264, 62, 46); water beside (263, 62, 47); water beside (265, 62, 47); no safe way on)`, repeated through 23:30:23Z. No `diamond-rung` sample. The run's lowest sample is [254, 53, 33] at t=1144, step `iron`. No diamond pick.
+- normal3 submitted `00:10:18.928Z`. The staircase passed coal and iron, bridged gaps, then `00:18:25.248Z Gather: descent stopped at y=46 (Tunnel stopped: water beside (244, 45, -37); water beside (243, 45, -38); water beside (243, 45, -36); no safe way on)`. Lowest `diamond-rung` sample is [243, 51, -40] at t=1505. No diamond pick.
+
+### Pathfinder
+
+`last path: none` is 0 lines in the window. Per run: 0/0/0/0/0/0. Round 28 was 0. Round 27 was 0. `last path: noPath` does appear, on normal1 (4) and hard3 (5). That text is `noPath`, and it is not counted in the none total. hard3's five are the same empty path at the respawn point (89, 76, -22), from 01:23:01Z to 01:23:26Z, until the harness returned the bot from y=76.
+
+`Navigation made no progress` is 1 line, on normal1: `22:45:16.364Z Job: Navigation made no progress at (311, 111, 15) (last path: partial, 1 steps, 5991 nodes)`. Round 28 was 0. Round 27 was 1.
+
+The real log spelling is `Took to long to decide path to goal!`. The string `Took too long` does not appear. Unique events, per run: normal1 0, normal2 1, normal3 0, hard1 0, hard2 1, hard3 0 (2). Round 28 was 2/0/2/1/0 (5). Round 27 was 1/0/0/0/3/0 (4).
+
+- normal2 `23:20:01.727Z Job: Took to long to decide path to goal!`
+- hard2 the night-mine climb above.
+
+### Stone pickaxes, bag, water
+
+Samples never held more than 2 stone pickaxes at once: normal1 2, normal2 2, normal3 2, hard1 2, hard2 2, hard3 1. Round 28 was 2, 2, 2, 2, 1. Round 27 was 2, 2, 2, 1, 1, 2. End-of-run counts this round: normal1 2, normal2 0, normal3 1, hard1 0, hard2 2, hard3 0.
+
+`the bag is full` is 5 lines: normal1 twice (22:51:17.329Z and 22:53:38.925Z) and normal3 three times (00:26:07.492Z, 00:31:12.774Z, 00:33:05.653Z). Round 28's normal3 logged it 28 times over its last ten minutes. This round does not.
+
+The string `water_bucket` does not appear. Zero `Water: stepped out` lines. Two `the bucket failed twice` lines, both on normal1: `22:45:25.304Z` and `23:06:40.345Z`. Round 28 had one step-out, on normal3.
+
+### Other failures
+
+- hard2's furnace clock is "—" and the log shows why the pick still happened. `00:59:38Z` crafted a furnace. `01:01:23Z Gather: no kiln (no furnace held); smelting after the gather`. The furnace was left standing: `01:03:00Z Smelt: furnace at 120,128,4 loaded with 6 raw_iron` and `01:04:00Z Smelt: took 6 iron_ingot from the furnace at 120,128,4 (left standing)`, then the iron pickaxe craft at 01:04:05Z. The pick is real. The furnace item was not in a sample.
+- hard3's furnace craft completed at `01:22:45.799Z` and the bot fell at `01:22:46.507Z`, so the furnace never reached a sample either.
+- normal3 placed a furnace while the food chain held meat. `00:25:19.226Z place furnace on grass_block threw Server refused to place porkchop at (227, 161, 34): the block is still air | bot (228, 161, 33) held porkchop reach 1.86 onGround true packets {"block_change":2}` and `place furnace failed at (227, 161, 34)`. The bar on that second goes 9 -> 12 from a porkchop eat, then the place throws.
+- normal1 stood boxed in twice (`22:51:35Z` at (310, 85, -144) and `22:53:30.205Z` at (269, 82, -144)), then placed a chest and deposited. Zero `LOOP_STALL`. Zero `LOOP_SLOW`. Zero `forgot the furnace batch` lines.
+- The seven operator lines are `returned the bot from y=90`, `y=93`, and `y=97` (normal1, wood step, logs already 0), `returned the bot from y=62` (normal2), `resumed the ladder after death 1` (hard1), `resumed the ladder after death 1` (hard3), and `returned the bot from y=76` (hard3, after the respawn).
+
+### Uncaught
+
+`logs/dashboard-uncaught.log` gained no bytes during the soak (size stayed 2576174, the same size the integration window and rounds 22 through 28 reported). There is no new line from this soak window.
