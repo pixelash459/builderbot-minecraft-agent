@@ -18,7 +18,10 @@ const mealsEaten=w=>{const m=w&&w.meals||{};return Math.max(m.eaten||0,m.ok||0);
 const GEAR=/^(diamond|iron|stone|golden|wooden)_(sword|axe|pickaxe|shovel|helmet|chestplate|leggings|boots)$/;
 const WORN_LIMIT=0.2; // craft the replacement while a fifth of the durability is left
 const REPLACE_COST={sword:2,axe:3,pickaxe:3,shovel:1,helmet:5,chestplate:8,leggings:7,boots:4};
-const REPLACE_STICKS={sword:1,axe:2,pickaxe:3,shovel:1};
+// Sticks per recipe (round 32: a shovel takes 2 - with 1 diamond and 1 stick the diamond shovel
+// replacement was submitted 42 times in 8 min, `Missing ingredients`).
+const REPLACE_STICKS={sword:1,axe:2,pickaxe:2,shovel:2};
+const REPLACE_ITEM=/^(diamond|iron|stone|golden|wooden)_(sword|axe|pickaxe|shovel|helmet|chestplate|leggings|boots)$/;
 const REPLACE_ORDER={sword:0,axe:1,helmet:2,chestplate:3,leggings:4,boots:5,pickaxe:6,shovel:7};
 // Payable replacement tiers per kind: stone and wood armour do not exist, so armour is only
 // ever re-crafted in iron or diamond; leather and chainmail are never crafted by the ladder.
@@ -319,6 +322,7 @@ function replacementJob(c,ctx){
    const [tier,material]=tiers[i];
    const pay=material?c(material):ctx.planksTotal;
    if(!(pay>=cost&&c('stick')>=sticks))continue;
+   if(skipped(ctx,tier+'_'+kind))continue; // round 32: its craft failed 3 times
    if(tiers.slice(0,i+1).some(([t])=>sound(t+'_'+kind)))break; // already holds one this good
    return {type:'craft',item:tier+'_'+kind,count:1};
   }
@@ -1058,7 +1062,9 @@ export class Autopilot{
    // never turn into an explore in the dark - nightKeyFree caps its retries instead.
    // Round 16: an optional kit piece whose craft failed 3 times is skipped for KIT_SKIP_MS -
    // walking off to explore (64 blocks through caves at y=-20, into lava) cannot fix a craft.
-   else if(this.failures[step]>=3&&job.spec?.type==='craft'&&OPTIONAL_KIT.has(job.spec.item)){
+   // Round 32: so is a worn tool's replacement (replacementJob) - the deep-underground retry
+   // re-submitted the same impossible craft every 20 s.
+   else if(this.failures[step]>=3&&job.spec?.type==='craft'&&(OPTIONAL_KIT.has(job.spec.item)||REPLACE_ITEM.test(job.spec.item))){
     this.failures[step]=0;(this.kitSkip||(this.kitSkip={}))[job.spec.item]=Date.now()+KIT_SKIP_MS;
     this.state='retry: '+step;this.log('Autopilot: '+job.spec.item+' craft failed 3 times; skipped for '+KIT_SKIP_MS/60000+' min');
    }

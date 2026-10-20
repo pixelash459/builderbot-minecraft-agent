@@ -491,3 +491,14 @@ test('three failures unblock after the explore leg: the step retries from a new 
   assert.equal(submitted[submitted.length-1].type,'gather','wood retried after the explore');
  }finally{fs.rmSync(root,{recursive:true,force:true});}
 });
+test('round 32: a worn shovel replacement needs 2 sticks, and a craft that failed 3 times is skipped',()=>{
+ const armour={iron_helmet:1,iron_chestplate:1,iron_leggings:1,iron_boots:1,_equipped_iron_helmet:1,_equipped_iron_chestplate:1,_equipped_iron_leggings:1,_equipped_iron_boots:1};
+ const have={...STONE,_edible:8,coal:16,torch:16,iron_ingot:0,cobblestone:0,iron_pickaxe:1,iron_sword:2,shield:1,diamond_pickaxe:1,water_bucket:1,...armour,stone_shovel:1,_worn_stone_shovel:1,diamond:1};
+ // Round-32 normal1: 1 diamond, 1 stick - `diamond_shovel` was submitted 42 times.
+ let r=plan(counts({...have,stick:1}));
+ assert.notEqual(r.job?.item,'diamond_shovel','1 stick cannot make a shovel');
+ r=plan(counts({...have,stick:2}));
+ assert.equal(r.job.item,'diamond_shovel','2 sticks can');
+ r=plan(counts({...have,stick:2}),{kitSkip:{diamond_shovel:Date.now()+60000}});
+ assert.notEqual(r.job?.item,'diamond_shovel','set aside after 3 failed crafts');
+});
