@@ -3097,3 +3097,125 @@ No `disconnect.timeout`, no `out-of-order`, no `too many packets`, in the dashbo
 ### Uncaught
 
 `logs/dashboard-uncaught.log` gained no bytes during the soak (size stayed 2576174). There is no new line from this soak window.
+
+## 2026-10-21 01:56–05:04 IST — round 32 soak rerun (bot code `4d6baf8`)
+
+This is the round 32 rerun after the host crash. The cut-off run on `fe7b233` (stopped at 17:29 IST on 20 Oct 2026, 37 min into normal1, no report) is not a result and was not resumed.
+
+Units first, then a fresh model-off restart, then one six-run soak. No combat and no integration. `git pull --rebase` was already up to date. HEAD is `4d6baf8` (`Round 32: replacement crafts use the recipes' stick counts, and one that fails 3 times is set aside`). Units: 586 pass, 0 fail.
+
+After the crash the test server, dashboard, and supervisor were down. `data/processes.json` still named test-server 69584 and dashboard 78680; both PIDs were dead. Nothing was listening on 25569, 8765, or 8766, and no soak process was running. `Stop-Agent.ps1` could not reach the supervisor. Services were started with the model off. `logs/supervisor.log` first line: `model server disabled (config.model.enabled=false): skipping llama-server, saving ~6.5 GB commit`. Port 8081 was not listening. The soak then stopped those services and started again on a fresh soak world; the supervisor log after that start is the same disabled line, and 8081 stayed closed.
+
+`AGENT_MODEL=off`, one soak, exit 0, 11284 s (01:56:18–05:04:22 IST, 20:26:18Z–23:34:22Z). `SOAK DONE (clean)`, promoted to `data/soak-results.json`. Anchors this seed: hard [141, 131, 30] (canopy light 14), normal [310, 131, 30] (open sky 15). Interventions 1, resumes 0, deaths 0. Six valid runs, each on the first attempt (`normal1a1` through `hard3a3`). No `timeOfDay=None`. No `dawn/clear weather not confirmed`. Dashboard window used below is 20:26:19.983Z–23:34:08.824Z (`Stopped by user` through `Disconnected`, 2849 timestamped lines). The six runs are the six `Autopilot started` / `Autopilot stopped` pairs: normal1 20:29:27.547Z–21:09:35.056Z, normal2 21:09:46.677Z–21:49:56.013Z, normal3 21:50:07.824Z–22:30:16.176Z, hard1 22:30:30.729Z–22:51:34.601Z, hard2 22:51:46.511Z–23:12:50.361Z, hard3 23:13:02.119Z–23:34:05.977Z. After the stop, the flat world was restored (`level-name=agent-test-world`, `server-ip=0.0.0.0`, `difficulty=peaceful`, properties written 05:04:24 IST). Supervisor log still says the model server is disabled. Port 8081 is not listening. `processes.json` lists test-server and dashboard only. No second soak.
+
+### Rungs
+
+The wood / stone-pick / furnace / iron-pick columns are the first sample that held the item. The diamonds column is the peak `diamond` count, and whether a diamond pickaxe was crafted.
+
+| run | wood | stone | furnace | iron | diamonds | diamond pick | deaths |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| normal1 | 150 | 241 | 331 | 662 | 0 | no | 0 |
+| normal2 | 120 | 181 | 241 | 361 | 5 | yes, at 1445 s | 0 |
+| normal3 | 120 | 181 | 301 | 542 | 0 | no | 0 |
+| hard1 | 90 | 150 | 271 | none | 0 | no | 0 |
+| hard2 | 120 | 241 | 361 | 602 | 0 | no | 0 |
+| hard3 | 90 | 241 | none | none | 0 | no | 0 |
+
+**Hard iron is one run again, hard2 at 602 s.** hard1 and hard3 never held an iron pick. hard1's ore peak was 7 and hard3's was 9, both with 0 ingots. Round 31 (`a79d2d7`) was hard iron only hard1 at 572 s, furnaces hard 301/604/393. Round 30 (`13cd857`) was hard iron 1234 / none / 1174, furnaces 241/331/422. This round's hard furnaces are 271/361/none: hard3 never sampled a furnace (it stood on `working: smelt` at t=572 with furnace 0). Round 31 had a furnace on all six; round 30 did too. Hard iron did not go back to two runs.
+
+Normal iron is 662/361/542, against round 31's 482/572/361 and round 30's 451/572/421. normal2 was faster than both of those rounds. normal1 was slower, and its last stretch was the craft loop below.
+
+Diamonds: only normal2. One mine line, `2026-10-20T21:33:08.014Z BuilderBot has made the advancement [Diamonds!]` and `2026-10-20T21:33:18.500Z Tunnel: mined deepslate_diamond_ore in the wall at 378,-2,73`. The t=1415 sample, at `[379, -3, 72]`, held 5 diamonds. The t=1445 sample held 2 diamonds and a diamond pickaxe (craft submitted `21:33:45.036Z Autopilot [diamond-rung] {"type":"craft","item":"diamond_pickaxe","count":1}`). Two earlier ores were skipped as unreachable (`deepslate_diamond_ore` at 378,-2,73 on the first attempt, `diamond_ore` at 364,-3,80). The other five runs mined 0 and crafted no diamond pick. Round 31 diamonds were 0.
+
+### Deaths
+
+Zero. The soak counter is 0 on every run. The dashboard window has no `Bot died`, `was slain`, `fell from a high place`, `drowned`, `shot by`, `blew up`, `burned`, `suffocated`, or `obliterated` line, so there is no 30 s prelude. The server bytes appended after offset 15139910 have no `was slain` and no `fell from`. Round 31's hard1 night (seven deaths at one respawn) did not repeat. No run died, and none died again at a respawn point.
+
+hard1 did take damage and live: hp 20 at t=391, hp 15.5 at t=421 through t=512 while `queued: collect`, then hp 20 after it ate at t=542. That was a food fight, not a death.
+
+### Burrow
+
+Two `Burrow:` lines. Both are refusals. There is no `dug in`, no `re-capped`, no `morning ... climbing out`, and no `out of the hole`.
+
+- hard2: `2026-10-20T23:02:12.041Z Burrow: not here (open wall beside 202,158,49)`
+- hard3: `2026-10-20T23:22:55.418Z Burrow: not here (open wall beside 134,104,56)`
+
+The bot never entered a burrow, so it was not hurt inside one and it did not climb out of one in the morning. After the hard2 refusal it night-pillared (below) and the later samples hold `[202, 159, 49]` at hp 20 through the end of the run (`night: no shelter; holding for morning`). After the hard3 refusal the samples hold `[134, 105, 56]` at hp 20, same state, until morning.
+
+### Falls
+
+Two `Fall: dropping from` lines. The line is the top of the arc and does not record a landing y. Neither is followed by a death. Neither line, nor the lines just after it, mentions water, so neither is a logged planned drop into water. Both have `sprint false`. Round 31 had eight falls, two of them pathing with sprint still true, none fatal.
+
+- normal2: `2026-10-20T21:23:11.922Z Fall: dropping from (350, 116, 26) (job explore, pathing true, sprint false)`. The previous sample, t=783, is `[351, 133, 11]` hp 20. The next sample, t=813, is `[350, 108, 39]` hp 20, and the explore completed at 21:23:19.662Z. It kept going (a sheep hunt, damage taken 0).
+- hard3: `2026-10-20T23:15:20.462Z Fall: dropping from (134, 127, 45) (job gather, pathing false, sprint false)`. The t=120 sample is `[134, 129, 45]` hp 20. The t=150 sample is `[133, 126, 39]` hp 20. The next lines are `Navigation: no path with mob avoidance` at y=125 and y=126. It was still gathering on the next samples.
+
+### Night pillar
+
+No line begins `Night: pillar-up`. One pillar-up line, on hard2, and the shelter lines that name a night pillar:
+
+- `2026-10-20T23:02:12.041Z Shelter: Could not seal the shelter in 30 s: 1 open cells, first at 202,159,49; night pillar instead`
+- `2026-10-20T23:02:12.041Z Job: Could not seal the shelter in 30 s: 1 open cells, first at 202,159,49; night pillar instead`
+- `2026-10-20T23:02:12.067Z Autopilot: the night job failed (Could not seal the shelter in 30 s: 1 open cells, first at 202,159,49; night pil); night pillar until morning`
+- `2026-10-20T23:11:32.644Z Reflex: no shelter tonight; night pillar until morning`
+- `2026-10-20T23:11:32.645Z Night: caught outside in a crowd; pillar-up 3 at 202,157,49`
+- `2026-10-20T23:22:55.418Z Shelter: invalid operation; night pillar instead`
+- `2026-10-20T23:22:55.418Z Job: invalid operation; night pillar instead`
+
+hard2's pillar-up is two blocks from the point it then held, at hp 20. hard3's night pillar is the same timestamp as its burrow refusal. Neither run died. Round 31's hard1 night was a pillar knocked down and six respawns into the same crowd. That did not happen.
+
+### Craft loop and skipped crafts
+
+The cut-off `diamond_shovel` loop did not return. One submit, then a completed craft, and the shovel was in the bag afterwards (`Tool left the inventory: diamond_shovel` at 21:37:22.228Z, 1561 uses left):
+
+`2026-10-20T21:35:01.562Z Autopilot [iron] {"type":"craft","item":"diamond_shovel","count":1}`
+
+That is 1 submit, not 42. It is on normal2, about 90 s after the diamond pickaxe craft, and the run kept moving (bed-rung explore, then iron). No second `diamond_shovel` craft submit in the window.
+
+A different loop did run, on normal1. `iron_leggings` was submitted 102 times in a row, from `2026-10-20T20:55:08.495Z` to `2026-10-20T21:09:33.034Z`. The job line on each opening pair is `Job: Missing ingredients: need a crafting table, or 4 planks to make one`. The skip did not hold. The first skip is followed 27 ms later by another submit:
+
+`2026-10-20T20:55:32.710Z Autopilot: iron_leggings craft failed 3 times; skipped for 10 min`
+
+`2026-10-20T20:55:32.737Z Autopilot [iron] {"type":"craft","item":"iron_leggings","count":1}`
+
+The same skip line was logged 33 times, about every 24 s, through `2026-10-20T21:09:16.818Z`, and the submits continued until the run stopped at 21:09:35Z. From t=1866 to t=2407 the samples stay at `[433, 45, 17]`, hp 20, `backing off: iron` / `iron: craft`. That is the last nine minutes of normal1, after the iron pick (662 s), the bed (572 s), and worn armour (903 s). The run clock ended and normal2 started. It was not stopped early: the loop did not consume the rest of the six-run clock, and normal2 then mined diamonds.
+
+Every `craft failed 3 times; skipped` line (36). `stone_shovel` three times, each a single line rather than a resubmit burst: `2026-10-20T20:34:43.311Z`, `2026-10-20T21:38:10.661Z`, `2026-10-20T21:48:55.109Z`. `iron_leggings` the 33 lines from `2026-10-20T20:55:32.710Z` through `2026-10-20T21:09:16.818Z` (20:55:32.710, 20:55:56.948, 20:56:21.209, 20:56:45.456, 20:57:09.691, 20:57:33.928, 20:58:36.577, 20:59:00.858, 20:59:35.251, 20:59:59.466, 21:00:23.707, 21:00:47.959, 21:01:12.210, 21:01:36.401, 21:02:00.651, 21:02:24.880, 21:02:49.112, 21:03:13.311, 21:03:37.562, 21:04:01.840, 21:04:26.101, 21:04:50.361, 21:05:14.576, 21:05:38.782, 21:06:02.998, 21:06:27.260, 21:06:51.469, 21:07:15.660, 21:07:39.910, 21:08:04.111, 21:08:28.337, 21:08:52.590, 21:09:16.818). No other item was submitted 5 or more times in a row.
+
+### Night mine
+
+Three lines, all hard1. hard2 and hard3 have none.
+
+- `2026-10-20T22:40:53.412Z Night mine: down from the shelter at (136, 123, 37) (tod 12604)`
+- `2026-10-20T22:41:50.531Z Night mine: down from the shelter at (136, 115, 43) (tod 13744)`
+- `2026-10-20T22:42:49.262Z Night mine: not from here (cave opening under 136,108,39 (3+ deep))`
+
+It went down. The t=602 sample is `[136, 123, 37]` with 3 iron ore. The t=722 sample is `[136, 109, 39]` with 7 iron ore. About 14 blocks down, 4 more iron ore, 0 diamonds. It did not climb back. From t=722 through t=1264 it stays at `[136, 109, 39]`, hp 20, `working: shelter`, and the run ends there with 0 ingots and no iron pick. Round 31's hard2 and hard3 left the box, dropped about 12 blocks, took 0 ore, and resealed one block away. This hard1 left, took iron ore, and stayed down. hard1 never reached an iron pick.
+
+### Bed
+
+One craft, on normal1: `2026-10-20T20:38:33.511Z Autopilot [bed-rung] {"type":"craft","item":"black_bed","count":1}`. The bed column is 572 s on normal1 and none on the other five. The bed is still in the bag at `20:52:33.557Z` (`black_bed:1` in a full-inventory deposit). Zero place attempts. Zero `white_bed` lines. Zero `Home set`. Zero `Sleeping`. `no sheep after 3 search legs; bed set aside for 10 min` is three lines: normal2 `21:24:17.379Z` and `21:41:35.987Z`, normal3 `22:19:50.279Z`. Round 31 was also zero crafts. This round crafted one and never placed or slept in it.
+
+### Path counts
+
+`Navigation made no progress` is 1 line. normal3 `2026-10-20T22:08:25.840Z Job: Navigation made no progress at (304, 99, 11) (last path: partial, 31 steps, 3353 nodes)`. The last path is `partial`. Round 31 was 2. Round 30's recount was 7.
+
+`Took to long to decide path to goal!` is 3 lines. normal2 `21:42:00.135Z` after a bed-rung explore, and `21:43:09.480Z` on a coal gather (the next line is `no coal found twice; charcoal from logs for 10 min`). normal3 `22:24:14.460Z` on a bucket use, and the next line is `iron failed 3 times deep underground; no cave explore, retrying in 20 s`. Round 31 was 4. Round 30's recount was 5.
+
+`last path: none` is 0. It stayed 0, as in rounds 30 and 31.
+
+One ledge-guard stop, normal1: `2026-10-20T20:53:27.163Z Ledge guard: stopped at (439, 47, 26) (a 5+ drop ahead)`. Round 31 had three.
+
+### Disconnects
+
+Server log size at soak start was 15139910. In the bytes after that: `disconnecting` 0, `out-of-order` 0, `keepalive` 0, `too many packets` 0, `kicked` 0, `lost connection` 1. The one line is the restore: `[05:04:08 INFO]: BuilderBot lost connection: Disconnected`. Dashboard `Connection ended` is the stop before the world switch (`20:26:33.932Z`) and the restore (`23:34:08.824Z`). No kick. Round 31 had no kick either.
+
+### Other
+
+The one intervention is the harness, not a death. normal2 had walked to y=-7 (`[536, -7, -56]` at t=2259) and the wood step came back with 0 logs at y=-1. The terminal printed `operator: returned the bot from y=-1`, and the t=2319 sample is back at `[306, 130, 21]`. Resumes 0.
+
+hard2 and hard3 both spent the rest of the night in `night: no shelter; holding for morning` at hp 20 after the burrow refusal. hard3 had 9 iron ore by t=361 and 0 ingots at the end.
+
+### Uncaught
+
+`logs/dashboard-uncaught.log` gained no bytes during the soak (size stayed 2576174). There is no new line from this soak window.
+
