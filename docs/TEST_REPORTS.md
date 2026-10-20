@@ -2917,8 +2917,8 @@ Zero `black_bed` lines. Zero `white_bed` lines. Zero place attempts. Zero `Home 
 Three trips, all normal. Diamonds held 0. Diamond pick never. Hard runs never submitted one.
 
 - normal1, `04:46:36.636Z`, target y=-53. Descent stopped on water, lowest named y=59 (`Gather: descent stopped at y=59 (Tunnel stopped: water under 176,58,131; ...)`), then `04:46:42.658Z Job: No matching blocks within the allowed radius`. The bot was still at y=62. Iron gather replaced it 1 s later.
-- normal2, `05:27:41.306Z`. Lowest sample y=69 at `[284, 71, 31]`. It stopped at y=67: `05:31:34.859Z Gather: descent stopped at y=67 (Tunnel stopped: cave opening under 289,66,24 (3+ deep); ...)` then `05:31:47.732Z Job: No matching blocks within the allowed radius`.
-- normal3, `06:07:03.936Z`. Lowest sample y=3 at `[310, 5, -108]`. It stopped deeper: `06:14:38.031Z Job: Tunnel stopped: deep dark (sculk_sensor at (308, -10, -104))` and `06:14:38.947Z Autopilot: deep dark - climbing out; diamond trips set aside for 20 min`.
+- normal2, `05:27:41.306Z`. Lowest sample y=69 at `[284, 69, 26]`. It stopped at y=67: `05:31:34.859Z Gather: descent stopped at y=67 (Tunnel stopped: cave opening under 289,66,24 (3+ deep); ...)` then `05:31:47.732Z Job: No matching blocks within the allowed radius`.
+- normal3, `06:07:03.936Z`. Lowest sample y=3 at `[310, 3, -110]`. It stopped deeper: `06:14:38.031Z Job: Tunnel stopped: deep dark (sculk_sensor at (308, -10, -104))` and `06:14:38.947Z Autopilot: deep dark - climbing out; diamond trips set aside for 20 min`.
 
 ### Dusk and crowd
 
