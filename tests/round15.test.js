@@ -305,3 +305,57 @@ test('round 31: a food ascend under open sky is done where it stands',async()=>{
  assert.equal(walked,0,'no climb toward y=137');
  await assert.rejects(()=>w.ascend({spec:{type:'ascend',y:137}},1),/Could not climb/,'an escape ascend still needs height');
 });
+import {burrowPlan} from '../src/worker.js';
+test('round 32: burrowPlan digs three soft cells with solid walls and a floor',()=>{
+ // grass at y=64, dirt under it to y=60, stone below; the bot stands at y=65
+ const ground=(x,y,z)=>y===64?{name:'grass_block',boundingBox:'block'}:y>=60&&y<64?{name:'dirt',boundingBox:'block'}:y<60?{name:'stone',boundingBox:'block'}:{name:'air',boundingBox:'empty'};
+ const p=burrowPlan(ground,{x:0,y:65,z:0});
+ assert.ok(p.cells,'a plan: '+JSON.stringify(p));
+ assert.deepEqual(p.cells.map(c=>c.y),[64,63,62]);
+ assert.deepEqual(p.feet,{x:0,y:62,z:0});assert.deepEqual(p.cap,{x:0,y:64,z:0});
+ assert.deepEqual(p.ref,{x:1,y:64,z:0},'the cap goes against a side wall at its own level');
+ // stone at the feet: by hand no, with a pickaxe yes
+ const rocky=(x,y,z)=>y<=64?{name:'stone',boundingBox:'block'}:{name:'air',boundingBox:'empty'};
+ assert.match(burrowPlan(rocky,{x:0,y:65,z:0}).why,/stone/);
+ assert.ok(burrowPlan(rocky,{x:0,y:65,z:0},true).cells);
+ // a cave right under: no floor
+ const cave=(x,y,z)=>y===61&&x===0&&z===0?{name:'air',boundingBox:'empty'}:ground(x,y,z);
+ assert.match(burrowPlan(cave,{x:0,y:65,z:0}).why,/no floor/);
+ // a cliff edge: an open wall beside a cell
+ const edge=(x,y,z)=>x>=1&&y>=62?{name:'air',boundingBox:'empty'}:ground(x,y,z);
+ assert.match(burrowPlan(edge,{x:0,y:65,z:0}).why,/open wall/);
+ // water beside
+ const wet=(x,y,z)=>x===-1&&y===63&&z===0?{name:'water',boundingBox:'empty'}:ground(x,y,z);
+ assert.match(burrowPlan(wet,{x:0,y:65,z:0}).why,/open wall/);
+});
+test('round 32: burrow digs down three and caps the top from below',async()=>{
+ const world=new Map();
+ const key=(x,y,z)=>x+','+y+','+z;
+ const at3=(x,y,z)=>{const k=key(x,y,z);if(world.has(k))return world.get(k);return y<=64?{name:'dirt',boundingBox:'block',position:new Vec3(x,y,z)}:{name:'air',boundingBox:'empty'};};
+ const inv=[];
+ const w=Object.create(Worker.prototype);const logs=[];
+ w.bot={entity:{position:new Vec3(0.5,65,0.5)},blockAt:p=>at3(p.x,p.y,p.z),
+  inventory:{items:()=>inv},equip:async()=>{},pathfinder:{},
+  dig:async bl=>{world.set(key(bl.position.x,bl.position.y,bl.position.z),{name:'air',boundingBox:'empty'});w.bot.entity.position=new Vec3(0.5,bl.position.y,0.5);inv.push({name:'dirt',count:1});}};
+ w.count=n=>inv.filter(i=>i.name===n).length;w.log=m=>logs.push(m);w.check=()=>{};w.update=()=>{};
+ let placed=null;w.placeBlocks=async(ref,face,target,name)=>{placed={ref:ref.position,face,target,name};};
+ const plan=await w.burrow({spec:{type:'shelter'}},1);
+ assert.equal(Math.floor(w.bot.entity.position.y),62,'feet at the bottom of the hole');
+ assert.ok(placed&&placed.target.y===64&&placed.name==='dirt','capped at y=64 with dug dirt: '+JSON.stringify(placed));
+ assert.equal(placed.ref.x,1);assert.equal(placed.face.x,-1);
+ assert.ok(logs.some(l=>/^Burrow: dug in/.test(l)));
+ assert.deepEqual(plan.feet,{x:0,y:62,z:0});
+});
+test('round 32: a night shelter with no blocks burrows first, and holds the burrow',async()=>{
+ const w=Object.create(Worker.prototype);const calls=[];
+ w.bot={time:{timeOfDay:18000,age:100},entity:{position:new Vec3(0.5,65,0.5)},blockAt:()=>null,inventory:{items:()=>[]}};
+ w.check=()=>{};w.log=()=>{};w.update=()=>{};w.save=()=>{};
+ w.shelterStock=()=>0;w.shelterNeed=()=>11;
+ w.burrow=async()=>{calls.push('burrow');return {feet:{x:0,y:62,z:0}};};
+ w.holdBurrow=async()=>{calls.push('hold');return 'held';};
+ w.digShelterDirt=async()=>{calls.push('dirt');};
+ const job={spec:{type:'shelter'}};
+ assert.equal(await w.shelter(job,1),'held');
+ assert.deepEqual(calls,['burrow','hold'],'no walk to dig dirt first');
+ assert.equal(job.burrowTried,true,'one burrow attempt per job');
+});

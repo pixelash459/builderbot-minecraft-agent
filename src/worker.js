@@ -185,6 +185,32 @@ export function fallWatch(bot,st){
  if(!st.told&&st.top.y-e.position.y>=FALL_LOG){st.told=true;return {from:st.top,at:e.position};}
  return null;
 }
+// Round 32 (round-31 hard1: seven deaths in one night at the respawn point - an empty
+// inventory has no blocks for a box, the pillar-up failed in the crowd, and the walk to dig
+// shelter dirt was shot, blown up and slain): a burrow. The bot digs the three cells under
+// its feet and caps the top one from below - feet at -3, head at -2, the cap at -1 against a
+// side wall - which no arrow, zombie or spider reaches. Every cell must be quick to dig (by
+// hand: soil, sand, gravel; with a pickaxe also stone), every wall and the floor solid with no
+// fluid beside. {cells,cap,ref,face,feet} or {why}.
+export const BURROW_SOFT=/^(dirt|grass_block|coarse_dirt|rooted_dirt|podzol|mycelium|moss_block|mud|muddy_mangrove_roots|sand|red_sand|gravel|clay|soul_sand|soul_soil|snow_block|dirt_path)$/;
+export const BURROW_STONE=/^(stone|deepslate|andesite|diorite|granite|tuff|cobblestone|sandstone|red_sandstone|calcite)$/;
+export function burrowPlan(at3,feet,pickaxe=false){
+ const cells=[1,2,3].map(d=>({x:feet.x,y:feet.y-d,z:feet.z}));
+ const fluid=bl=>!!bl&&/water|lava/.test(bl.name);
+ for(const c of cells){
+  const bl=at3(c.x,c.y,c.z);
+  if(!bl)return {why:'unloaded at '+c.x+','+c.y+','+c.z};
+  if(!(BURROW_SOFT.test(bl.name)||(pickaxe&&BURROW_STONE.test(bl.name))))return {why:bl.name+' at '+c.x+','+c.y+','+c.z};
+  for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]){
+   const w=at3(c.x+dx,c.y,c.z+dz);
+   if(!w||w.boundingBox!=='block'||fluid(w))return {why:'open wall beside '+c.x+','+c.y+','+c.z};
+  }
+ }
+ const floor=at3(feet.x,feet.y-4,feet.z);
+ if(!floor||floor.boundingBox!=='block'||fluid(floor))return {why:'no floor under '+feet.x+','+(feet.y-3)+','+feet.z};
+ const cap=cells[0];
+ return {cells,cap,ref:{x:cap.x+1,y:cap.y,z:cap.z},face:{x:-1,y:0,z:0},feet:cells[2]};
+}
 // Round 31: the sky light at the head cell over feet `p` (0 when unknown).
 export const SKY_OPEN=12;
 export function headSky(b,p){
@@ -870,6 +896,9 @@ export class Worker extends EventEmitter {
   if(this.exploreMoves)return this.exploreMoves;
   const b=this.bot,m=new Movements(b);
   m.canDig=true;m.allowSprinting=true;m.allow1by1towers=true;m.allowParkour=false;m.canOpenDoors=false;m.maxDropDown=3;
+  // Round 32 (round-31 normal2: an explore dove 114 -> ~71, two `Fall:` lines, 8 hp lost by the
+  // next sample): the pathfinder's default plans a drop of any height into water; cap it like land.
+  m.infiniteLiquidDropdownDistance=false;
   this.avoidHazards(m,b);
   m.scafoldingBlocks=[b.registry.blocksByName.dirt.id,b.registry.blocksByName.cobblestone.id,b.registry.blocksByName.netherrack?.id].filter(id=>id!==undefined);
   const natural=new Set([...NATURAL_DIG].map(n=>b.registry.blocksByName[n]?.id).filter(id=>id!==undefined));
@@ -1444,6 +1473,13 @@ export class Worker extends EventEmitter {
   // Every shelter block counts (a mix of cobble and dirt is fine); cobble the autopilot's
   // unfinished stone kit still needs (cobbleReserve) is spent only as the last resort.
   const here=()=>b.entity.position.floored();
+  // Round 32: dark and short of blocks for even a pod - the walk to dig dirt is the danger.
+  if(!job.burrowTried&&darkNow(dayTicks(b))&&this.shelterStock(true)<this.shelterNeed(here(),true)){
+   job.burrowTried=true;
+   let r=null;
+   try{r=await this.burrow(job,token);}catch(e){this.check(token);this.log('Burrow: '+String(e.message).slice(0,100));}
+   if(r)return this.holdBurrow(job,token,r);
+  }
   if(this.shelterStock()<this.shelterNeed(here()))await this.digShelterDirt(job,token,()=>this.shelterNeed(here()));
   const origin=here(),at=(x,y,z)=>b.blockAt(new Vec3(x,y,z));
   const need=this.shelterNeed(origin),held=this.shelterStock(true);
@@ -1474,7 +1510,16 @@ export class Worker extends EventEmitter {
   catch(e){
    this.check(token);
    const gaps=/^Could not seal/.test(e.message)?shellGaps(at,required):null;
-   if(!gaps||!holdableShell(origin,gaps))this.shelterFallback(job,e.message);
+   if(!gaps||!holdableShell(origin,gaps)){
+    // Round 32 (round-31 hard1: `Could not seal the shelter in 30 s: 17 open cells`, then a night
+    // pillar knocked down in the crowd, the first of seven deaths): dig in before the pillar.
+    if(!job.burrowTried&&darkNow(dayTicks(b))){
+     job.burrowTried=true;let r=null;
+     try{r=await this.burrow(job,token);}catch(e2){this.check(token);this.log('Burrow: '+String(e2.message).slice(0,100));}
+     if(r)return this.holdBurrow(job,token,r);
+    }
+    this.shelterFallback(job,e.message);
+   }
    this.log('Shelter: '+gaps.length+' open cell(s) left at '+gaps.map(g=>g.x+','+g.y+','+g.z).join(' ')+' under a closed roof; holding the box and re-sealing');
   }
   this.save();this.update(job,required.length,'Waiting for morning (sealed)');
@@ -1715,6 +1760,56 @@ export class Worker extends EventEmitter {
  }
  // The shelter cannot go up: fail with the reason and leave tonight to the night pillar
  // (Mob Defense climbs 3 and holds until morning; nightPillarWanted).
+ // Round 32: dig in where the bot stands (burrowPlan) and cap the hole from below.
+ async burrow(job,token){
+  const b=this.bot,feet=b.entity.position.floored(),at3=(x,y,z)=>b.blockAt(new Vec3(x,y,z));
+  const pick=b.inventory.items().some(i=>/_pickaxe$/.test(i.name));
+  const plan=burrowPlan(at3,feet,pick);
+  if(!plan.cells)throw Error('not here ('+plan.why+')');
+  this.update(job,0,'Burrowing at '+feet);
+  for(const c of plan.cells){
+   this.check(token);
+   const bl=at3(c.x,c.y,c.z);
+   if(bl&&bl.boundingBox==='block'){
+    try{const tool=b.pathfinder?.bestHarvestTool?.(bl);if(tool)await b.equip(tool,'hand');}catch{}
+    await b.dig(bl,true);
+   }
+   const until=Date.now()+1500;
+   while(b.entity.position.y>c.y+0.2&&Date.now()<until){await sleep(50);}
+   if(b.entity.position.y>c.y+0.2)throw Error('did not sink into '+c.x+','+c.y+','+c.z);
+  }
+  await sleep(250); // the dug blocks drop into the hole and are picked up
+  const fill=FILL_ITEMS.find(n=>this.count(n)>0)||SHELTER_ITEMS.find(n=>this.count(n)>0);
+  if(!fill)throw Error('no block for the cap');
+  const item=b.inventory.items().find(i=>i.name===fill);await b.equip(item,'hand');
+  const ref=at3(plan.ref.x,plan.ref.y,plan.ref.z);
+  await this.placeBlocks(ref,new Vec3(plan.face.x,plan.face.y,plan.face.z),new Vec3(plan.cap.x,plan.cap.y,plan.cap.z),fill,token);
+  this.log('Burrow: dug in at '+feet+' (feet '+plan.feet.x+','+plan.feet.y+','+plan.feet.z+', capped with '+fill+')');
+  return plan;
+ }
+ // The burrow is a sealed shelter (survivalHold): Mob Defense stays off, Food may eat. A lost
+ // cap is replaced; out of the hole for SHELTER_AWAY_MS the shelter starts over where it stands.
+ async holdBurrow(job,token,plan){
+  const b=this.bot,feet=new Vec3(plan.feet.x,plan.feet.y,plan.feet.z),cap=new Vec3(plan.cap.x,plan.cap.y,plan.cap.z);
+  this.update(job,1,'Waiting for morning (burrow)');
+  this.shelterSealed=true;this.nightPillar=null;
+  let outSince=null,away=false;
+  try{
+   while(!this.shelterExitSafe()){
+    await sleep(250);this.check(token);
+    if(!b.entity.position.floored().equals(feet)){if(outSince==null)outSince=Date.now();if(Date.now()-outSince>=SHELTER_AWAY_MS){away=true;break;}continue;}
+    outSince=null;
+    if(b.blockAt(cap)?.boundingBox!=='block'){
+     const fill=FILL_ITEMS.find(n=>this.count(n)>0);
+     if(fill){try{await b.equip(b.inventory.items().find(i=>i.name===fill),'hand');await this.placeBlocks(b.blockAt(new Vec3(plan.ref.x,plan.ref.y,plan.ref.z)),new Vec3(plan.face.x,plan.face.y,plan.face.z),cap,fill,token);this.log('Burrow: re-capped');}catch(e){this.check(token);}}
+    }
+   }
+  }finally{this.shelterSealed=false;}
+  if(away){this.log('Burrow: out of the hole at '+b.entity.position.floored()+'; sheltering where it stands');return this.shelter(job,token);}
+  this.log('Burrow: morning (tod '+dayTicks(b)+'); climbing out');
+  try{const c=b.blockAt(cap);if(c&&c.boundingBox==='block')await b.dig(c,true);await this.pillarUp(cap.y+1,token);}
+  catch(e){this.check(token);this.log('Burrow: climb out stopped ('+String(e.message).slice(0,60)+'); the next walk digs out');}
+ }
  shelterFallback(job,reason){
   this.nightPillar={t:Date.now(),reason};
   this.log('Shelter: '+reason+'; night pillar instead');
