@@ -32,7 +32,7 @@ export class WorldSurvivalChain extends SingleTaskChain{
   // EscapeFromLavaTask root then suppressed the douse forever (A4, measured 2026-10-13).
   if(this.root&&this.root.isFinished&&!this.root.stopped&&this.root.isFinished(bot,ctx))this.root=null;
   // Drowning: swim up while out of air (side effect, as in the Java getPriority).
-  this._handleDrowning(bot,cfg);
+  this._handleDrowning(bot,cfg,ctx);
   // Lava escape
   if(this._isInLavaOhShit(bot)){
    this._lavaUntil=this.now()+4; // a lava exit leaves you burning; the flag may not arrive (Via)
@@ -106,7 +106,7 @@ export class WorldSurvivalChain extends SingleTaskChain{
   }
   return -1; // Java NEGATIVE_INFINITY: nothing world-threatening right now
  }
- _handleDrowning(bot,cfg){
+ _handleDrowning(bot,cfg,ctx){
   if(cfg.avoidDrowning===false)return;
   const e=bot.entity||{};
   // ViaVersion: entity.isInWater may never flip and the air metadata only arrives on change
@@ -131,10 +131,15 @@ export class WorldSurvivalChain extends SingleTaskChain{
   const stale=now-(this._airChanged||0)>=HEAD_WET_MS;
   const longUnder=!!this._headWetSince&&now-this._headWetSince>=HEAD_WET_MS&&stale;
   const lowAir=air<=DROWN_AIR||longUnder; // round 25: 8, was 6 (first line came at air 1) // surface at the old reflex's threshold: below it the test's <10 floor must be reachable
-  if(touchingWater&&lowAir)this._drowning=true;
+  if(touchingWater&&lowAir){this._drowning=true;this._drySince=0;}
   // Round 19 (round-18 normal1 drowned: released with the air at 2 while the head bobbed at
   // the surface, then dragged under by the next job): air back to 18, or head and feet dry.
-  else if(air>=18||!touchingWater)this._drowning=false;
+  // Round 33 (round-33 normal drowned after 90 s of 300 ms releases at air 8, 6, 5... - each
+  // bob dry for a tick handed the bot back to a craft in the water): dry for DRY_HOLD_MS.
+  else if(air>=18)this._drowning=false;
+  else if(!touchingWater){if(!this._drySince)this._drySince=now;if(now-this._drySince>=DRY_HOLD_MS)this._drowning=false;}
+  else this._drySince=0;
+  if(this._drowning){const w=ctx&&ctx.worker;if(w)w.lastDrownAt=now;}
   if(touchingWater&&lowAir){
    try{bot.setControlState('jump',true);}catch{}
    this._wasAvoidingDrowning=true;
@@ -170,7 +175,7 @@ export class WorldSurvivalChain extends SingleTaskChain{
   return !!b&&b.name==='nether_portal';
  }
 }
-const WET=/^(water|bubble_column|seagrass|tall_seagrass|kelp|kelp_plant)$/,HEAD_WET_MS=8000,DROWN_AIR=8;
+const WET=/^(water|bubble_column|seagrass|tall_seagrass|kelp|kelp_plant)$/,HEAD_WET_MS=8000,DROWN_AIR=8,DRY_HOLD_MS=1500;
 // Round 24: a reading above 20 is the raw air supply in ticks (0-300; the round-23 report saw
 // 10-400): scaled to the 0-20 bubbles every threshold here uses.
 const airOf=bot=>{const a=typeof bot.oxygenLevel==='number'?bot.oxygenLevel:(typeof bot.oxygen==='number'?bot.oxygen:20);return a>20?Math.min(20,a/15):a;};

@@ -146,6 +146,8 @@ export function bedSpots(at,feet){
 // its own drops). Each physics tick, while the bot walks under raw controls on the ground and
 // the cell LEDGE_LOOK ahead along its motion opens onto a drop of LEDGE_DROP+, let go of the
 // keys. True when it stopped the bot.
+// Round 33: a drowning escape this recent marks the resumed job to leave the water first.
+export const DROWN_RECENT_MS=10000;
 export const LEDGE_DROP=5,LEDGE_LOOK=0.9;
 // The open cells (up to LEDGE_DROP) under the cell LEDGE_LOOK ahead along the bot's motion;
 // 0 for a wall, water or lava below, or no motion.
@@ -682,7 +684,9 @@ export class Worker extends EventEmitter {
        if(this.jobs.slice(i+1).some(k=>k.status==='queued')){this.log('Reflex: the paused '+j.spec.type+' job was superseded; cancelled');j.status='cancelled';continue;}
        // Round 19: a job a World Survival escape (lava, fire, water) took over walked into it.
        if(/World Survival/.test(String(j.message))&&['explore','goto','gather'].includes(j.spec.type)){this.log('Reflex: the '+j.spec.type+' job led into a hazard; cancelled, not resumed');j.status='cancelled';continue;}
-       this.log('Reflex: resumed the '+j.spec.type+' job');this.resume(j.id);
+       if(Date.now()-(this.lastDrownAt||0)<DROWN_RECENT_MS){j.leaveWaterFirst=true;this.log('Reflex: resumed the '+j.spec.type+' job (stepping out of the water first)');}
+       else this.log('Reflex: resumed the '+j.spec.type+' job');
+       this.resume(j.id);
       }
       // A job queued behind a tree that has now ended: pump is event-driven (submit/finish),
       // so without this re-pump it would starve until the next submit.
@@ -2340,6 +2344,10 @@ export class Worker extends EventEmitter {
   return t.points;
  }
  async run(job,token){const spec=job.spec;
+  // Round 33 (round-33 normal run: drowned at 325,23,-109 after 90 s in a flooded cave, the
+  // drop, craft and smelt jobs resuming in the water between swim-ups): a job resumed after a
+  // drowning escape first steps out to a dry stand.
+  if(job.leaveWaterFirst){job.leaveWaterFirst=false;await this.leaveWater(token);this.check(token);}
   // Surface work never starts down a tunnel another job was stopped in: climb it first.
   if(STRANDED_CLIMB.has(spec.type)){
    const points=this.takeStrandedTunnel();

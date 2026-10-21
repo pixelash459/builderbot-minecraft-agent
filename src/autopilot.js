@@ -70,6 +70,16 @@ const STONE_KIT=[['stone_pickaxe',3],['stone_sword',2],['stone_axe',3],['stone_s
 // Round 16: kit pieces the ladder can go on without (a craft that keeps failing is skipped).
 export const OPTIONAL_KIT=new Set(['stone_shovel','stone_axe']),KIT_SKIP_MS=10*60000;
 const skipped=(ctx,item)=>Date.now()<(ctx?.kitSkip?.[item]||0);
+// Round 34: the optional iron-step gear a supply job serves (null for anything else).
+export function gearFor(spec){
+ if(!spec)return null;
+ if(spec.type==='hunt'&&spec.entity==='spider')return 'bow';
+ if(spec.type==='craft'&&spec.item==='bow')return 'bow';
+ if(spec.type==='hunt'&&spec.entity==='chicken')return 'arrow';
+ if(spec.type==='gather'&&spec.block==='gravel')return 'arrow';
+ if(spec.type==='craft'&&spec.item==='arrow')return 'arrow';
+ return null;
+}
 const KIT_STICKS={stone_pickaxe:2,stone_sword:1,stone_axe:2,stone_shovel:1};
 // Cobble the unfinished stone kit still costs (tools not held + the furnace when none is held
 // or standing near). The shelter leaves this much cobble alone while the autopilot runs.
@@ -628,7 +638,7 @@ export const STEPS=[
   if(floor!=null&&Number.isFinite(ctx.standY)&&ctx.standY<floor)floor=ctx.standY;
   return {type:'explore',distance:32,direction:ctx.grazeDirection||'random',...(cap!=null?{surfaceCeiling:cap}:{}),...(floor!=null?{surfaceFloor:floor}:{})};
  }},
- {name:'iron',done:c=>c('iron_pickaxe')>=1&&c('iron_sword')>=1&&c('iron_axe')>=1&&c('shield')>=1&&c('bow')>=1&&c('arrow')>=ARROWS&&c('iron_helmet')>=1&&c('iron_chestplate')>=1&&c('iron_leggings')>=1&&c('iron_boots')>=1&&c('bucket')+c('water_bucket')>=1&&c('torch')>=TORCHES,next(c,ctx){
+ {name:'iron',done:(c,ctx)=>c('iron_pickaxe')>=1&&c('iron_sword')>=1&&c('iron_axe')>=1&&c('shield')>=1&&(c('bow')>=1||skipped(ctx,'bow'))&&(c('arrow')>=ARROWS||skipped(ctx,'arrow'))&&c('iron_helmet')>=1&&c('iron_chestplate')>=1&&c('iron_leggings')>=1&&c('iron_boots')>=1&&c('bucket')+c('water_bucket')>=1&&c('torch')>=TORCHES,next(c,ctx){
   // M5 core FIRST: iron pickaxe, then iron sword, then the shield (COMBAT_SPEC 7a: right after
   // the first ingots) - 6 ingots from one short dig, before the 16-coal / 36-ore expedition
   // that used to stand between the stone kit and any iron tool at all.
@@ -667,8 +677,9 @@ export const STEPS=[
   if(c('iron_ore')>=1)return {type:'smelt',item:'iron_ore',count:Math.min(48,c('iron_ore'))};
   // COMBAT_SPEC 7a: replace a nearly-broken weapon before the spider and chicken hunts.
   const fix=replacementJob(c,ctx);if(fix)return fix;
-  // Bow: sticks + string from spiders.
-  if(c('bow')<1){
+  // Bow: sticks + string from spiders. Round 34: optional once its supply run failed 3 times
+  // (round-33 normal: `No spider within 24 blocks` resubmitted every 8-20 s underground).
+  if(c('bow')<1&&!skipped(ctx,'bow')){
    if(c('string')<3)return {type:'hunt',entity:'spider',count:6,maxSeconds:120};
    if(c('stick')<3){
     const planks=planksJob(c,ctx,2);if(planks)return planks;
@@ -677,7 +688,7 @@ export const STEPS=[
    return {type:'craft',item:'bow',count:1};
   }
   // Arrows: flint from gravel, feathers from chickens, sticks - crafted, not hunted.
-  if(c('arrow')<ARROWS){
+  if(c('arrow')<ARROWS&&!skipped(ctx,'arrow')){
    const need=Math.ceil((ARROWS-c('arrow'))/4);
    if(c('flint')<need)return {type:'gather',block:'gravel',count:64,radius:32,searchIfMissing:true,belowFoots:true};
    if(c('feather')<need)return {type:'hunt',entity:'chicken',count:Math.min(16,need*2),maxSeconds:120};
@@ -1076,6 +1087,11 @@ export class Autopilot{
    else if(this.failures[step]>=3&&job.spec?.type==='craft'&&(OPTIONAL_KIT.has(job.spec.item)||REPLACE_ITEM.test(job.spec.item))){
     this.failures[step]=0;(this.kitSkip||(this.kitSkip={}))[job.spec.item]=Date.now()+KIT_SKIP_MS;
     this.state='retry: '+step;this.log('Autopilot: '+job.spec.item+' craft failed 3 times; skipped for '+KIT_SKIP_MS/60000+' min');
+   }
+   // Round 34: the bow's string and the arrows' feathers and flint are optional gear too.
+   else if(this.failures[step]>=3&&step==='iron'&&gearFor(job.spec)){
+    const item=gearFor(job.spec);this.failures[step]=0;(this.kitSkip||(this.kitSkip={}))[item]=Date.now()+KIT_SKIP_MS;
+    this.state='retry: '+step;this.log('Autopilot: '+item+' supplies failed 3 times ('+job.spec.type+' '+(job.spec.entity||job.spec.block||job.spec.item)+'); '+item+' skipped for '+KIT_SKIP_MS/60000+' min');
    }
    else if(this.failures[step]>=3&&STEPS.some(st=>st.name===step)&&this.deepUnderground()){
     this.failures[step]=0;this.coolUntil=Date.now()+DEEP_COOL_MS;this.state='retry: '+step+' (deep: no explore)';

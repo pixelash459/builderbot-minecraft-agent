@@ -1923,3 +1923,13 @@ Round 32 rerun soak (`4d6baf8`): **0 deaths in all six runs** (round 31 had 7 on
 
 - **Back to the left table** (`ensureTable`): with no table within 6 and none held, the worker walks back (30 s) to the table it left (`leftTable`, within 32 - the radius the autopilot counts as `worldTable`). If it cannot get within reach it logs `Craft: could not get back to the crafting table at ...; forgetting it` and clears the record, so the ladder stops counting it.
 - **Planks before a table craft** (`tableFirst`, applied to every ladder step's job): a craft that needs a 3x3 grid, with no table held, none in the world and under 4 planks, first fetches the planks (logs when short); the worker then makes the table itself.
+
+## Round 34 (2026-10-21)
+
+Round 33 soak (`fb78dde`): 1 death, furnace on all six, iron pick on 4 (normal 361/572/602 s, hard2 512 s), **a diamond pickaxe on normal3** (3 diamonds, at 2408 s), the leggings craft submitted once and completed, every hard night a sealed box at hp 20, hard1's night mine came back to the shelter height with 6 ore items. Two loops/deaths found live:
+- normal1 **drowned** at (325, 23, -109) after 90 s in a flooded cave beside its table and furnace: the drowning latch released on each tick the head bobbed dry (300 ms later the smelt, craft or drop resumed in the water), while the server kept snapping the bot back to the same cell (teleport #35 -> #327).
+- an underground **`hunt spider` loop** (bow string): `No spider within 24 blocks to hunt` every 8-20 s between `iron failed 3 times deep underground; ... retrying in 20 s`.
+
+- **Drowning latch holds until dry** (`DRY_HOLD_MS`=1.5 s): released at air 18+, or after the head and feet have been out of the water for 1.5 s straight; a wet tick restarts the clock.
+- **Out of the water before the job** (`lastDrownAt`, `DROWN_RECENT_MS`=10 s, `leaveWaterFirst`): a job the cadence resumes within 10 s of a drowning escape first runs `leaveWater` (a dry stand within 6). Line: `Reflex: resumed the X job (stepping out of the water first)`, then `Water: stepped out to ...` / `Water: no dry stand within 6 of ...`.
+- **Bow and arrows are optional gear** (`gearFor`, `kitSkip`): a spider hunt or bow craft that failed 3 times sets the bow aside for 10 min; a chicken hunt, gravel gather or arrow craft sets the arrows aside. The iron step then goes on to the rest of its kit and counts as done without them. Line: `Autopilot: bow supplies failed 3 times (hunt spider); bow skipped for 10 min`.

@@ -27,7 +27,8 @@ test('drowning: seagrass at the head is water, and a ceiling block does not end 
  const blocks={'0,-59,0':{name:'stone'},'0,-60,0':{name:'water'}};bot.blockAt=p=>blocks[Math.floor(p.x)+','+Math.floor(p.y)+','+Math.floor(p.z)]||null;
  w._handleDrowning(bot,{});assert.equal(w._drowning,true,'head against stone, feet in water: still escaping');
  blocks['0,-59,0']={name:'air'};blocks['0,-60,0']={name:'air'};
- w._handleDrowning(bot,{});assert.equal(w._drowning,false,'head in air: done');
+ w._handleDrowning(bot,{});assert.equal(w._drowning,true,'round 33: one dry tick is a bob, not out');
+ w._drySince=Date.now()-1600;w._handleDrowning(bot,{});assert.equal(w._drowning,false,'head in air for 1.5 s: done');
 });
 test('tunnel climb: a bot that left the tunnel after a failed step stops climbing',async()=>{
  const tunnel=[{x:0,y:60,z:0},{x:1,y:61,z:0},{x:2,y:62,z:0}];
@@ -373,4 +374,17 @@ test('round 33: ensureTable walks back to the table it left, and forgets one it 
  await assert.rejects(()=>w.ensureTable(1),/need a crafting table/);
  assert.equal(w.leftTable,null,'an unreachable table is forgotten');
  assert.ok(logs.some(l=>/could not get back to the crafting table/.test(l)));
+});
+test('round 33: a drowning escape marks the worker, and a job resumed right after steps out first',async()=>{
+ const w=new WorldSurvivalChain();const worker={};
+ const bot=drowningBot({name:'water'});
+ w._handleDrowning(bot,{},{worker});
+ assert.ok(worker.lastDrownAt>0,'the escape stamps lastDrownAt');
+ const wk=Object.create(Worker.prototype);let stepped=0;
+ wk.leaveWater=async()=>{stepped++;};wk.check=()=>{};
+ wk.takeStrandedTunnel=()=>null;wk.smelt=async()=>'smelted';
+ const job={spec:{type:'smelt',item:'raw_iron',count:3},leaveWaterFirst:true};
+ try{await wk.run(job,1);}catch{}
+ assert.equal(stepped,1,'stepped out of the water before the job');
+ assert.equal(job.leaveWaterFirst,false,'only once');
 });

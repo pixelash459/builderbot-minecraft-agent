@@ -513,3 +513,18 @@ test('round 33: a table craft with no table and no planks fetches planks first',
  assert.equal(tableFirst(n=>n==='crafting_table'?1:0,{planksTotal:0,logsTotal:0},craft),craft,'a table held');
  assert.equal(tableFirst(c,{planksTotal:0,logsTotal:0},{type:'craft',item:'stick',count:1}).item,'stick','hand crafts need no table');
 });
+import {gearFor} from '../src/autopilot.js';
+test('round 34: the bow and arrows are optional once their supply runs failed 3 times',()=>{
+ const have={...IRON,coal:16,iron_ingot:36,_equipped_iron_helmet:1,_equipped_iron_chestplate:1,_equipped_iron_leggings:1,_equipped_iron_boots:1,diamond_pickaxe:1,bow:0,arrow:0,string:0};
+ let r=plan(counts(have));
+ assert.equal(r.step,'iron');assert.deepEqual([r.job.type,r.job.entity],['hunt','spider'],JSON.stringify(r.job));
+ const later=Date.now()+60000;
+ r=plan(counts(have),{kitSkip:{bow:later}});
+ assert.notEqual(r.job?.entity,'spider','the bow is set aside');
+ r=plan(counts(have),{kitSkip:{bow:later,arrow:later}});
+ assert.notEqual(r.step,'iron','with both set aside the iron step is done');
+ assert.equal(gearFor({type:'hunt',entity:'spider'}),'bow');
+ assert.equal(gearFor({type:'gather',block:'gravel'}),'arrow');
+ assert.equal(gearFor({type:'hunt',entity:'chicken'}),'arrow');
+ assert.equal(gearFor({type:'craft',item:'iron_sword'}),null);
+});
