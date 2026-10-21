@@ -541,3 +541,13 @@ test('round 35: the second deep-underground failure round climbs to the surface'
  assert.deepEqual(subs,[{type:'ascend',y:131}],'the second climbs out');
  assert.ok(logs.some(l=>/climbing to the surface/.test(l)));
 });
+test('round 36: a smelt with no fuel held fetches logs first',()=>{
+ const none=()=>0;
+ const smelt={type:'smelt',item:'chicken',count:1};
+ assert.equal(tableFirst(none,{planksTotal:0,logsTotal:0},smelt).block,'log');
+ assert.equal(tableFirst(n=>n==='coal'?1:0,{planksTotal:0,logsTotal:0},smelt),smelt,'coal is fuel');
+ assert.equal(tableFirst(none,{planksTotal:2,logsTotal:0},smelt),smelt,'planks are fuel');
+ assert.equal(tableFirst(none,{planksTotal:0,logsTotal:1},smelt),smelt,'a log is fuel');
+ const take={type:'smelt',item:'raw_iron',count:3,take:true};
+ assert.equal(tableFirst(none,{planksTotal:0,logsTotal:0},take),take,'collecting needs no fuel');
+});

@@ -1944,3 +1944,12 @@ Round 34 soak (`5ac411b`): 1 death, furnace on all six, iron pick on the three n
 - **Mixed-wood plank recipes** (`usableRecipe`/`withSubstitutions`): with no single wood covering a plank ingredient, the cells are filled from every held wood, one id per cell (4 spruce + 2 dark oak make a shield).
 - **Climb out after the second deep-underground failure round** (`DEEP_ASCEND_AFTER`=2, `deepFails`): the second time a step fails 3 times deep underground (without a success between), the autopilot submits an escape `ascend` to the surface anchor instead of another 20 s retry. Line: `Autopilot: X failed 3 times deep underground again; climbing to the surface`.
 - **Ledge back-off** (`LEDGE_BACK_MS`=400, `LEDGE_AWAY`): after a ledge-guard stop the bot holds the key opposite the one that walked it to the edge for 0.4 s, unless another key steers meanwhile.
+
+## Round 36 (2026-10-21)
+
+Round 35 soak (`dbf9095`): **0 deaths**, furnace on all six, iron pick on the three normal runs (663/542/602 s), **no hard iron** (ore peaks 0/0/1), 1 diamond (normal1, no pick). The shield loop is gone (3 shields, all completed); no ledge stop, no deep-underground climb-out needed; every hard night a sealed box at hp 20. Found:
+- hard1 **`smelt chicken` x20** (`Not enough fuel to smelt 1 items`) for 2.5 min - most of its iron window before the shelter;
+- the hard runs reach the iron step only around dusk (hard2 at ~570 s), and hard2 then **skipped three iron ores 6-10 blocks away** in the hillside at y=145-150, each `No path to the goal!`.
+
+- **Fuel before a smelt** (`tableFirst`): a smelt job (not a `take`) with no coal or charcoal, under 2 planks and no log, first gathers 4 logs.
+- **Tunnel to a near ore** (`tunnelToward`, `ORE_TUNNEL`=10): when the gather's walk to an `_ore` fails and the ore is within 10 blocks of the eye but out of reach, the bot tunnels level (or a staircase step down when the ore is 2+ below) toward it with checked tunnel steps until it can dig it (at most 10 steps). Lines: `Gather: tunnelled N to the iron_ore at ...`, or `Gather: tunnel to the iron_ore at ... stopped (...)`.

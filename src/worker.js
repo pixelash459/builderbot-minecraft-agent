@@ -148,6 +148,8 @@ export function bedSpots(at,feet){
 // keys. True when it stopped the bot.
 // Round 33: a drowning escape this recent marks the resumed job to leave the water first.
 export const DROWN_RECENT_MS=10000;
+// Round 36: the farthest ore (from the eye) the gather tunnels to when no walk reaches it.
+export const ORE_TUNNEL=10;
 export const LEDGE_DROP=5,LEDGE_LOOK=0.9;
 // The open cells (up to LEDGE_DROP) under the cell LEDGE_LOOK ahead along the bot's motion;
 // 0 for a wall, water or lava below, or no motion.
@@ -2640,6 +2642,12 @@ export class Worker extends EventEmitter {
      }
       let walkErr=null;
       try{await this.walk(target.position,token,2,20);}catch(e){this.check(token);walkErr=e;}
+      // Round 36 (round-35 hard2: three iron ores 6-10 blocks away in the hillside, each
+      // `No path to the goal!` and skipped - no hard run held an iron pick): an ore close by
+      // that no walk reaches is tunnelled to.
+      if(walkErr&&/_ore$/.test(target.name)&&!b.canDigBlock(target)&&b.entity.position.offset(0,b.entity.eyeHeight||1.62,0).distanceTo(target.position.offset(.5,.5,.5))<=ORE_TUNNEL){
+       try{await this.tunnelToward(target,token);}catch(e){this.check(token);this.log('Gather: tunnel to the '+target.name+' at '+target.position+' stopped ('+String(e.message).slice(0,70)+')');}
+      }
       const underFoot=b.blockAt(b.entity.position.floored().offset(0,-1,0));
       if(underFoot&&/_log$/.test(underFoot.name)&&count_()-job.startDrop<s.count){
        // The walk reached a trunk column and the bot now stands ON it: mine the logs under
@@ -2830,6 +2838,23 @@ export class Worker extends EventEmitter {
   await plugLava(this,token,here);
   await wallPickups(this,job,token,here,plan.dir);
   return {dir:plan.dir,next};
+ }
+ // Round 36: tunnel level (or down a step) toward a target the pathfinder cannot reach, until
+ // it is in reach - each step a checked tunnel step (no fluid, cave or drop), at most
+ // ORE_TUNNEL steps. A target straight above or below is left to reachUp / descendToReach.
+ async tunnelToward(target,token){
+  const b=this.bot,job={tunnel:[]},t=target.position;
+  for(let i=0;i<ORE_TUNNEL&&!b.canDigBlock(target);i++){
+   this.check(token);
+   if(b.blockAt(t)?.name!==target.name)break; // the tunnel's wall pickup took it
+   const f=b.entity.position.floored(),dx=t.x-f.x,dz=t.z-f.z;
+   if(!dx&&!dz)break;
+   const dir=Math.abs(dx)>=Math.abs(dz)?new Vec3(Math.sign(dx),0,0):new Vec3(0,0,Math.sign(dz));
+   const dy=t.y<f.y-1&&Math.abs(dx)+Math.abs(dz)>1?-1:0;
+   const st=await this.tunnelStep(job,token,dir,dy,false,undefined,true);
+   job.tunnel.push({x:st.next.x,y:st.next.y,z:st.next.z});
+  }
+  if(b.canDigBlock(target))this.log('Gather: tunnelled '+job.tunnel.length+' to the '+target.name+' at '+t);
  }
  // Habit 8: diamonds the safe way - a branch mine at the trip's level (y -53, above the lava
  // lakes at -54): a main 1x2 tunnel (it may turn round a cave like any tunnel step) with a side

@@ -422,3 +422,20 @@ test('round 35: after a ledge stop the bot steps away with the opposite key, the
  // Something else steering ends the back-off at once.
  ctl.left=true;bot.entity.velocity=new Vec3(0,0,0.2);ledgeGuard(bot);assert.equal(bot._ledgeBack,null);
 });
+test('round 36: tunnelToward steps level toward an ore no walk reaches, until it is in reach',async()=>{
+ const w=Object.create(Worker.prototype);const steps=[];const logs=[];
+ const ore=new Vec3(6,64,2);
+ w.bot={entity:{position:new Vec3(0.5,64,0.5),eyeHeight:1.62},blockAt:p=>p.equals(ore)?{name:'iron_ore',position:ore}:{name:'stone'},
+  canDigBlock:bl=>w.bot.entity.position.distanceTo(bl.position)<=4.5};
+ w.check=()=>{};w.log=m=>logs.push(m);
+ w.tunnelStep=async(job,token,dir,dy)=>{const f=w.bot.entity.position.floored();const next=f.offset(dir.x,dy,dir.z);steps.push([dir.x,dir.z,dy]);w.bot.entity.position=next.offset(0.5,0,0.5);return {dir,next};};
+ await w.tunnelToward({name:'iron_ore',position:ore},1);
+ assert.ok(w.bot.canDigBlock({position:ore}),'in reach');
+ assert.ok(steps.length>=1&&steps.length<=3,'a few steps: '+JSON.stringify(steps));
+ assert.ok(steps.every(([x,z,dy])=>dy===0&&(x===1||z===1)),'level, toward the ore');
+ assert.ok(logs.some(l=>/tunnelled \d+ to the iron_ore/.test(l)));
+ // A tunnel step that stops (fluid, cave) ends it with that error.
+ w.bot.entity.position=new Vec3(0.5,64,0.5);
+ w.tunnelStep=async()=>{throw Error('Tunnel stopped: water beside (1, 64, 0)');};
+ await assert.rejects(()=>w.tunnelToward({name:'iron_ore',position:ore},1),/Tunnel stopped/);
+});
