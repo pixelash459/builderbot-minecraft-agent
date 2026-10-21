@@ -3662,3 +3662,31 @@ The round 33 hunt-spider loop did not return. The round 33 drown-resume loop did
 
 `logs/dashboard-uncaught.log` gained no bytes during the soak (size stayed 2576174). There is no new line from this soak window.
 
+## 2026-10-21 17:28–17:33 IST — round 35 combat (bot code `dbf9095`)
+
+Units first, then a fresh model-off restart, then one combat run. No integration. `git pull --rebase` stashed local `data/` dumps, origin was already up to date, and the stash was popped. HEAD is `dbf9095` (`Round 35: plank recipes mix woods, the second deep-underground failure round climbs out, and the ledge guard steps back from the edge`).
+
+Unit tests, every `tests/*.test.js` except `resources.test.js`, `--max-old-space-size=2048 --test-timeout=60000 --test-skip-pattern resources`: **593 pass, 0 fail**, 0 skipped, 41616 ms. Round 34 was 590 pass, 0 fail. The live fail count is 0, so this is a pass. `resources.test.js` was not run.
+
+Services were restarted after the pull (`Stop-Agent.ps1`, then `Start-Agent.ps1 -NoBrowser`) with `AGENT_MODEL=off`. `logs/supervisor.log` first line: `model server disabled (config.model.enabled=false): skipping llama-server, saving ~6.5 GB commit`.
+
+`python -u tests/combat_integration.py` exited 0 in 308 s (17:28:27–17:33:35 IST, 11:58:27Z–12:03:34Z). `All combat acceptance tests passed`. One run. Creeper damage was measured, so there is no second run.
+
+`4_creeper` (lane): ttk 7.2 s, hits 5, `damage_taken=0`, end health 20, killed, no crater at the spawn, the midpoint, or the bot start. Dashboard fight result at 12:00:26.871Z: `creeper tactic=bow hits=5 crits=0 sweeps=0 shots=0 released=0 landed=0 damage taken=0 disengages=0 result=finished`.
+
+`4b_creeper_roofed`: ttk 7.2 s, hits 3, `damage_taken=0`, end health 20, killed, no crater at the spawn corner or the arena center. Fight result at 12:00:41.363Z: `creeper tactic=bow hits=3 crits=0 sweeps=0 shots=2 released=2 landed=2 damage taken=0 disengages=0 result=finished`.
+
+Pillar, kite, and flee on the creeper legs (dashboard bytes after 58007035, 327 lines, 11:58:27Z–12:03:34Z):
+
+- Lane: `12:00:20.338Z Combat: pillar-up 2 at 1499,-60,1518 (creeper at 6.7)`, then `12:00:21.156Z Combat: pillar perched 2 up`, then `12:00:21.396Z Combat: perch 2 up is inside the fuse ring; knocking the creeper back (at 3.8)` and three `pillar-strike` lines. No arrow was released on this leg.
+- Roofed: `creeper-bow` closed from d=9.6 to d=8.4, then `12:00:35.457Z Combat: pillar-up 2 at 1496,-60,1497 (creeper at 8.0)`, `12:00:36.233Z Combat: pillar perched 2 up`, two arrows released (both 2.99 b/t) and both landed (hurt events at 0.09 s), then `12:00:40.256Z Combat: perch 2 up is inside the fuse ring; knocking the creeper back (at 3.6)` and one `pillar-strike`.
+- Zero `pillar-up failed` lines. Both pillar-ups perched. The pillar path still works.
+- Zero `Combat: kite` lines. Zero `Combat: flee` lines. Zero fuse-flee lines (`creeper swell`, `sprinting past`). The kite and flee states did not run on these two creeper fights; the pillar path took them and both ended at 0 damage.
+- The only `flee` text in the window is the unarmed retreat on the first two zombie legs, before a weapon: `Job: Unarmed; retreated from the fight - threat policy takes over (flee/shelter/get armed)` at 11:58:58.145Z and 11:59:01.456Z. That is not a creeper flee.
+- Zero `Ledge guard: stopped` lines in this combat window, so the new 0.4 s step-back was not exercised here and there is no hit within 3 s of a ledge stop.
+
+The witch leg printed `NOTE: witch survived the duel (job failed, lost 0 hp) - recorded as a measured 26.3 limit` and the suite still exited 0. That is the recorded limit. One avoid line: `12:01:50.806Z Combat event: avoid avoid: the witch kites and out-potions the rush - break line of sight (7c/26.3)`.
+
+`logs/dashboard-uncaught.log` gained no bytes during the combat window (size stayed 2576174).
+
+The soak is next.
