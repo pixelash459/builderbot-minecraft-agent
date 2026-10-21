@@ -388,3 +388,37 @@ test('round 33: a drowning escape marks the worker, and a job resumed right afte
  assert.equal(stepped,1,'stepped out of the water before the job');
  assert.equal(job.leaveWaterFirst,false,'only once');
 });
+test('round 35: a plank recipe fills its cells from two woods when neither covers it alone',()=>{
+ const reg={itemsByName:{oak_planks:{id:1,name:'oak_planks'},spruce_planks:{id:2,name:'spruce_planks'},dark_oak_planks:{id:3,name:'dark_oak_planks'},iron_ingot:{id:9,name:'iron_ingot'}},items:{}};
+ for(const v of Object.values(reg.itemsByName))reg.items[v.id]=v;
+ const inv={spruce_planks:4,dark_oak_planks:2,iron_ingot:1};
+ const w=Object.create(Worker.prototype);w.count=n=>inv[n]||0;
+ const b={registry:reg,inventory:{items:()=>Object.entries(inv).map(([name,count])=>({name,count,type:reg.itemsByName[name].id}))}};
+ const P={id:1},I={id:9},_={id:-1};
+ const shield={inShape:[[P,I,P],[P,P,P],[_,P,_]]};
+ const r=w.usableRecipe(b,[shield],{});
+ assert.ok(r,'6 planks of two woods make a shield');
+ const done=w.withSubstitutions(r.recipe,r.subst);
+ const ids=done.inShape.flat().filter(x=>x.id!==-1&&x.id!==9).map(x=>x.id).sort();
+ assert.deepEqual(ids,[2,2,2,2,3,3],'4 spruce cells and 2 dark oak cells');
+ assert.equal(shield.inShape[0][0].id,1,'the original recipe is untouched');
+ inv.dark_oak_planks=1;
+ assert.equal(w.usableRecipe(b,[shield],{}),null,'5 planks are not enough');
+});
+test('round 35: after a ledge stop the bot steps away with the opposite key, then lets go',async()=>{
+ const at=p=>p.x>=2?(p.y<54?{name:'stone',boundingBox:'block'}:{name:'air',boundingBox:'empty'}):(p.y<64?{name:'stone',boundingBox:'block'}:{name:'air',boundingBox:'empty'});
+ const ctl={forward:true};
+ const bot={entity:{onGround:true,position:new Vec3(1.6,64,0.5),velocity:new Vec3(0.2,0,0),yaw:0},blockAt:at,
+  getControlState:k=>!!ctl[k],setControlState:(k,v)=>{ctl[k]=v;},pathfinder:{isMoving:()=>false}};
+ assert.equal(ledgeGuard(bot),true);
+ assert.equal(ctl.forward,false);assert.equal(ctl.back,true,'walked forward to the edge: back away');
+ bot.entity.velocity=new Vec3(-0.1,0,0);
+ assert.equal(ledgeGuard(bot),false);assert.equal(ctl.back,true,'still backing within the window');
+ bot._ledgeBack.until=Date.now()-1;
+ ledgeGuard(bot);assert.equal(ctl.back,false,'released after the window');
+ // A bot that backed toward the edge steps forward instead.
+ Object.keys(ctl).forEach(k=>ctl[k]=false);ctl.back=true;bot.entity.velocity=new Vec3(0.2,0,0);bot._ledgeBack=null;
+ assert.equal(ledgeGuard(bot),true);assert.equal(ctl.forward,true,'backed to the edge: step forward');
+ // Something else steering ends the back-off at once.
+ ctl.left=true;bot.entity.velocity=new Vec3(0,0,0.2);ledgeGuard(bot);assert.equal(bot._ledgeBack,null);
+});

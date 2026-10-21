@@ -528,3 +528,16 @@ test('round 34: the bow and arrows are optional once their supply runs failed 3 
  assert.equal(gearFor({type:'hunt',entity:'chicken'}),'arrow');
  assert.equal(gearFor({type:'craft',item:'iron_sword'}),null);
 });
+import {Autopilot as AP35} from '../src/autopilot.js';
+test('round 35: the second deep-underground failure round climbs to the surface',()=>{
+ const ap=Object.create(AP35.prototype);const logs=[],subs=[];
+ Object.assign(ap,{failures:{},state:'',lastSurfaceY:131,log:m=>logs.push(m),submit:(s,spec)=>subs.push(spec),deepUnderground:()=>true,
+  worker:{log(){},jobs:[],bot:null},current:null});
+ const fail=()=>{ap.current={step:'iron',spec:{type:'craft',item:'shield',count:1}};ap.settle({status:'failed',message:'Missing ingredients or a nearby crafting table'});};
+ for(let i=0;i<3;i++)fail();
+ assert.equal(subs.length,0,'the first round only cools down');
+ assert.ok(logs.some(l=>/retrying in 20 s/.test(l)));
+ for(let i=0;i<3;i++)fail();
+ assert.deepEqual(subs,[{type:'ascend',y:131}],'the second climbs out');
+ assert.ok(logs.some(l=>/climbing to the surface/.test(l)));
+});

@@ -1933,3 +1933,14 @@ Round 33 soak (`fb78dde`): 1 death, furnace on all six, iron pick on 4 (normal 3
 - **Drowning latch holds until dry** (`DRY_HOLD_MS`=1.5 s): released at air 18+, or after the head and feet have been out of the water for 1.5 s straight; a wet tick restarts the clock.
 - **Out of the water before the job** (`lastDrownAt`, `DROWN_RECENT_MS`=10 s, `leaveWaterFirst`): a job the cadence resumes within 10 s of a drowning escape first runs `leaveWater` (a dry stand within 6). Line: `Reflex: resumed the X job (stepping out of the water first)`, then `Water: stepped out to ...` / `Water: no dry stand within 6 of ...`.
 - **Bow and arrows are optional gear** (`gearFor`, `kitSkip`): a spider hunt or bow craft that failed 3 times sets the bow aside for 10 min; a chicken hunt, gravel gather or arrow craft sets the arrows aside. The iron step then goes on to the rest of its kit and counts as done without them. Line: `Autopilot: bow supplies failed 3 times (hunt spider); bow skipped for 10 min`.
+
+## Round 35 (2026-10-21)
+
+Round 34 soak (`5ac411b`): 1 death, furnace on all six, iron pick on the three normal runs (482/602/662 s) and **no hard run**, no diamonds. The drowning loop did not return (one swim-up, air 8, the explore cancelled as a hazard). The bow skip held (`bow supplies failed 3 times (hunt spider); bow skipped for 10 min`, then a gravel gather). Found:
+- a **`craft shield` loop** (24 submits, `Missing ingredients or a nearby crafting table`) after the bot topped its planks up with 2 dark oak: 6 planks of two woods, and the plank substitution only used one wood that covered the whole recipe;
+- the same loop shape as `iron_leggings` (round 32) and `hunt spider` (round 33): a job that cannot succeed underground, retried in place every 20 s;
+- hard3 **`doomed to fall by Skeleton`**: the ledge guard stopped the bot at (139, 106, 75) during a creeper flee, and an arrow knocked it off 0.8 s later (fell to y=80).
+
+- **Mixed-wood plank recipes** (`usableRecipe`/`withSubstitutions`): with no single wood covering a plank ingredient, the cells are filled from every held wood, one id per cell (4 spruce + 2 dark oak make a shield).
+- **Climb out after the second deep-underground failure round** (`DEEP_ASCEND_AFTER`=2, `deepFails`): the second time a step fails 3 times deep underground (without a success between), the autopilot submits an escape `ascend` to the surface anchor instead of another 20 s retry. Line: `Autopilot: X failed 3 times deep underground again; climbing to the surface`.
+- **Ledge back-off** (`LEDGE_BACK_MS`=400, `LEDGE_AWAY`): after a ledge-guard stop the bot holds the key opposite the one that walked it to the edge for 0.4 s, unless another key steers meanwhile.

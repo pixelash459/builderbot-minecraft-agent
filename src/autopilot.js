@@ -66,6 +66,7 @@ export function grazeDirection(bot){
 const IRON_CORE=[['iron_pickaxe',3,2],['iron_sword',2,1],['shield',1,0]];
 // The food graze may go this far below its anchor (hills, not caves).
 const GRAZE_DEPTH=6,ASCEND_BELOW=16,DEEP_COOL_MS=20000;
+export const DEEP_ASCEND_AFTER=2; // round 35: deep-underground failure rounds before climbing out
 const STONE_KIT=[['stone_pickaxe',3],['stone_sword',2],['stone_axe',3],['stone_shovel',1]];
 // Round 16: kit pieces the ladder can go on without (a craft that keeps failing is skipped).
 export const OPTIONAL_KIT=new Set(['stone_shovel','stone_axe']),KIT_SKIP_MS=10*60000;
@@ -1094,12 +1095,24 @@ export class Autopilot{
     this.state='retry: '+step;this.log('Autopilot: '+item+' supplies failed 3 times ('+job.spec.type+' '+(job.spec.entity||job.spec.block||job.spec.item)+'); '+item+' skipped for '+KIT_SKIP_MS/60000+' min');
    }
    else if(this.failures[step]>=3&&STEPS.some(st=>st.name===step)&&this.deepUnderground()){
-    this.failures[step]=0;this.coolUntil=Date.now()+DEEP_COOL_MS;this.state='retry: '+step+' (deep: no explore)';
-    this.log('Autopilot: '+step+' failed 3 times deep underground; no cave explore, retrying in '+DEEP_COOL_MS/1000+' s');
+    this.failures[step]=0;
+    // Round 35 (rounds 32-34: `iron_leggings` x102, `hunt spider` x49, `shield` x24 - each a
+    // job that cannot succeed down there, retried in place every 20 s): the second time the
+    // same step fails 3 times deep underground, climb to the surface instead.
+    const d=this.deepFails||(this.deepFails={});d[step]=(d[step]||0)+1;
+    if(d[step]>=DEEP_ASCEND_AFTER){
+     d[step]=0;this.state='retry: '+step+' (deep: climbing out)';
+     this.log('Autopilot: '+step+' failed 3 times deep underground again; climbing to the surface');
+     this.submit('escape',{type:'ascend',y:Number.isFinite(this.lastSurfaceY)?this.lastSurfaceY:64});
+    }else{
+     this.coolUntil=Date.now()+DEEP_COOL_MS;this.state='retry: '+step+' (deep: no explore)';
+     this.log('Autopilot: '+step+' failed 3 times deep underground; no cave explore, retrying in '+DEEP_COOL_MS/1000+' s');
+    }
    }
    else if(this.failures[step]>=3&&STEPS.some(st=>st.name===step)){this.state='blocked: '+step+' (exploring elsewhere)';this.log('Autopilot: '+step+' failed '+this.failures[step]+' times; exploring before retry');}
    else this.state='retry: '+step+' ('+this.failures[step]+'/3)';
   }else{
+   if(this.deepFails&&job&&job.status==='complete'&&this.current.step)this.deepFails[this.current.step]=0;
    if(this.current.spec?.type==='gather'&&this.current.spec.block==='coal_ore')this.coalFails=0;
    // Round 11: the inventory step's placed chest is the home chest (and home, when none is set).
    const sp=this.current.spec;

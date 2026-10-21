@@ -171,11 +171,24 @@ export function ledgeGuard(bot){
   if(bot.getControlState('sprint')&&dropAhead(bot)>=LEDGE_DROP)bot.setControlState('sprint',false);
   return false;
  }
- const moving=['forward','back','left','right'].some(k=>bot.getControlState(k));if(!moving)return false;
+ // Round 35 (round-34 hard3: stopped at (139, 106, 75), then `doomed to fall by Skeleton` 0.8 s
+ // later - an arrow's knockback finished what the stop began): after a stop, step away from the
+ // edge for LEDGE_BACK_MS with the key opposite the one that walked there, unless something
+ // else steers meanwhile.
+ const back=bot._ledgeBack;
+ if(back){
+  const other=['forward','back','left','right'].filter(k=>k!==back.key).some(k=>bot.getControlState(k));
+  if(Date.now()<back.until&&!other){bot.setControlState(back.key,true);return false;}
+  bot._ledgeBack=null;if(!other)bot.setControlState(back.key,false);
+ }
+ const keys=['forward','back','left','right'].filter(k=>bot.getControlState(k));if(!keys.length)return false;
  if(dropAhead(bot)<LEDGE_DROP)return false;
  for(const k of ['forward','back','left','right','sprint','jump'])bot.setControlState(k,false);
+ const away=LEDGE_AWAY[keys[0]];
+ if(away){bot._ledgeBack={key:away,until:Date.now()+LEDGE_BACK_MS};bot.setControlState(away,true);}
  return true;
 }
+export const LEDGE_BACK_MS=400,LEDGE_AWAY={forward:'back',back:'forward',left:'right',right:'left'};
 // Round 31: every fall of FALL_LOG+ blocks is logged once with where it began, so a death
 // `fell from a high place` names its start (round 30's normal2 fall had no line for 80 s).
 // `st` keeps {top} between ticks. Returns {from,at} the tick a fall first passes FALL_LOG.
@@ -3082,6 +3095,14 @@ export class Worker extends EventEmitter {
     if(have<need&&plankIds.has(Number(id))){
      const held=(b.inventory.items()||[]).find(i=>plankIds.has(i.type)&&this.count(i.name)>=need);
      if(held){subst[Number(id)]=b.registry.itemsByName[held.name].id;have=this.count(held.name);}
+     else{
+      // Round 35 (round-34 hard run: `craft shield` 24 times, `Missing ingredients`, holding 6
+      // planks of two woods): the grid takes any planks per cell, so fill the cells from every
+      // held species - one id per cell, in order.
+      const per=[];const seen=new Set();
+      for(const i of b.inventory.items()||[]){if(!plankIds.has(i.type)||seen.has(i.name))continue;seen.add(i.name);for(let k=this.count(i.name);k>0&&per.length<need;k--)per.push(b.registry.itemsByName[i.name].id);}
+      if(per.length>=need){subst[Number(id)]=per;have=need;}
+     }
     }
     if(have<need){ok=false;break;}
    }
@@ -3092,8 +3113,11 @@ export class Worker extends EventEmitter {
  withSubstitutions(recipe,subst){
   if(!Object.keys(subst).length)return recipe;
   const clone=Object.assign(Object.create(Object.getPrototypeOf(recipe)),recipe);
-  if(clone.inShape)clone.inShape=clone.inShape.map(row=>row.map(x=>(x&&subst[x.id]!==undefined)?{...x,id:subst[x.id]}:x));
-  if(clone.ingredients)clone.ingredients=clone.ingredients.map(x=>(subst[x.id]!==undefined)?{...x,id:subst[x.id]}:x);
+  // A substitution is one id, or (round 35) a list handing out one id per cell.
+  const queues={};for(const [k,v] of Object.entries(subst))if(Array.isArray(v))queues[k]=[...v];
+  const swap=x=>{if(!x||subst[x.id]===undefined)return x;const q=queues[x.id];return {...x,id:q?q.shift()??x.id:subst[x.id]};};
+  if(clone.inShape)clone.inShape=clone.inShape.map(row=>row.map(swap));
+  if(clone.ingredients)clone.ingredients=clone.ingredients.map(swap);
   return clone;
  }
  async craft(job,token){
