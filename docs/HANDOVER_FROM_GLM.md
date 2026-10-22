@@ -1953,3 +1953,16 @@ Round 35 soak (`dbf9095`): **0 deaths**, furnace on all six, iron pick on the th
 
 - **Fuel before a smelt** (`tableFirst`): a smelt job (not a `take`) with no coal or charcoal, under 2 planks and no log, first gathers 4 logs.
 - **Tunnel to a near ore** (`tunnelToward`, `ORE_TUNNEL`=10): when the gather's walk to an `_ore` fails and the ore is within 10 blocks of the eye but out of reach, the bot tunnels level (or a staircase step down when the ore is 2+ below) toward it with checked tunnel steps until it can dig it (at most 10 steps). Lines: `Gather: tunnelled N to the iron_ore at ...`, or `Gather: tunnel to the iron_ore at ... stopped (...)`.
+
+## Round 37 (2026-10-22)
+
+Round 36 soak (`1c3196d`): 2 deaths, furnace on all six, iron pick on the three normal runs (542/331/391 s - the fastest normal iron yet), no hard iron pick, no diamonds. The tunnel-to-ore worked (hard3 `tunnelled 3` and `tunnelled 7` to iron ore, raw iron peak 7), and there was no fuel failure. Found live:
+- a **spare `stone_pickaxe` loop** (`No clear spot to place a crafting_table`): the kit skip was logged and the iron step's spare pick (`spareStonePick`) was submitted again the next tick;
+- normal3 **drowned** at (302, 59, 133): an iron gather walked under a lake to its ore three times, each cancelled as a hazard and re-submitted 0.1 s later;
+- hard2 **shot by a skeleton at dusk** (tod ~11200) in a crowd of ~20, an iron gather and a smelt still going out - the shelter only went out at sunset;
+- hard3 held **7 raw iron with no furnace** (its furnace left behind): `no kiln (no furnace held)`, then sunset and the box until the run ended.
+
+- **The spare stone pick honours the skip** (`spareStonePick` checks `kitSkip.stone_pickaxe`).
+- **Fluid beside the ore is checked before the walk** (it was checked after it), so a gather never swims to an underwater ore; **water costs 4 per cell** to the pathfinder (`LIQUID_COST`, was 1), so routes stay on land.
+- **A dusk crowd shelters early** (`nightJobFor(tod,bed,crowd)`, `DUSK_CROWD`=3): from DUSK_PREP (tod 10000) 3+ hostiles within 16 make the night's shelter due now (the same once-a-night job). The worker builds a shelter from DUSK_PREP, and `stillNight` holds a refuge from DUSK_PREP, so a box sealed at dusk is kept.
+- **The kiln crafts its furnace**: an ore gather at `smeltAt` with no furnace held but 8+ cobble crafts one (`Gather: crafted a furnace for the kiln`) and smelts while mining.

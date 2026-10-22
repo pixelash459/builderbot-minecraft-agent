@@ -19,13 +19,18 @@ export const darkNow=tod=>tod!=null&&tod>=SUNSET; // night jobs and new pillars:
 // (MORNING_SAFE) and nothing hostile is within REFUGE_CLEAR; from MORNING_LATE a hostile
 // beyond REFUGE_WALL no longer holds it (a shaded skeleton can stand there all day).
 export const MORNING_SAFE=1000,MORNING_LATE=3000,REFUGE_CLEAR=16,REFUGE_WALL=6;
-export const stillNight=tod=>tod!=null&&(tod>=SUNSET||tod<MORNING_SAFE);
+// Round 37: a refuge taken at dusk (an early shelter) holds from DUSK_PREP.
+export const stillNight=tod=>tod!=null&&(tod>=DUSK_PREP||tod<MORNING_SAFE);
 export function leaveRefuge(tod,nearest=Infinity){
  if(tod==null)return true; // no clock: nothing to wait for
  if(stillNight(tod))return false;
  return nearest>(tod<MORNING_LATE?REFUGE_CLEAR:REFUGE_WALL);
 }
-export const nightJobFor=(tod,bedNear)=>bedNear?(tod!=null&&tod>=NIGHT_START&&tod<=NIGHT_END?{type:'sleep'}:null):(shelterDue(tod)?{type:'shelter'}:null);
+// Round 37 (round-36 hard3: shot by a skeleton at tod ~11200 in a crowd of ~20, the iron gather
+// and a smelt still going out): from DUSK_PREP a crowd of DUSK_CROWD+ hostiles within 16 makes
+// the night's shelter due now.
+export const DUSK_CROWD=3;
+export const nightJobFor=(tod,bedNear,crowd=0)=>bedNear?(tod!=null&&tod>=NIGHT_START&&tod<=NIGHT_END?{type:'sleep'}:null):(shelterDue(tod)||(crowd>=DUSK_CROWD&&tod!=null&&tod>=DUSK_PREP&&tod<SUNSET)?{type:'shelter'}:null);
 const solid=b=>!!b&&b.boundingBox==='block';
 const fluid=b=>!!b&&/^(water|lava|bubble_column)$/.test(b.name||'');
 const key=p=>p.x+','+p.y+','+p.z;

@@ -437,9 +437,19 @@ test('respawned at night: shelter at the spawn point first, without lifting the 
  try{day.worker.deathResume=true;day.worker.lastDeath={t:Date.now()-2000};day.ap.tick();assert.deepEqual(day.submitted,[]);assert.match(day.ap.state,/paused: died/);}
  finally{day.done();}
 });
-test('the shelter job itself waits for sunset and reads the same clock',async()=>{
+test('the shelter job itself waits for dusk and reads the same clock',async()=>{
  const updates=[];
  const fake=tod=>({bot:{time:{timeOfDay:tod},blockAt(){throw Error('must not build');}},check(){},update(j,p,m){updates.push(m);},count(){return 0;}});
- assert.equal(await Worker.prototype.shelter.call(fake(SUNSET-1),{spec:{}},0),undefined);
+ // Round 37: dusk (DUSK_PREP) is when a crowd may send it; before that it does nothing.
+ assert.equal(await Worker.prototype.shelter.call(fake(DUSK_PREP-1),{spec:{}},0),undefined);
  assert.deepEqual(updates,[]);
+});
+test('round 37: a crowd at dusk makes the shelter due early; stillNight holds from dusk',async()=>{
+ const {stillNight,DUSK_CROWD}=await import('../src/night.js');
+ assert.equal(nightJobFor(11000,false,0),null,'dusk alone: not yet');
+ assert.deepEqual(nightJobFor(11000,false,DUSK_CROWD),{type:'shelter'},'dusk and a crowd: now');
+ assert.equal(nightJobFor(9000,false,10),null,'a day crowd is a fight, not a night');
+ assert.deepEqual(nightJobFor(SUNSET,false,0),{type:'shelter'},'sunset as before');
+ assert.equal(stillNight(11000),true,'an early refuge holds');
+ assert.equal(stillNight(5000),false);
 });

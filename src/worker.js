@@ -29,7 +29,7 @@ import {solidSupport,placementCells,softBreakCell,hitsBot,HARD_BREAK} from './pl
 import {createMoveTasks} from './tasks/movement/factories.js';
 import {createLoopWatch} from './loop-watch.js';
 import {installToolWear,watchToolLoss} from './toolWear.js';
-import {darkNow,stillNight,leaveRefuge,shelterShell,shellGaps,holdableShell,placementPlan,shelterTarget,deepWaterCost,fleeHeading,nightMineWanted,tunnelBreach,SUNSET,NIGHT_MINE_MS,NIGHT_MINE_STOP,NIGHT_MINE_DEPTH,NIGHT_MINE_STRIP} from './night.js';
+import {darkNow,stillNight,leaveRefuge,shelterShell,shellGaps,holdableShell,placementPlan,shelterTarget,deepWaterCost,fleeHeading,nightMineWanted,tunnelBreach,SUNSET,DUSK_PREP,NIGHT_MINE_MS,NIGHT_MINE_STOP,NIGHT_MINE_DEPTH,NIGHT_MINE_STRIP} from './night.js';
 import {bestWeapon,attackCooldown,leaveAlone} from './chains/combatPolicy.js';
 const {pathfinder,Movements,goals}=pathfinderPackage;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -150,6 +150,8 @@ export function bedSpots(at,feet){
 export const DROWN_RECENT_MS=10000;
 // Round 36: the farthest ore (from the eye) the gather tunnels to when no walk reaches it.
 export const ORE_TUNNEL=10;
+// Round 37: the pathfinder's cost per water cell (its default is 1, the same as land).
+export const LIQUID_COST=4;
 export const LEDGE_DROP=5,LEDGE_LOOK=0.9;
 // The open cells (up to LEDGE_DROP) under the cell LEDGE_LOOK ahead along the bot's motion;
 // 0 for a wall, water or lava below, or no motion.
@@ -918,6 +920,8 @@ export class Worker extends EventEmitter {
   // Round 32 (round-31 normal2: an explore dove 114 -> ~71, two `Fall:` lines, 8 hp lost by the
   // next sample): the pathfinder's default plans a drop of any height into water; cap it like land.
   m.infiniteLiquidDropdownDistance=false;
+  // Round 37: a route under water is a drowning risk; land routes win unless much longer.
+  m.liquidCost=LIQUID_COST;
   this.avoidHazards(m,b);
   m.scafoldingBlocks=[b.registry.blocksByName.dirt.id,b.registry.blocksByName.cobblestone.id,b.registry.blocksByName.netherrack?.id].filter(id=>id!==undefined);
   const natural=new Set([...NATURAL_DIG].map(n=>b.registry.blocksByName[n]?.id).filter(id=>id!==undefined));
@@ -1483,7 +1487,9 @@ export class Worker extends EventEmitter {
  async shelter(job,token){
   const b=this.bot;
   this.check(token);
-  if(!darkNow(dayTicks(b))){
+  // Round 37: a shelter sent at dusk (a crowd, night.js nightJobFor) builds like one at sunset.
+  const tod0=dayTicks(b);
+  if(!darkNow(tod0)&&!(tod0!=null&&tod0>=DUSK_PREP)){
    // Resumed after dawn with a box still standing: take it down once the morning is safe
    // (the night was survived); before that, re-seal and hold it.
    if(!(job.placed&&job.placed.length))return;
@@ -2640,6 +2646,10 @@ export class Worker extends EventEmitter {
       this.update(job,Math.max(0,count_()-job.startDrop),`Collected ${Math.max(0,count_()-job.startDrop)}/${s.count} ${job.dropName}`);
       continue;
      }
+      // Round 37 (round-36 normal: drowned at 302,59,133 - an iron gather walked under a lake to
+      // its ore three times, each cancelled as a hazard and re-submitted 0.1 s later): water or
+      // lava beside the target is checked before the walk, not after it.
+      for(const delta of [new Vec3(0,1,0),new Vec3(1,0,0),new Vec3(-1,0,0),new Vec3(0,0,1),new Vec3(0,0,-1)])if(['lava','water'].includes(b.blockAt(target.position.plus(delta))?.name))throw Error('Fluid beside target');
       let walkErr=null;
       try{await this.walk(target.position,token,2,20);}catch(e){this.check(token);walkErr=e;}
       // Round 36 (round-35 hard2: three iron ores 6-10 blocks away in the hillside, each
@@ -2708,6 +2718,13 @@ export class Worker extends EventEmitter {
   if(!k){
    if(final||job.kilnOff||this.count(raw)<s.smeltAt)return;
    const off=reason=>{job.kilnOff=reason;this.log('Gather: no kiln ('+reason+'); smelting after the gather');};
+   // Round 37 (round-36 hard3: 7 raw iron, its furnace left behind, `no kiln (no furnace
+   // held)`, then sunset and the box until the run ended - no hard iron pick): with cobble
+   // for one, the kiln crafts its furnace here.
+   if(!this.count('furnace')&&this.count('cobblestone')+this.count('cobbled_deepslate')>=8){
+    try{await this.craft({spec:{type:'craft',item:'furnace',count:1,keepTable:true,collectTable:true}},token);this.log('Gather: crafted a furnace for the kiln');}
+    catch(e){this.check(token);this.log('Gather: could not craft a furnace for the kiln ('+String(e.message).slice(0,60)+')');}
+   }
    if(!this.count('furnace'))return off('no furnace held');
    try{await this.fuelPlan(this.count(raw));}catch(e){return off(e.message);}
    let at;

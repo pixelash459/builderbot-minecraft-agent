@@ -288,6 +288,9 @@ export const ironGather=count=>({type:'gather',block:'iron_ore',count:Math.max(1
 export const STONE_PICKS=2;
 function spareStonePick(c,ctx){
  if(c('stone_pickaxe')>=STONE_PICKS||c('cobblestone')<3)return null;
+ // Round 37 (round-36 soak: `stone_pickaxe craft failed 3 times; skipped` and the spare was
+ // re-submitted the next tick, `No clear spot to place a crafting_table`): the skip holds here too.
+ if(skipped(ctx,'stone_pickaxe'))return null;
  // A 3x3 craft: a table held or near, or the planks for one (the craft job places it).
  const table=c('crafting_table')>=1||!!ctx.worldTable;
  if(c('stick')>=2)return table||ctx.planksTotal>=4?{type:'craft',item:'stone_pickaxe',count:1}:null;
@@ -882,7 +885,7 @@ export class Autopilot{
    // A queued craft is a kit craft about to start (seconds): the shelter waits for it too,
    // or the survival pump would run the shelter first and the kit never.
    const busy=(active.status==='running'&&['fight','eat','sleep','shelter','craft'].includes(active.spec?.type))||(active.status==='queued'&&active.spec?.type==='craft');
-   const nightJob=!busy&&nightJobFor(dayTicks(b),this.bedForNight(b));
+   const nightJob=!busy&&nightJobFor(dayTicks(b),this.bedForNight(b),this.crowdNear(b));
    // Round 5 hard1: a bed-prep sheep hunt ran into sunset, this branch sent the shelter
    // straight away and the grace kit (idle branch only) never ran - no furnace, 19 cobble.
    const kit=active.status==='running'&&nightJob&&nightJob.type==='shelter'&&this.lastNightKey!==String(b.time?.day)&&this.sunsetKit(b,dayTicks(b)??0);
@@ -939,7 +942,7 @@ export class Autopilot{
     return;
    }
   }
-  const nightJob=nightJobFor(todNow,this.bedForNight(b));
+  const nightJob=nightJobFor(todNow,this.bedForNight(b),this.crowdNear(b));
   // Sunset grace (KIT_GRACE ticks, ~30 s, still before the first spawns): finish any stone-kit
   // craft that is affordable right now before sealing in for the night.
   if(nightJob&&nightJob.type==='shelter'&&this.lastNightKey!==String(b.time?.day)){
@@ -1022,6 +1025,11 @@ export class Autopilot{
   this.nightJob.retries++;
   this.log('Autopilot: the night job '+job.status+' ('+String(job.message).slice(0,80)+'); sheltering again');
   return true;
+ }
+ // Hostiles within 16 (the dusk-crowd shelter and the crowd hunting rule).
+ crowdNear(b){
+  const me=b?.entity?.position;if(!me)return 0;
+  return Object.values(b.entities||{}).filter(e=>e&&e.type==='hostile'&&e.position&&e.position.distanceTo(me)<=16).length;
  }
  respawnNight(b){
   const w=this.worker,death=w.lastDeath;
@@ -1320,7 +1328,7 @@ export class Autopilot{
   // Round 28 (round-27 hard1: a pig fight and a drop collect at tod ~11500 in a dark-forest crowd,
   // killed by a zombie 23 s before sunset): from DUSK_PREP no food trip leaves for the hunting
   // grounds unless it is an emergency - food waits for morning, the dusk prep and shelter run.
-  const crowd=Object.values(b.entities||{}).filter(e=>e&&e.type==='hostile'&&e.position&&b.entity?.position&&e.position.distanceTo(b.entity.position)<=16).length;
+  const crowd=this.crowdNear(b);
   if(duskHuntOff(dayTicks(b),choice,c=>counts[c]||0,{...ctx,crowd})){const st=crowd>=CROWD_NEAR?'crowd: no hunting':'dusk: no hunting';if(this.state!==st)this.log('Autopilot: '+st+' ('+crowd+' hostiles within 16)');this.state=st;choice=plan(counts,{...ctx,kitSkip:this.kitSkip||null,blocked:'food'});}
   if(!choice.step){this.state='all steps satisfied';return;}
   // A batch for the furnace: load it and move on (efficiency 1).

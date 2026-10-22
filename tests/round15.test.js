@@ -439,3 +439,23 @@ test('round 36: tunnelToward steps level toward an ore no walk reaches, until it
  w.tunnelStep=async()=>{throw Error('Tunnel stopped: water beside (1, 64, 0)');};
  await assert.rejects(()=>w.tunnelToward({name:'iron_ore',position:ore},1),/Tunnel stopped/);
 });
+test('round 37: an ore gather with no furnace crafts one for its kiln from 8 cobble',async()=>{
+ const inv={raw_iron:3,cobblestone:12};const logs=[];const crafted=[];
+ const w=Object.create(Worker.prototype);
+ w.bot={entity:{position:new Vec3(0,64,0)},blockAt:()=>null};
+ w.count=n=>inv[n]||0;w.log=m=>logs.push(m);w.check=()=>{};w.save=()=>{};
+ w.craft=async job=>{crafted.push(job.spec.item);inv.furnace=1;inv.cobblestone-=8;};
+ w.fuelPlan=async()=>{};w.placeBlockNear=async()=>new Vec3(1,64,0);
+ w.walk=async()=>{};
+ const job={spec:{block:'iron_ore',smeltAt:3}};
+ try{await w.kilnTick(job,1);}catch{} // the fake world has no furnace block to open
+ assert.deepEqual(crafted,['furnace']);
+ assert.ok(logs.some(l=>/kiln at 1,64,0; smelting raw_iron/.test(l)),'the kiln started: '+JSON.stringify(logs));
+ assert.ok(logs.some(l=>/crafted a furnace for the kiln/.test(l)));
+ // Without the cobble it stays off, as before.
+ const w2=Object.create(Worker.prototype);const inv2={raw_iron:3,cobblestone:4};const logs2=[];
+ Object.assign(w2,{bot:w.bot,count:n=>inv2[n]||0,log:m=>logs2.push(m),check(){},save(){},craft:async()=>{throw Error('must not craft');}});
+ const job2={spec:{block:'iron_ore',smeltAt:3}};
+ await w2.kilnTick(job2,1);
+ assert.match(job2.kilnOff,/no furnace held/);
+});

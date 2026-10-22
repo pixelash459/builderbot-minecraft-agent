@@ -551,3 +551,10 @@ test('round 36: a smelt with no fuel held fetches logs first',()=>{
  const take={type:'smelt',item:'raw_iron',count:3,take:true};
  assert.equal(tableFirst(none,{planksTotal:0,logsTotal:0},take),take,'collecting needs no fuel');
 });
+test('round 37: a skipped stone pickaxe is not re-submitted as the iron step spare',()=>{
+ const have={...STONE,_edible:8,stone_pickaxe:1,cobblestone:20,stick:4,crafting_table:1,furnace:1,coal:4};
+ let r=plan(counts(have));
+ assert.deepEqual([r.step,r.job.type,r.job.item],['iron','craft','stone_pickaxe'],'the spare: '+JSON.stringify(r.job));
+ r=plan(counts(have),{kitSkip:{stone_pickaxe:Date.now()+60000}});
+ assert.notEqual(r.job?.item,'stone_pickaxe');
+});
