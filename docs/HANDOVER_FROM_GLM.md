@@ -1966,3 +1966,14 @@ Round 36 soak (`1c3196d`): 2 deaths, furnace on all six, iron pick on the three 
 - **Fluid beside the ore is checked before the walk** (it was checked after it), so a gather never swims to an underwater ore; **water costs 4 per cell** to the pathfinder (`LIQUID_COST`, was 1), so routes stay on land.
 - **A dusk crowd shelters early** (`nightJobFor(tod,bed,crowd)`, `DUSK_CROWD`=3): from DUSK_PREP (tod 10000) 3+ hostiles within 16 make the night's shelter due now (the same once-a-night job). The worker builds a shelter from DUSK_PREP, and `stillNight` holds a refuge from DUSK_PREP, so a box sealed at dusk is kept.
 - **The kiln crafts its furnace**: an ore gather at `smeltAt` with no furnace held but 8+ cobble crafts one (`Gather: crafted a furnace for the kiln`) and smelts while mining.
+
+## Round 38 (2026-10-22)
+
+Round 37 soak (`43a71bd`): 1 death, **the first hard iron pick in three rounds** (hard3 at 512 s, ingots from the furnace step), iron pick on all normal runs (512/572/361 s), no diamonds. The fluid-beside-ore skip held (four skips of one ore), the stone-pick loop is gone, hard2 and hard3 sealed boxes held to dawn (hard1 could not seal: 1 open cell, burrow refused, held at hp 20). No dusk crowd reached 3, so the early shelter did not fire; no kiln furnace craft was needed. Found:
+- normal1 **drowned** at (59, 51, 37) after a `[home] deposit` walk toward **(1, -60, 0)** - the flat test world's home, kept in `data/autopilot.json` - four falls down into a flooded pocket, then 56 s with no `drowning` line before the death (the client saw no water at head or feet), every explore `No path to the goal!`;
+- an `iron_ore` gather resubmitted 11 times in 13 s, each preempted by the drowning reflex at the same water.
+
+- **A home over `HOME_FAR`=200 blocks away is forgotten** (`forgetFar`): `Autopilot: forgot the home at x,y,z (over 200 blocks away)`; home, homeChest and homeChestAt are cleared and saved.
+- **Silent damage is drowning** (`_silentHurt`, `SILENT_HURT_MS`=4 s): two health drops within 4 s with the air under 20, no hostile within 6, no fire or lava and not starving latch the drowning escape even when the client sees no water. Line: `WorldSurvival: losing health with no attacker (air N, head X, feet Y); treating it as drowning`.
+- **Any job right after a drowning escape steps out first** (not only resumed ones).
+- **Hazard spots** (`markHazard`/`nearHazard`, `HAZARD_NEAR`=8, `HAZARD_MS`=5 min): where a job was cancelled as `led into a hazard`, gathers skip target columns within 8 blocks.

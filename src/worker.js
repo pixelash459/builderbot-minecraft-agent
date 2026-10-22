@@ -148,6 +148,7 @@ export function bedSpots(at,feet){
 // keys. True when it stopped the bot.
 // Round 33: a drowning escape this recent marks the resumed job to leave the water first.
 export const DROWN_RECENT_MS=10000;
+export const HAZARD_NEAR=8,HAZARD_MS=5*60000;
 // Round 36: the farthest ore (from the eye) the gather tunnels to when no walk reaches it.
 export const ORE_TUNNEL=10;
 // Round 37: the pathfinder's cost per water cell (its default is 1, the same as land).
@@ -700,7 +701,7 @@ export class Worker extends EventEmitter {
       for(const [i,j] of this.jobs.entries())if(j.status==='paused'&&/^(Preempted by|Job interrupted|Reflex:)/.test(String(j.message))){
        if(this.jobs.slice(i+1).some(k=>k.status==='queued')){this.log('Reflex: the paused '+j.spec.type+' job was superseded; cancelled');j.status='cancelled';continue;}
        // Round 19: a job a World Survival escape (lava, fire, water) took over walked into it.
-       if(/World Survival/.test(String(j.message))&&['explore','goto','gather'].includes(j.spec.type)){this.log('Reflex: the '+j.spec.type+' job led into a hazard; cancelled, not resumed');j.status='cancelled';continue;}
+       if(/World Survival/.test(String(j.message))&&['explore','goto','gather'].includes(j.spec.type)){this.log('Reflex: the '+j.spec.type+' job led into a hazard; cancelled, not resumed');j.status='cancelled';this.markHazard?.();continue;}
        if(Date.now()-(this.lastDrownAt||0)<DROWN_RECENT_MS){j.leaveWaterFirst=true;this.log('Reflex: resumed the '+j.spec.type+' job (stepping out of the water first)');}
        else this.log('Reflex: resumed the '+j.spec.type+' job');
        this.resume(j.id);
@@ -2368,7 +2369,9 @@ export class Worker extends EventEmitter {
   // Round 33 (round-33 normal run: drowned at 325,23,-109 after 90 s in a flooded cave, the
   // drop, craft and smelt jobs resuming in the water between swim-ups): a job resumed after a
   // drowning escape first steps out to a dry stand.
-  if(job.leaveWaterFirst){job.leaveWaterFirst=false;await this.leaveWater(token);this.check(token);}
+  // Round 38 (round-37 soak: an iron gather submitted 20 times in 30 s, each walking back into the
+  // same water and cancelled as a hazard): any job started right after a drowning escape too.
+  if(job.leaveWaterFirst||Date.now()-(this.lastDrownAt||0)<DROWN_RECENT_MS){job.leaveWaterFirst=false;await this.leaveWater(token);this.check(token);}
   // Surface work never starts down a tunnel another job was stopped in: climb it first.
   if(STRANDED_CLIMB.has(spec.type)){
    const points=this.takeStrandedTunnel();
@@ -2569,6 +2572,7 @@ export class Worker extends EventEmitter {
     for(const col of columns.values()){
      const ck=col[0].position.x+','+col[0].position.z;
      if(job.badColumns.includes(ck))continue; // one unreachable trunk must not abort the whole job
+     if(this.nearHazard?.(col[0].position))continue; // round 38: a job just led into a hazard there
      const d=Math.min(...col.map(t=>t.position.distanceTo(b.entity.position)));
      const base=Math.min(...col.map(t=>t.position.y));
      const penalty=(s.surface&&job.surfaceY!==undefined&&base<job.surfaceY-1)?6:0
@@ -3507,6 +3511,16 @@ export class Worker extends EventEmitter {
  }
  // Round 25: standing in water (feet or head) - walk to the nearest dry stand within 6: open
  // feet and head, no water in either, a solid floor.
+ // Round 38: where a job led into a World Survival hazard (water, lava, fire), gathers skip
+ // targets within HAZARD_NEAR for HAZARD_MS.
+ markHazard(){
+  const p=this.bot?.entity?.position;if(!p)return;
+  const now=Date.now();this.hazards=(this.hazards||[]).filter(h=>h.until>now).concat([{x:p.x,y:p.y,z:p.z,until:now+HAZARD_MS}]).slice(-8);
+ }
+ nearHazard(pos){
+  const now=Date.now();
+  return (this.hazards||[]).some(h=>h.until>now&&Math.hypot(h.x-pos.x,h.y-pos.y,h.z-pos.z)<=HAZARD_NEAR);
+ }
  async leaveWater(token){
   const b=this.bot,at=p=>b.blockAt(p),f=b.entity.position.floored();
   const wetCell=bl=>!!bl&&/water|bubble_column|seagrass|kelp/.test(bl.name);

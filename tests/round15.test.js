@@ -459,3 +459,31 @@ test('round 37: an ore gather with no furnace crafts one for its kiln from 8 cob
  await w2.kilnTick(job2,1);
  assert.match(job2.kilnOff,/no furnace held/);
 });
+test('round 38: a hazard spot keeps gathers away for a while, and any job after a drowning steps out first',async()=>{
+ const w=Object.create(Worker.prototype);
+ w.bot={entity:{position:new Vec3(312.5,113,10.5)}};
+ w.markHazard();
+ assert.equal(w.nearHazard(new Vec3(315,110,12)),true,'ore 5 away: skipped');
+ assert.equal(w.nearHazard(new Vec3(330,113,10)),false,'ore 18 away: fine');
+ w.hazards[0].until=Date.now()-1;
+ assert.equal(w.nearHazard(new Vec3(315,110,12)),false,'expired');
+ const wk=Object.create(Worker.prototype);let stepped=0;
+ wk.leaveWater=async()=>{stepped++;};wk.check=()=>{};wk.takeStrandedTunnel=()=>null;wk.lastDrownAt=Date.now();
+ try{await wk.run({spec:{type:'gather',block:'iron_ore',count:6}},1);}catch{}
+ assert.equal(stepped,1,'a fresh job right after a drowning steps out too');
+});
+test('round 38: health falling with no attacker and air below full is treated as drowning',()=>{
+ const w=new WorldSurvivalChain();const logs=[];const ctl={};
+ const air={name:'air',boundingBox:'empty'};
+ const bot={health:20,food:18,oxygenLevel:12,entity:{position:new Vec3(59.5,51,37.5),isInWater:false},entities:{},blockAt:()=>air,setControlState:(k,v)=>{ctl[k]=v;}};
+ const ctx={worker:{log:m=>logs.push(m)}};
+ w._handleDrowning(bot,{},ctx);assert.equal(w._drowning,undefined);
+ bot.health=18;w._handleDrowning(bot,{},ctx);assert.ok(!w._drowning,'one drop is not enough');
+ bot.health=16;w._handleDrowning(bot,{},ctx);
+ assert.equal(w._drowning,true,'two drops, no attacker, air 12: drowning');assert.equal(ctl.jump,true);
+ assert.ok(logs.some(l=>/losing health with no attacker \(air 12, head air, feet air\)/.test(l)),JSON.stringify(logs));
+ // A zombie beside the bot explains the damage.
+ const w2=new WorldSurvivalChain();const bot2={...bot,health:20,entities:{1:{type:'hostile',position:new Vec3(60,51,37)}}};
+ w2._handleDrowning(bot2,{},ctx);bot2.health=18;w2._handleDrowning(bot2,{},ctx);bot2.health=16;w2._handleDrowning(bot2,{},ctx);
+ assert.ok(!w2._drowning,'a hostile within 6 explains it');
+});

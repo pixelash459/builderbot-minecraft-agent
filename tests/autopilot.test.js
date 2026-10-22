@@ -558,3 +558,17 @@ test('round 37: a skipped stone pickaxe is not re-submitted as the iron step spa
  r=plan(counts(have),{kitSkip:{stone_pickaxe:Date.now()+60000}});
  assert.notEqual(r.job?.item,'stone_pickaxe');
 });
+import {Autopilot as AP38,HOME_FAR} from '../src/autopilot.js';
+import {Vec3 as V38} from 'vec3';
+test('round 38: a saved home over HOME_FAR away (another world) is forgotten',()=>{
+ const ap=Object.create(AP38.prototype);const logs=[];let saved=0;
+ Object.assign(ap,{home:{x:1,y:-60,z:0},homeChest:true,homeChestAt:{x:306,y:119,z:11},log:m=>logs.push(m),save:()=>{saved++;},worker:{}});
+ const b={entity:{position:new V38(310,131,30)}};
+ ap.forgetFar(b);
+ assert.equal(ap.home,null);assert.equal(ap.homeChest,false);assert.equal(saved,1);
+ assert.ok(logs.some(l=>/forgot the home at 1,-60,0/.test(l)));
+ // A home nearby stays.
+ Object.assign(ap,{home:{x:300,y:120,z:20},homeChest:true,homeChestAt:{x:300,y:120,z:20}});
+ ap.forgetFar(b);assert.deepEqual(ap.home,{x:300,y:120,z:20});
+ assert.ok(HOME_FAR>=128);
+});

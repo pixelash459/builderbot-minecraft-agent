@@ -484,7 +484,7 @@ export function pickupJob(counts,ctx){
 // from base. Over INV_FULL the surplus goes into the home chest (placed beside home, crafted
 // when needed) while home is within HOME_DEPOSIT_RANGE; passing within INV_PASS of the chest
 // deposits it too; full and far from home, pure junk is dropped.
-export const CROWD_NEAR=3,FORGET_FAR=96,FORCED_DROP_MS=60000,NO_ROOM_MS=5*60000,BUCKET_FAIL_MS=5*60000,BUCKET_OFF_MS=15*60000;
+export const CROWD_NEAR=3,FORGET_FAR=96,HOME_FAR=200,FORCED_DROP_MS=60000,NO_ROOM_MS=5*60000,BUCKET_FAIL_MS=5*60000,BUCKET_OFF_MS=15*60000;
 export const INV_FULL=0.75,INV_PASS=8,INV_PASS_MIN=16,HOME_DEPOSIT_RANGE=48,INV_OFF_MS=5*60000,DROP_LOOP_MS=3*60000;
 const SAPLING=/_sapling$/,FLOWER=/^(dandelion|poppy|blue_orchid|allium|azure_bluet|.*_tulip|oxeye_daisy|cornflower|lily_of_the_valley|sunflower|lilac|rose_bush|peony|pink_petals|short_grass|tall_grass|fern|dead_bush)$/;
 export const JUNK_KEEP={dirt:32,cobblestone:64,cobbled_deepslate:32,netherrack:16,wheat_seeds:16,gravel:0,andesite:0,diorite:0,granite:0,tuff:0,calcite:0,rotten_flesh:0,sand:0,red_sand:0,pointed_dripstone:0,poisonous_potato:0,spider_eye:0,snowball:0,clay_ball:0,flint:8}; // round 22: snowball/clay_ball filled bag slots
@@ -1279,6 +1279,14 @@ export class Autopilot{
   if(far(w.furnaceRun)){this.log('Autopilot: forgot the furnace batch at '+w.furnaceRun.x+','+w.furnaceRun.y+','+w.furnaceRun.z+' (too far)');w.furnaceRun=null;}
   if(far(w.leftTable)){w.leftTable=null;}
   const tp=w.strandedTunnel?.points;if(tp&&tp.length&&far(tp[tp.length-1])){w.strandedTunnel=null;}
+  // Round 38 (round-37 normal1 drowned at 59,51,37 walking 300 blocks down toward a `deposit` at
+  // (1, -60, 0) - the flat test world's home, saved in data/autopilot.json): a home this far is
+  // another world's or a stale one.
+  const homeFar=p=>p&&Number.isFinite(p.x)&&me.distanceTo(new Vec3(p.x+0.5,p.y,p.z+0.5))>HOME_FAR;
+  if(homeFar(this.home)||homeFar(this.homeChestAt)){
+   this.log('Autopilot: forgot the home at '+(this.home?this.home.x+','+this.home.y+','+this.home.z:'?')+' (over '+HOME_FAR+' blocks away)');
+   this.home=null;this.homeChest=false;this.homeChestAt=null;this.save();
+  }
  }
  furnaceTick(b,counts){
   const run=this.worker.furnaceRun;
