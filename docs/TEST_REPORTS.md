@@ -5011,3 +5011,33 @@ The furnace-swap line and the pillar-stop line never logged. The hunt rest did l
 
 `logs/dashboard-uncaught.log` gained no bytes during the soak (size stayed 2576174). There is no new line from this round 41 window. Deaths are the hard1 zombie at (207, 149, 47) and the hard1 skeleton at (100, 137, -26).
 
+## 2026-10-24 02:32–02:37 IST — round 42 combat (bot code `0fa4984`)
+
+Units first, then one model-off restart, then one combat run. No integration. `git pull --rebase` stashed local `data/` dumps, origin was already at `0fa4984`, and the stash was popped. HEAD is `0fa4984` (`Round 42: 2-high day pillars under a canopy, wall the perch against arrows, a burrow per spot, and a stricter silent-damage rule`).
+
+Unit tests, every `tests/*.test.js` except `resources.test.js`, `--max-old-space-size=2048 --test-timeout=60000 --test-skip-pattern resources`: **610 pass, 0 fail**, 0 skipped, 41394 ms. Round 41 was 606 pass, 0 fail. The live fail count is 0, so this is a pass. `resources.test.js` was not run.
+
+`Stop-Agent.ps1` returned 0. `Start-Agent.ps1 -NoBrowser` was launched with `AGENT_MODEL=off` and returned 0. Ports came up (dashboard 8765, supervisor 8766, test server 25569, 8081 closed). `logs/supervisor.log` first line: `model server disabled (config.model.enabled=false): skipping llama-server, saving ~6.5 GB commit`. Flat world still `level-name=agent-test-world`, `server-ip=0.0.0.0`, `difficulty=peaceful`.
+
+`python -u tests/combat_integration.py` exited 0 in 318 s (02:32:08–02:37:27 IST, 21:02:08Z–21:07:27Z). `All combat acceptance tests passed`. One run. Creeper damage was measured, so there is no second run.
+
+`4_creeper` (lane): ttk 7.3 s, hits 5, `damage_taken=0`, end health 20, killed, no crater at the spawn, the midpoint, or the bot start. Dashboard fight result at 21:04:12.754Z: `creeper tactic=bow hits=5 crits=0 sweeps=0 shots=0 released=0 landed=0 damage taken=0 disengages=0 result=finished`.
+
+`4b_creeper_roofed`: ttk 7.2 s, hits 3, `damage_taken=0`, end health 20, killed, no crater at the spawn corner or the arena center. Fight result at 21:04:27.204Z: `creeper tactic=bow hits=3 crits=0 sweeps=0 shots=3 released=3 landed=3 damage taken=0 disengages=0 result=finished`.
+
+Pillar, kite, flee, and walls (dashboard bytes after 60591668, 331 lines, 21:02:08Z–21:07:23Z):
+
+- Lane: `21:04:06.112Z Combat: pillar-up 2 at 1499,-60,1518 (creeper at 7.1)`, then `21:04:06.934Z Combat: pillar perched 2 up`, then `21:04:07.293Z Combat: perch 2 up is inside the fuse ring; knocking the creeper back (at 3.8)` and three `pillar-strike` lines. No `creeper-bow` line on this leg. Height 2, perched, not failed.
+- Roofed: `creeper-bow` closed from d=9.5 to d=8.2, then `21:04:21.304Z Combat: pillar-up 2 at 1496,-60,1497 (creeper at 7.8)`, `21:04:22.054Z Combat: pillar perched 2 up`. Three arrows released and all three landed. Fuse-ring knockback at `21:04:26.105Z Combat: perch 2 up is inside the fuse ring; knocking the creeper back (at 3.6)`. Height 2, perched, not failed.
+- Zero `pillar-up failed` lines. Both pillar-ups perched at 2.
+- Zero `Combat: kite` lines. Zero fuse-flee lines (`creeper swell`, `sprinting past`). The kite and flee states did not run on these two creeper fights; the pillar path took them and both ended at 0 damage. The only "kite" text is the witch avoid note `the witch kites and out-potions the rush`, which is not a creeper kite.
+- The only `flee` text before the fights is the unarmed retreat on the style probes: `Job: Unarmed; retreated from the fight - threat policy takes over (flee/shelter/get armed)` at 21:02:39.197Z and 21:02:42.572Z. That is not a creeper flee. The low-health leg disengaged: `21:05:51.764Z Combat: disengage zombie`, fight result `disengages=1 result=finished` at 21:06:07.203Z (`damage taken=12.4`). There is no `Combat: retreat` line. The suite still recorded the eat-and-retreat pass (`food 1 -> 20`).
+- Zero `Night: walled the perch` lines. Zero `Night:` pillar lines. Zero day-crowd lines. The combat harness does not run the night-refuge walls; those stay for the soak. The 2-high pillars in this window are the combat creeper pillars, both perched.
+- Zero `Ledge guard: stopped` lines in this combat window.
+
+The witch leg printed `NOTE: witch survived the duel (job failed, lost 0 hp) - recorded as a measured 26.3 limit` and the suite still exited 0. That is the recorded limit.
+
+Server log bytes after 15752528: `kicked` 0, `lost connection` 0. `logs/dashboard-uncaught.log` gained no bytes (size stayed 2576174).
+
+The soak is next.
+
