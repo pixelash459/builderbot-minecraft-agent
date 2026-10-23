@@ -132,9 +132,13 @@ export function pillarRoom(blockAt,x,y,z,max=3){
 // and the column fits; null leaves the ordinary ladder (fight / flee) in charge.
 // forced: tonight's shelter failed (worker.shelterFallback) - climb before any mob arrives
 // and hold the column until morning (hold), not just until the crowd thins out.
+export const DAY_CROWD=6;
 export function nightRefuge({tod,me,hostiles,blocks=0,room=0,onGround=true,inFluid=false,fightAllowed=false,forced=false}){
- if(!darkNow(tod)||!me)return null;
+ if(!me)return null;
  const near=(hostiles||[]).filter(h=>h&&h.position&&Math.hypot(h.position.x-me.x,h.position.y-me.y,h.position.z-me.z)<=16);
+ // Round 40 (round-39 hard run: slain by a zombie 3 min in, by day, fleeing ~20 mobs under the
+ // dark-forest canopy with planks in the bag): a crowd of DAY_CROWD+ climbs by day too.
+ if(!darkNow(tod)&&!(near.length>=DAY_CROWD))return null;
  if(!near.length&&!forced)return null;
  const close=near.filter(h=>Math.hypot(h.position.x-me.x,h.position.z-me.z)<=8);
  const crowd=near.length>=3||(!fightAllowed&&close.length>0);
@@ -142,6 +146,7 @@ export function nightRefuge({tod,me,hostiles,blocks=0,room=0,onGround=true,inFlu
  if(inFluid||!onGround||blocks<3||room<3)return null;
  // A mob already touching the column climbs with us (spiders) or blocks the jump: fight/flee.
  if(near.some(h=>Math.hypot(h.position.x-me.x,h.position.z-me.z)<1.2))return null;
+ if(!darkNow(tod))return {action:'pillar',height:3,crowd:near.length,day:true};
  return forced?{action:'pillar',height:3,crowd:near.length,hold:true}:{action:'pillar',height:3,crowd:near.length};
 }
 // Deep water: a water cell with water above or below it (no footing). The step cost bans

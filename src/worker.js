@@ -151,6 +151,8 @@ export const DROWN_RECENT_MS=10000;
 export const HAZARD_NEAR=8,HAZARD_MS=5*60000;
 // Round 36: the farthest ore (from the eye) the gather tunnels to when no walk reaches it.
 export const ORE_TUNNEL=10;
+// Round 40: the most an ascend pillars (and digs) in one try when no path leads up.
+export const ASCEND_PILLAR=24;
 // Round 37: the pathfinder's cost per water cell (its default is 1, the same as land).
 export const LIQUID_COST=4;
 export const LEDGE_DROP=5,LEDGE_LOOK=0.9;
@@ -1714,7 +1716,7 @@ export class Worker extends EventEmitter {
  // Jump-place held blocks under the feet until the feet stand at targetY: hold jump, place on
  // the block under the old feet cell at the apex, land. Never into a ceiling (the cell above
  // the head must be open, or a block `clear` accepts, which is dug); three tries per level.
- async pillarUp(targetY,token,{clear=null}={}){
+ async pillarUp(targetY,token,{clear=null,maxDigs=TRUNK_PILLAR}={}){
   const b=this.bot;
   let digs=0;
   for(let tries=0;b.entity.position.floored().y<targetY&&tries<3;){
@@ -1722,7 +1724,7 @@ export class Worker extends EventEmitter {
    const f=b.entity.position.floored(),y0=f.y;
    const roof=b.blockAt(f.offset(0,2,0));
    if(roof?.boundingBox==='block'){
-    if(!clear||!clear(roof)||++digs>TRUNK_PILLAR){this.log('Pillar: ceiling at '+f.offset(0,2,0));return false;}
+    if(!clear||!clear(roof)||++digs>maxDigs){this.log('Pillar: ceiling at '+f.offset(0,2,0));return false;}
     await b.dig(roof);this.check(token);continue;
    }
    const item=b.inventory.items().find(i=>SHELTER_ITEMS.includes(i.name));
@@ -3565,6 +3567,14 @@ export class Worker extends EventEmitter {
   if(Math.floor(b.entity.position.y)<y-4&&!(job.spec.forFood&&headSky(b,b.entity.position.floored())>=SKY_OPEN)){
    const goal=job.spec.forFood?new GoalSky(b,y):new goals.GoalY(y);
    try{await this.navigate(goal,token,90);}catch(e){this.check(token);this.log('Ascend: path up stopped ('+String(e.message).slice(0,60)+')');}
+  }
+  // Round 40 (round-39 normal: `ascend` for food from y=53 x16, every one `No path to the goal!
+  // (empty path ...)` - an enclosed cell with no way up the pathfinder can see): pillar straight
+  // up instead, digging any ceiling that has no fluid or falling block over it.
+  if(Math.floor(b.entity.position.y)<=start+2&&Math.floor(b.entity.position.y)<y-4){
+   const safe=bl=>{const up=b.blockAt(bl.position.offset(0,1,0));return !/bedrock|obsidian|chest|furnace|crafting_table|spawner/.test(bl.name)&&!isFluid(bl)&&!isFluid(up)&&!isGravity(up);};
+   this.log('Ascend: no path up from y='+start+'; pillaring');
+   try{await this.pillarUp(Math.min(y,start+ASCEND_PILLAR),token,{clear:safe,maxDigs:ASCEND_PILLAR});}catch(e){this.check(token);this.log('Ascend: pillar stopped ('+String(e.message).slice(0,60)+')');}
   }
   const now=Math.floor(b.entity.position.y);
   this.log('Ascend: y='+start+' -> '+now+' (surface '+y+')');

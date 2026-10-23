@@ -1988,3 +1988,12 @@ Round 38 rerun soak (`400cfd0`): **0 deaths, no drowning death, no falls**, iron
 - **Escape climbs aim at `escapeY`** = the surface anchor, but never below `ESCAPE_FLOOR`=62.
 - **The deep-dark line is logged once per 20-min window** (the escape still runs each time).
 - **The sunset grace crafts the iron pick** (`duskKitJob`): with the wood kit done, no iron pick and 3+ ingots, the grace crafts it (sticks, or planks for them, first) before the shelter.
+
+## Round 40 (2026-10-23)
+
+Round 39 soak (`d0f93c1`): 1 death, **hard iron pick on two runs** (hard2 603 s, hard3 512 s - the sunset grace crafted the pick before the shelter on both), iron pick on all normal runs (421/542/331 s), **a diamond pickaxe on normal3** (2107 s). The deep-dark escape loop is gone (0 lines, no escape aimed below 62); the kiln crafted its furnace twice; no stone-pick loop. Found:
+- hard1 **slain by a zombie 3 min in, by day**, fleeing ~20 mobs under the dark-forest canopy with planks in the bag: the crowd pillar (`nightRefuge`) only ran after dark;
+- a food `ascend` from y=53 resubmitted ~16 times, each `No path to the goal! (empty path ...)`: an enclosed cell, and the food set-aside does not hold when the bot is hungry with no food.
+
+- **Ascend pillars when no path leads up** (`ASCEND_PILLAR`=24): if the walk up gains nothing, the bot pillars straight up toward the target (at most 24 per try), digging a ceiling only when it is not bedrock/obsidian/a container and has no fluid or falling block over it. Line: `Ascend: no path up from y=N; pillaring`. `pillarUp` takes a `maxDigs` option (default `TRUNK_PILLAR`).
+- **A big crowd by day pillars too** (`DAY_CROWD`=6): `nightRefuge` returns a pillar by day for 6+ hostiles within 16 (marked `day`). A day pillar (`NightPillarTask` `day`) is not ended by daylight: it comes down after 15 s of quiet on the perch, like a night pillar that is not holding.

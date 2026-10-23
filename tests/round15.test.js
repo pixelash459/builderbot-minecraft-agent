@@ -487,3 +487,15 @@ test('round 38: health falling with no attacker and air below full is treated as
  w2._handleDrowning(bot2,{},ctx);bot2.health=18;w2._handleDrowning(bot2,{},ctx);bot2.health=16;w2._handleDrowning(bot2,{},ctx);
  assert.ok(!w2._drowning,'a hostile within 6 explains it');
 });
+test('round 40: an ascend with no path up pillars straight up instead',async()=>{
+ const w=Object.create(Worker.prototype);const logs=[];let pillared=null;
+ w.bot={entity:{position:new Vec3(237.5,53,87.5)},blockAt:()=>({name:'stone',boundingBox:'block',skyLight:0,position:new Vec3(0,0,0)})};
+ w.navigate=async()=>{throw Error('No path to the goal! (empty path at (237, 53, 87), last path)');};
+ w.log=m=>logs.push(m);w.check=()=>{};
+ w.pillarUp=async(targetY,token,opts)=>{pillared={targetY,opts};w.bot.entity.position=new Vec3(237.5,70,87.5);return true;};
+ await w.ascend({spec:{type:'ascend',y:131,forFood:true}},1);
+ assert.ok(pillared,'pillared');assert.equal(pillared.targetY,53+24);
+ assert.ok(typeof pillared.opts.clear==='function'&&pillared.opts.maxDigs===24);
+ assert.ok(logs.some(l=>/no path up from y=53; pillaring/.test(l)));
+ assert.ok(logs.some(l=>/Ascend: y=53 -> 70/.test(l)));
+});

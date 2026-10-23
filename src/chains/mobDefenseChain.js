@@ -232,7 +232,7 @@ export class MobDefenseChain extends SingleTaskChain{
    room:blocks?pillarRoom(cellAt(bot),x,y,z,3):0,onGround:e.onGround!==false,inFluid:!!(e.isInWater||e.isInLava),fightAllowed:policy.allowed,
    forced:!!(w&&typeof w.nightPillarWanted==='function'&&w.nightPillarWanted(bot))});
   if(!plan)return null;
-  return this._pillar=new NightPillarTask(plan.height,{hold:plan.hold});
+  return this._pillar=new NightPillarTask(plan.height,{hold:plan.hold,day:!!plan.day});
  }
  // The armed response as a FightTask (ActionTask subclass): the TaskRunner is the single
  // owner, the controller only ever sees the ownership-guarded move helper.

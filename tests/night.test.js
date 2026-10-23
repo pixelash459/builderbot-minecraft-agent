@@ -453,3 +453,24 @@ test('round 37: a crowd at dusk makes the shelter due early; stillNight holds fr
  assert.equal(stillNight(11000),true,'an early refuge holds');
  assert.equal(stillNight(5000),false);
 });
+test('round 40: a big crowd by day (dark-forest canopy) pillars too; a small one does not',async()=>{
+ const {nightRefuge,DAY_CROWD}=await import('../src/night.js');
+ const me={x:0,y:64,z:0};const mob=(x,z)=>({position:{x,y:64,z}});
+ const crowd=n=>Array.from({length:n},(_,i)=>mob(5+i,5));
+ const base={tod:3000,me,blocks:8,room:3,onGround:true};
+ assert.equal(nightRefuge({...base,hostiles:crowd(3)}),null,'3 by day: fight or flee as before');
+ const r=nightRefuge({...base,hostiles:crowd(DAY_CROWD)});
+ assert.equal(r?.action,'pillar');assert.equal(r.hold,undefined,'not a hold-till-morning pillar');assert.equal(r.day,true);
+ assert.equal(nightRefuge({...base,tod:13000,hostiles:crowd(3)})?.action,'pillar','night as before');
+});
+test('round 40: a day pillar is not ended by daylight, only by a quiet perch',async()=>{
+ const {NightPillarTask}=await import('../src/chains/fallbackTasks.js');
+ const bot={time:{timeOfDay:3000},entity:{position:{x:0,y:64,z:0}},entities:{}};
+ const night=new NightPillarTask(3);night.phase='climb';
+ assert.equal(night.isFinished(bot,{}),true,'a night pillar ends by day, as before');
+ const day=new NightPillarTask(3,{day:true});day.phase='climb';
+ assert.equal(day.isFinished(bot,{}),false,'a day pillar keeps climbing');
+ day.phase='perch';day.quietSince=day.now()-16;
+ assert.equal(day.isFinished(bot,{}),true,'down once quiet for 15 s');
+ assert.equal(day.resumeCopy().day,true);
+});

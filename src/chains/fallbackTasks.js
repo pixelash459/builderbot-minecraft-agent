@@ -627,8 +627,9 @@ export const pillarBlocks=bot=>{
 };
 export class NightPillarTask extends Task{
  // hold: the shelter fallback - stay perched until morning, however quiet it gets.
- constructor(height=3,{hold=false}={}){
-  super('NightPillarTask');this.height=height;this.hold=hold;this.phase='climb';this.base=null;this.t0=null;
+ // day (round 40): climbed by day for a canopy crowd - down once quiet, not at 'morning'.
+ constructor(height=3,{hold=false,day=false}={}){
+  super('NightPillarTask');this.height=height;this.hold=hold;this.day=day;this.phase='climb';this.base=null;this.t0=null;
   this.clickAt=-1e9;this.clickY=null;this.failed=false;this.quietSince=null;this._shield=false;
   this._lastAttack=-1e9;this._equipAt=-1e9;this.now=()=>Date.now()/1000;
   this.ringTries={};this.ringAt=-1e9;this.ringLogged=false;
@@ -636,12 +637,12 @@ export class NightPillarTask extends Task{
  _log(ctx,m){const c=pickCtx(this,ctx),w=c&&c.worker;if(w&&w.log)try{w.log(m);}catch{}}
  // A runner teardown (a higher band took over for a moment) stops this instance for good:
  // the chain adopts a fresh one that keeps the column, the phase and the quiet clock.
- resumeCopy(){const q=new NightPillarTask(this.height,{hold:this.hold});Object.assign(q,{base:this.base,phase:this.phase,t0:this.t0,quietSince:this.quietSince,ringTries:this.ringTries,ringLogged:this.ringLogged});return q;}
+ resumeCopy(){const q=new NightPillarTask(this.height,{hold:this.hold,day:this.day});Object.assign(q,{base:this.base,phase:this.phase,t0:this.t0,quietSince:this.quietSince,ringTries:this.ringTries,ringLogged:this.ringLogged});return q;}
  isFinished(bot,ctx){
   if(this.failed)return true;
   // Morning: down once it is light and clear (round 7: not at the wrap to 0 - the night's
   // mobs are still standing, and shaded ones never burn).
-  if(!darkNow(dayTicks(bot))&&(this.phase!=='perch'||leaveRefuge(dayTicks(bot),nearestHostile(bot,ctx))))return true;
+  if(!this.day&&!darkNow(dayTicks(bot))&&(this.phase!=='perch'||leaveRefuge(dayTicks(bot),nearestHostile(bot,ctx))))return true;
   return !this.hold&&this.phase==='perch'&&this.quietSince!=null&&this.now()-this.quietSince>=15;
  }
  _top(bot){
