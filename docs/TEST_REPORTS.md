@@ -4840,3 +4840,174 @@ The new repeats are the normal3 smelt resubmits at a furnace the bot could not p
 ### Uncaught
 
 `logs/dashboard-uncaught.log` gained no bytes during the soak (size stayed 2576174). There is no new line from this round 40 window. Deaths are 0. hard3 ended the night with 4 raw iron, 0 ingots, and no iron pick.
+
+## 2026-10-23 22:39 IST – 2026-10-24 01:47 IST — round 41 soak (bot code `38f0561`)
+
+Units first, then one model-off restart, then one six-run soak. No combat and no integration. `git pull --rebase` stashed local `data/` dumps, origin was already at `38f0561`, and the stash was popped. HEAD is `38f0561` (`Round 41: swap an unreachable furnace for one placed here, rest a species after a timed-out hunt, and log why a pillar stops`).
+
+Unit tests, every `tests/*.test.js` except `resources.test.js`, `--max-old-space-size=2048 --test-timeout=60000 --test-skip-pattern resources`: **606 pass, 0 fail**, 0 skipped, 41332 ms. Round 40 was 605 pass, 0 fail. The live fail count is 0, so this is a pass. `resources.test.js` was not run.
+
+`AGENT_MODEL=off`, one soak, exit 0, 11294 s (22:39:23 IST 23 Oct – 01:47:37 IST 24 Oct, 17:09:23Z–20:17:36Z). `SOAK DONE (clean)`, promoted to `data/soak-results.json` (`clean triple promoted`). Anchors on this regenerated seed: hard [142, 131, 31] (canopy light 10), normal [310, 131, 30] (open sky 15). Interventions 3, resumes 2, deaths 2. Six valid runs, each on the first attempt (`normal1a1` through `hard3a3`). `invalid_attempts` is empty. No `timeOfDay=None`. Every run header was dawn, clear weather, empty inventory, full vitals. `tod_at_start` and `tod_end` are `day` on all six. Dashboard window is the bytes after offset 60310362 (3000 timestamped lines). The runs are the `Autopilot started` pairs: normal1 17:12:35Z–17:52:54Z, normal2 17:52:54Z–18:33:14Z, normal3 18:33:14Z–19:13:40Z, hard1 19:13:40Z–19:34:56Z (resumes at 19:21:42Z and 19:32:14Z are the two death resumes, not new runs), hard2 19:34:56Z–19:56:13Z, hard3 19:56:13Z–20:17:21Z. After the stop, the flat world was restored (`level-name=agent-test-world`, `level-type=minecraft\:flat`, `server-ip=0.0.0.0`, `difficulty=peaceful`). Supervisor log first line is still `model server disabled (config.model.enabled=false): skipping llama-server, saving ~6.5 GB commit`. The soak was not stopped early.
+
+The wood / stone-pick / furnace / iron-pick columns are the first sample that held the item. **Iron pick on all three normal runs (391/572/513 s) and on none of the hard runs.** Iron-ore peaks: normal 10/8/16, hard 0/2/3. Ingot peaks: normal 8/7/16, hard 0/0/0. Diamonds: 0/0/0 and 0/0/0. Diamond pick: none. Round 40 normal iron was 421/361/361, ore 7/6/7, ingots 7/9/8, diamonds 0, and hard iron was 542/602/none with ore 4/3/4 and ingots 3/0/0. Round 39 normal iron was 421/542/331, ore 5/4/8, ingots 6/7/7, diamonds 0/0/3 with a pick at 2107 s, and hard iron was none/603/512 with ore 0/3/5 and ingots 0/0/3. This round's normal1 pick (391 s) is earlier than both. normal2 (572 s) and normal3 (513 s) are later than round 40. Normal ore and ingots are higher, and normal3's 16/16 is the highest of these three rounds. Every hard iron pick from round 40 is gone. No run held a diamond.
+
+Normal wood 120/120/120, stone 211/181/181, furnace 271/271/271, iron 391/572/513. Round 40 normal was wood 90/90/90, stone 211/151/150, furnace 301/211/271, iron 421/361/361. Round 39 normal was wood 90/120/90, stone 211/151/150, furnace 301/241/241, iron 421/542/331.
+
+Hard wood 90/121/151, stone 151/301/211, furnace 241/422/—, iron —/—/—. Round 40 hard was wood 90/120/151, stone 151/211/211, furnace 211/271/271, iron 542/602/—. Round 39 hard was wood 150/121/181, stone 545/212/241, furnace none/302/none, iron none/603/512.
+
+The end-of-run wood flag needs a wooden pick and a crafting table still in the inventory. The stone flag needs the full stone kit plus a furnace. normal1's wood flag is no (`crafting_table: 0` at the end; the wooden pick was held at 120 s) and its stone flag is yes. normal3's wood flag is no (`crafting_table: 0`) and its stone flag is no (`stone_shovel: 0`); a stone pick had been held at 181 s and a furnace at 271 s. hard1's wood and stone flags are no because the second death emptied the inventory; the samples had held wood at 90 s, a stone pick at 151 s, and a furnace at 241 s. hard2's stone flag is no (`furnace: 0` at the end; a furnace had been held at 422 s). hard3's stone flag is no (a furnace was never held).
+
+| Run | Wood | Stone pick | Furnace | Iron pick | Iron ore peak | Ingots peak | Diamonds | Diamond pick | Deaths |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| normal1a1 | 120 | 211 | 271 | 391 | 10 | 8 | 0 | no | 0 |
+| normal2a2 | 120 | 181 | 271 | 572 | 8 | 7 | 0 | no | 0 |
+| normal3a3 | 120 | 181 | 271 | 513 | 16 | 16 | 0 | no | 0 |
+| hard1a1 | 90 | 151 | 241 | - | 0 | 0 | 0 | no | 2 |
+| hard2a2 | 121 | 301 | 422 | - | 2 | 0 | 0 | no | 0 |
+| hard3a3 | 151 | 211 | - | - | 3 | 0 | 0 | no | 0 |
+
+### Furnace swap
+
+Zero `Smelt: no way to the furnace` lines. Zero `using one here`. Round 40 normal3 resubmitted `smelt raw_iron` 6 then 7 then 5 times at a furnace it could not path back to. That 18-submit loop did not return. Walks to a furnace still failed, and the swap line did not fire on those failures. Three of them then took ingots from the same furnace:
+
+- `17:24:19.399Z Left the furnace at (308, 138, 10): No path to the goal! (empty path at (307, 138, 9), last path: partial, 0 steps, 224 nodes)` then `17:24:20.311Z Smelt: furnace at 308,138,10 loaded with 3 raw_iron` and `17:25:05.420Z Smelt: took 3 iron_ingot from the furnace at 308,138,10`. Same furnace, completed.
+- `17:35:37.447Z Smelt: walk back to the furnace at 490,130,102 failed (No path to the goal!); trying the explore moves` then `17:36:57.212Z Smelt: took 10 iron_ingot from the furnace at 490,130,102`. Same furnace, completed. `17:36:57.336Z Left the furnace at (490, 130, 102): No path to the goal!` is after the take.
+- `17:41:16.821Z Smelt: walk back to the furnace at 583,93,-59 failed (No path to the goal! (empty path at (586, 88, -50), last pat); trying the explore moves` then `17:41:37.018Z Smelt: took 4 iron_ingot from the furnace at 583,93,-59`. Same furnace, completed.
+
+One did not complete. `18:07:48.703Z Left the furnace at (377, 96, 34): No path to the goal! (empty path at (377, 96, 35), last path: partial, 0 steps, 223 nodes)` on normal2, then `18:07:49.168Z Autopilot [iron] {"type":"smelt","item":"raw_iron","count":1}`. No `Smelt: no way`, no `using one here`, and no ingot take from that furnace before `18:08:51.159Z` set the bed aside.
+
+### Hunt timeout
+
+Four timeout lines. The rest line fired on the three `still standing` timeouts. It did not fire on hard1's different wording, and that sheep was fought again 10 s later.
+
+- hard1, bed hunt, no rest line: `19:20:07.693Z Job: Hunt timed out fighting sheep`. The next food job is `19:20:08.027Z Autopilot [food] {"type":"fight","entity":"chicken","maxSeconds":90}`, which finished in 2 s (`hits=2`, `result=finished`). Then `19:20:17.329Z Autopilot [food] {"type":"fight","entity":"sheep","maxSeconds":90}` and `19:20:27.295Z Fight result: sheep ... hits=3 ... result=finished`. The same species was hunted again inside 3 min. There is no `leaving sheeps alone` line on this timeout.
+- hard2, end of the food fight: `19:43:24.293Z Job: Fight timed out; chicken is still standing` and `19:43:24.743Z Autopilot: chicken hunt timed out; leaving chickens alone for 3 min`. The next line is `19:43:24.927Z Autopilot: dusk: no hunting (0 hostiles within 16)`, then iron crafts (stick, stone pickaxe). No chicken fight in the next 3 min. The shelter sealed at 19:44:54Z.
+- hard3, food fight: `20:01:56.694Z Job: Fight timed out; chicken is still standing` and `20:01:57.243Z Autopilot: chicken hunt timed out; leaving chickens alone for 3 min`. Next is a collect, then `20:02:05.482Z Autopilot [food] {"type":"fight","entity":"sheep","maxSeconds":90}`. No second chicken fight in the next 3 min.
+- hard3, 99 s later: `20:03:35.661Z Job: Fight timed out; sheep is still standing` and `20:03:36.029Z Autopilot: sheep hunt timed out; leaving sheeps alone for 3 min`. Next is a food explore, cancelled at `20:03:44.510Z Autopilot: food explore cancelled - animals in range`, then `20:03:45.608Z Autopilot: dusk - finishing the stone kit first (furnace)`. No second sheep fight in the next 3 min.
+
+hard3 did reach the iron step (first sample t=572). Round 40 hard3 never did: two chicken fights ate the window and it held 4 raw ore and 0 ingots with no iron step. This hard3's two timeouts were one chicken and one sheep, and it left each species alone.
+
+### Hard iron at sunset
+
+hard1 never entered the iron step. Food-step samples are t=271 and t=392–422, with a bed sheep hunt between them (t=301–392). The t=452 sample is still `step furnace` at [207, 149, 47], hp 12.3, ore 0, ingots 0, pick 0. Death at t=482 (day, light 13) is before any iron sample. The night sample at t=603 holds ore 0, ingots 0, pick 0. No `iron_pickaxe` craft on this run. No dusk iron-pick line.
+
+hard2 iron step first sample t=512 (ore 0, ingots 0, pick 0), after 90 s on food (`working: fight` at [138, 128, 31] from t=422). The chicken rest is at 19:43:24Z, about t=508. At t=572 the sample held ore 2, ingots 0, pick 0. `19:44:38.551Z Gather: kiln at 137,122,37; smelting raw_iron while mining` loaded 3 raw iron. The shelter went out at `19:44:54.145Z` (about t=597), 16 s later. The t=603 sample is `step night` and holds ore 2, ingots 0, pick 0. Dusk lines are `dusk: no hunting (0 hostiles within 16)`, not `dusk - finishing the stone kit first (iron_pickaxe)`. The sunset pick was not submitted. Ingots at sunset are 0. The 3 raw iron in the kiln were not taken before the box.
+
+hard3 food step is t=271–482 (211 s), the chicken fight then the sheep fight above. Iron starts at t=572 (`working: craft`, ore 0, ingots 0, pick 0), 30 s before night. `20:03:45.608Z Autopilot: dusk - finishing the stone kit first (furnace)` is the dusk craft, not an iron pick. `20:05:47.097Z Autopilot [iron] {"type":"gather","block":"iron_ore","count":6,...,"smeltAt":3}` and the shelter at `20:06:08.469Z` (about t=595). The t=602 sample holds ore 1, ingots 0, pick 0. No iron-pick craft. Ingots at sunset are 0. Ore rose to 3 during the night mine.
+
+### Ascend and pillar stop
+
+Zero `Ascend: ... pillaring` lines. Zero `Pillar: stopped`. Zero `Pillar: ceiling`. The new stop reason was not logged. Three `Ascend:` results, none of them a pillar:
+
+- `17:34:40.980Z Ascend: y=26 -> 136 (surface 136)` on normal1, after `17:33:46.852Z Job: Tunnel stopped: deep dark (sculk_catalyst at (454, -3, 48))`. Gained 110 and reached the surface. No pillar line.
+- `18:18:25.537Z Ascend: path up stopped (No path to the goal!)` and `Ascend: y=1 -> 81 (surface 129)` on normal2, after `18:17:46.863Z Job: Tunnel stopped: deep dark (sculk_sensor at (410, -24, 63))`. Gained 80 and stopped short of 129. No pillar line.
+- `19:02:17.692Z Ascend: y=101 -> 126 (surface 133)` on normal3. Gained 25 and stopped short of 133. No pillar line.
+
+Zero food `ascend` lines. The round 39 food-ascend loop did not return. Round 40's five `no path up ...; pillaring` climbs did not return either.
+
+### Day pillars
+
+No day-crowd pillar. The daytime crowd fled and the bot died.
+
+`19:21:07.299Z Reflex: fleeing skeleton,skeleton,... (vulnerable)` on hard1, tod day (the death 9 s later is tod day, light 13, at the same block the t=452 sample was already on at hp 12.3). The name list is 74 hostiles: 29 creeper, 26 skeleton, 17 zombie, 2 spider. It did not pillar. `19:21:16.655Z Bot died at 207, 149, 47 (killed by zombie)`.
+
+The night pillars are after the shelter failed, not a day crowd. `19:24:20.796Z Shelter: Short of shelter blocks: 12 held, 19 needed at (100, 135, -26); night pillar instead`, then `19:24:20.846Z Night: caught outside in a crowd; pillar-up 3 at 100,135,-26` and `19:24:22.086Z Night: perched 3 up; holding until morning`. Knocked off at `19:30:22.874Z Night: knocked off the pillar` (about 6 min up) with `Reflex: fleeing creeper (never melee a creeper)`. Second perch: `19:30:28.346Z Night: caught outside in a crowd; pillar-up 3 at 100,134,-26` and `19:30:29.643Z Night: perched 3 up`. Shot off at `19:31:47.899Z` (about 78 s up). Zero `Pillar: stopped` on either perch. A later flee at `19:34:48.749Z` is after the morning open (`still recovering`), not a pillar.
+
+### Deaths
+
+Two deaths, both hard1. Server log, dashboard, and the soak terminal agree. Round 40 had 0. Round 39 had 1 (hard1 zombie).
+
+1. Zombie, day, t=482, light 13, sample pos [104, 141, -29] after respawn. `19:21:16.654Z BuilderBot was slain by Zombie` and `19:21:16.655Z Bot died at 207, 149, 47 (killed by zombie)`. The 30 s before it is a smelt take under a crowd, then melee that keeps stopping:
+
+`19:20:58.249Z Navigation: no path with mob avoidance at (208, 149, 47); trying without it`
+
+`19:21:05.230Z Reflex: Mob Defense engaging` / `Combat: equip zombie` / `Pause trace: gather -> Reflex: preempted by Mob Defense`
+
+`19:21:05.347Z Combat: strike zombie` and `19:21:05.574Z Autopilot [furnace] {"type":"smelt","item":"beef","count":2,"take":true,"keepFurnace":true}`
+
+`19:21:07.299Z Reflex: fleeing` the 74-hostile list `(vulnerable)`, and `Fight result: zombie tactic=melee hits=2 ... damage taken=0 ... result=stopped`
+
+`19:21:07.759Z Combat: strike zombie` through `19:21:09.658Z Fight result: zombie ... hits=1 ... damage taken=0 result=stopped`
+
+`19:21:16.654Z BuilderBot was slain by Zombie`
+
+2. Skeleton, dawn, t=1114, light 0, pos [86, 123, -28] after respawn. `19:31:47.898Z BuilderBot was shot by Skeleton` and `19:31:47.899Z Bot died at 100, 137, -26 (killed by skeleton)`. The dashboard has no line in the 30 s before the shot. The previous lines are the second perch:
+
+`19:30:29.643Z Night: perched 3 up; holding until morning`
+
+`19:30:34.901Z Night: overhang ring 8/8 around the pillar top (spiders cannot climb past it)`
+
+then 73 s of silence, then the shot and `19:31:47.954Z Night: knocked off the pillar`.
+
+The operator resumed the ladder after each death (t=482 and t=1114). The one other intervention is normal1 `operator: returned the bot from below the anchor at [652, 96, -70]` on the last sample, a wood-step return with logs already 0.
+
+### Repeated jobs
+
+normal1's bed step resubmitted the same pair from `17:46:42.347Z` to `17:51:57.240Z` (150 fights, about 5 min), while the samples sit on [590, 84, -68]:
+
+`Autopilot [bed] {"type":"fight","entity":"sheep","maxSeconds":30}` then `Completed fight` in the same millisecond, alternating with `Autopilot [bed] {"type":"collect","radius":16}` and `Completed collect`.
+
+No smelt spec was submitted 5 times in a row. Spider hunts with `No spider within 24 blocks to hunt` came in threes, which is under 5.
+
+### Drowning and water
+
+Three logged drowning episodes, all hard1, each `losing health with no attacker` with air still high. Zero `Water: stepped out`. Zero `Water: could not step out`. None of the three is the death line. Round 40 had zero.
+
+- `19:21:17.773Z WorldSurvival: losing health with no attacker (air 17.8, head air, feet air); treating it as drowning` and `drowning (air 17.8), swimming up`, 1 s after the zombie death.
+- `19:30:23.756Z` the same pair with air 16.9, 1 s after the first pillar knock-off.
+- `19:32:01.597Z` the same pair with air 19.9, 14 s after the skeleton death.
+
+### Kiln
+
+`Gather: crafted a furnace for the kiln` once, normal1 `17:37:52.842Z`, then `kiln at 492,123,103` loaded with 3 raw iron. Zero `no kiln`. Zero `could not craft a furnace`. Kiln loads of an existing furnace are on normal1, normal2, normal3, and hard2 (the hard2 load at 19:44:38Z did not return ingots before the seal). hard1 and hard3 have no kiln line.
+
+### Shelters and night mine
+
+hard1 did not run a night mine. The shelter job failed for blocks, the night was the pillar above, and the box that did seal was after the second death, at dawn: `19:32:42.200Z Shelter: sealed at (84, 114, -28) (11 blocks placed)`, `19:33:32.980Z Shelter: dawn (tod 3); staying sealed until the morning is light and clear`, `19:34:23.044Z Shelter: morning (tod 1003, nearest hostile 20.7); opening up`.
+
+hard2 and hard3 sealed, went down, failed to climb back, resealed, and held the second box until dawn.
+
+- hard2: sealed (136, 123, 40) with 9 blocks at 19:44:54Z. Down at tod 12610. `Night mine: could not climb back` (`Took to long`) and `not back in the shelter (opened onto a cave at 139,113,38; 9 steps, 0 ore items, 0 wall digs)`. Second box sealed at (135, 123, 41) with 10 blocks. Dawn tod 10, morning tod 1070 opened.
+- hard3: sealed (140, 122, 36) with 2 blocks at 20:06:08Z. Down at tod 12612. Climb back failed (`opened onto a cave at 153,110,36; 13 steps, 2 ore items, 1 wall digs`). Second box at (140, 122, 37) with 5 blocks. Dawn tod 12 at 20:16:06Z, still sealed when the run ended. No morning-open line.
+
+### Falls and ledge guard
+
+Two `Fall: dropping` lines. Zero deaths from a fall. Zero `Ledge guard: stopped` lines. Round 40 was 2 falls and 0 ledge stops.
+
+- `17:26:40.993Z Fall: dropping from (350, 116, 26) (job fight, pathing true, sprint false)` on normal1. No death.
+- `19:32:03.152Z Fall: dropping from (87, 129, -30) (job none, pathing false, sprint false)` on hard1, 15 s after the skeleton death. The death cause is the shot, not this fall.
+
+### Bed
+
+One bed craft: `18:22:19.142Z Autopilot [bed-rung] {"type":"craft","item":"black_bed","count":1}` on normal2. The bed column is 1776 s on normal2 and none on the other five. Zero `white_bed`. Zero `Sleeping`. Zero place-bed lines. `no sheep after 3 search legs; bed set aside for 10 min` is on normal1 (twice), normal2 (once), and normal3 (once). `Autopilot: home set to the table` at 331,135,25 (normal1), 336,131,29 (normal2), and 136,129,31 (hard2). `forgot the home` at 103,131,-22 (normal1 start), 331,135,25, 591,85,-69 (normal2 start), and 336,131,29 (hard1 resume). No bed was slept in.
+
+### Path counts
+
+`Navigation made no progress` is 0 Job lines. Round 40 was 0. `last path: none` is 0. The failed furnace walks log `last path: partial` or `last path: noPath`.
+
+`Job: Took to long to decide path to goal!` is 6 lines. Round 40 was 5, plus 3 night-mine climbs. This round's night-mine climbs are 2.
+
+- `17:17:31.857Z` normal1
+- `17:57:25.077Z`, `17:59:19.339Z`, and `17:59:30.339Z` normal2
+- `19:38:26.642Z` and `19:38:49.578Z` hard2
+
+The night-mine climbs are `19:46:18.305Z` hard2 and `20:08:01.271Z` hard3. hard1 has no night-mine climb.
+
+### Disconnects
+
+Server log size at soak start was 15711065. In the bytes after that: `kicked` 0, `out-of-order` 0, `too many packets` 0. `lost connection` is 1, the restore:
+
+`[01:47:21 INFO]: BuilderBot lost connection: Disconnected`
+
+`was slain` / `was shot` in that slice are the two hard1 deaths above (`[00:51:16 INFO]: BuilderBot was slain by Zombie`, `[01:01:47 INFO]: BuilderBot was shot by Skeleton`). The dashboard window's `ECONNREFUSED` and `Disconnected by user` lines are the world switch at 17:09:36Z–17:09:38Z, before the first run. No kick during a run.
+
+### Other
+
+`Autopilot: deep dark - climbing out` is 0 lines. Round 40 was 0. Two deep-dark job errors: normal1 `Tunnel stopped: deep dark (sculk_catalyst at (454, -3, 48))` and normal2 `Tunnel stopped: deep dark (sculk_sensor at (410, -24, 63))`. Diamonds stayed 0.
+
+The furnace-swap line and the pillar-stop line never logged. The hunt rest did log, and it kept hard2's chicken and hard3's chicken and sheep from being fought again inside 3 min. hard3 reached iron and still closed the night with 0 ingots and no pick. hard1 died twice and never started iron. The new repeat is the normal1 bed fight/collect loop, 150 immediate completions. `SOAK DONE (clean)`.
+
+### Uncaught
+
+`logs/dashboard-uncaught.log` gained no bytes during the soak (size stayed 2576174). There is no new line from this round 41 window. Deaths are the hard1 zombie at (207, 149, 47) and the hard1 skeleton at (100, 137, -26).
+
