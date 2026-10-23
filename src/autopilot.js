@@ -99,6 +99,13 @@ export function kitCobbleNeed(c,ctx={}){
 export function duskKitJob(counts,ctx={}){
  const c=countFactory(counts);
  ctx=woodTotals(counts,{...ctx});
+ // Round 39 (round-38 hard1: 4 ingots held when the shelter went out, no iron pick by the end of
+ // the run): the ingots for an iron pick become one in the grace too - a craft, not a trip.
+ if(STEPS[0].done(c,ctx)&&c('iron_pickaxe')<1&&c('iron_ingot')>=3){
+  if(c('stick')>=2)return {type:'craft',item:'iron_pickaxe',count:1,keepTable:true};
+  if(ctx.planksTotal>=2)return {type:'craft',item:'stick',count:2};
+  if(ctx.logsTotal>=1)return {type:'craft',item:(ctx.heldLog||'oak_log').replace('_log','_planks'),count:4};
+ }
  if(!STEPS[0].done(c,ctx)||STEPS[1].done(c,ctx))return null;
  const left=STONE_KIT.filter(([item])=>c(item)<1),piece=left[0];
  if(piece&&c('cobblestone')>=piece[1]){
@@ -413,6 +420,9 @@ export function furnaceWork(run,counts,ctx){
 // health, at most HEAL_WAIT_MS per episode, and goes ahead.
 export const RISKY_HEALTH=16,HEAL_WAIT_MS=90000;
 // Round 31: open sky over the bot's head (sky light 12+).
+// Round 39: an escape climb aims at the surface anchor, never below ESCAPE_FLOOR (sea level).
+export const ESCAPE_FLOOR=62;
+export const escapeY=anchor=>Math.max(Number.isFinite(anchor)?anchor:64,ESCAPE_FLOOR);
 export function underSky(b){
  try{const p=b?.entity?.position;if(!p)return false;const h=b.blockAt(p.offset(0,1.6,0));return !!h&&Number.isFinite(h.skyLight)&&h.skyLight>=12;}catch{return false;}
 }
@@ -1073,7 +1083,7 @@ export class Autopilot{
    if(step==='bed-rung')this.bedOffUntil=Date.now()+BED_OFF_MS; // the ladder moves on
    if(step==='diamond-rung')this.diamondOffUntil=Date.now()+DIAMOND_OFF_MS;
    if(step==='inventory')this.invOffUntil=Date.now()+INV_OFF_MS; // a full chest, no spot: later
-   if(/[Dd]eep dark/.test(String(job.message))){this.escapeDark=true;this.diamondOffUntil=Date.now()+DIAMOND_OFF_MS;this.log('Autopilot: deep dark - climbing out; diamond trips set aside for '+DIAMOND_OFF_MS/60000+' min');}
+   if(/[Dd]eep dark/.test(String(job.message))){this.escapeDark=true;const was=Date.now()<(this.diamondOffUntil||0);this.diamondOffUntil=Date.now()+DIAMOND_OFF_MS;if(!was)this.log('Autopilot: deep dark - climbing out; diamond trips set aside for '+DIAMOND_OFF_MS/60000+' min');}
    // Round 14 (round-13 normal2/normal3: `No room for crafting result` 167 times, a torch craft
    // every 8 s for 16 min in a full bag): no crafts for NO_ROOM_MS, and the inventory step is
    // due again now (its drop walks to open ground first).
@@ -1116,7 +1126,7 @@ export class Autopilot{
     if(d[step]>=DEEP_ASCEND_AFTER){
      d[step]=0;this.state='retry: '+step+' (deep: climbing out)';
      this.log('Autopilot: '+step+' failed 3 times deep underground again; climbing to the surface');
-     this.submit('escape',{type:'ascend',y:Number.isFinite(this.lastSurfaceY)?this.lastSurfaceY:64});
+     this.submit('escape',{type:'ascend',y:escapeY(this.lastSurfaceY)});
     }else{
      this.coolUntil=Date.now()+DEEP_COOL_MS;this.state='retry: '+step+' (deep: no explore)';
      this.log('Autopilot: '+step+' failed 3 times deep underground; no cave explore, retrying in '+DEEP_COOL_MS/1000+' s');
@@ -1319,7 +1329,7 @@ export class Autopilot{
   this.forgetFar(b);
   // Round 23 (round-22 normal1: `Deep dark: sculk_catalyst ...; leaving (warden)` 26 times in
   // 5 min while the bot stood on the same cell): leaving means going - climb toward the surface.
-  if(this.escapeDark){this.escapeDark=false;this.submit('escape',{type:'ascend',y:Number.isFinite(this.lastSurfaceY)?this.lastSurfaceY:64});return;}
+  if(this.escapeDark){this.escapeDark=false;this.submit('escape',{type:'ascend',y:escapeY(this.lastSurfaceY)});return;}
   if(this.furnaceTick(b,counts))return;
   const animals=this.animalsNearby(b);
   const items=b.inventory.items().length;
@@ -1576,7 +1586,9 @@ export class Autopilot{
   try{
    // Remember where surface gathers started: the step's unblock explores cap themselves
    // to that stand-Y (explore legs used to walk the bot off the grove).
-   if(spec.type==='gather'&&spec.surface&&this.worker.bot){
+   // Round 39 (round-38 normal3: a surface log gather sent from y=-38 set the anchor to -38, and
+   // every deep-dark escape then `ascended` to -38 and failed, 50 times): only under open sky.
+   if(spec.type==='gather'&&spec.surface&&this.worker.bot&&underSky(this.worker.bot)){
     try{this.lastSurfaceY=Math.floor(this.worker.bot.entity.position.y);}catch{}
    }
    const job=opts?this.worker.submit(spec,opts):this.worker.submit(spec);

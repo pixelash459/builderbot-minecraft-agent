@@ -1977,3 +1977,14 @@ Round 37 soak (`43a71bd`): 1 death, **the first hard iron pick in three rounds**
 - **Silent damage is drowning** (`_silentHurt`, `SILENT_HURT_MS`=4 s): two health drops within 4 s with the air under 20, no hostile within 6, no fire or lava and not starving latch the drowning escape even when the client sees no water. Line: `WorldSurvival: losing health with no attacker (air N, head X, feet Y); treating it as drowning`.
 - **Any job right after a drowning escape steps out first** (not only resumed ones).
 - **Hazard spots** (`markHazard`/`nearHazard`, `HAZARD_NEAR`=8, `HAZARD_MS`=5 min): where a job was cancelled as `led into a hazard`, gathers skip target columns within 8 blocks.
+
+## Round 39 (2026-10-23)
+
+Round 38 rerun soak (`400cfd0`): **0 deaths, no drowning death, no falls**, iron pick on the three normal runs (392/451/422 s), no hard iron pick (hard1 held 4 ingots when its shelter went out), no diamonds. The kiln crafted its own furnace twice; the step-out-of-water held twice; no home walk; every hard box held to dawn. Found:
+- `Autopilot: deep dark - climbing out` **53 times** on normal2/normal3: a `surface` log gather submitted from y=-38 had set `lastSurfaceY` to -38, so every escape `ascend` targeted y=-38 and failed at once (`Could not climb toward the surface from y=-38`), then the next gather hit the deep dark again;
+- hard1 had **4 iron ingots at sunset** and no iron pick: the shelter went out first.
+
+- **`lastSurfaceY` only under open sky**: a surface gather records its stand-Y only when the bot has sky light 12+ overhead (`underSky`).
+- **Escape climbs aim at `escapeY`** = the surface anchor, but never below `ESCAPE_FLOOR`=62.
+- **The deep-dark line is logged once per 20-min window** (the escape still runs each time).
+- **The sunset grace crafts the iron pick** (`duskKitJob`): with the wood kit done, no iron pick and 3+ ingots, the grace crafts it (sticks, or planks for them, first) before the shelter.

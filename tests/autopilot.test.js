@@ -15,7 +15,7 @@ test('the unblock explore after a surface gather passes the job schema',()=>{
   const worker={
    ready:true,userStopped:false,deathResume:false,jobs:[],log(){},
    submit(spec){jobSchema.parse(spec);submitted.push(spec);return {id:'j'+submitted.length};},
-   bot:{time:{timeOfDay:100,day:1},inventory:{items(){return [];}},entities:{},registry:{blocksByName:{},foodsByName:{},itemsByName:{}},findBlock(){return null;},blockAt(){return null;},entity:{position:{y:131.5,floored(){return {x:0,y:131,z:0,offset(){return this;}};}}}}
+   bot:{time:{timeOfDay:100,day:1},inventory:{items(){return [];}},entities:{},registry:{blocksByName:{},foodsByName:{},itemsByName:{}},findBlock(){return null;},blockAt(p){return p&&p.sky?{name:'air',boundingBox:'empty',skyLight:15}:null;},entity:{position:{y:131.5,offset(){return {sky:true};},floored(){return {x:0,y:131,z:0,offset(){return this;}};}}}}
   };
   const ap=new Autopilot(worker,root);
   ap.start();
@@ -571,4 +571,12 @@ test('round 38: a saved home over HOME_FAR away (another world) is forgotten',()
  Object.assign(ap,{home:{x:300,y:120,z:20},homeChest:true,homeChestAt:{x:300,y:120,z:20}});
  ap.forgetFar(b);assert.deepEqual(ap.home,{x:300,y:120,z:20});
  assert.ok(HOME_FAR>=128);
+});
+import {duskKitJob,escapeY} from '../src/autopilot.js';
+test('round 39: the sunset grace turns held ingots into an iron pick; escape climbs never aim below sea level',()=>{
+ const have={...STONE,iron_ingot:4,stick:2};
+ assert.deepEqual(duskKitJob(counts(have),{worldFurnace:true}),{type:'craft',item:'iron_pickaxe',count:1,keepTable:true});
+ assert.deepEqual(duskKitJob(counts({...have,stick:0}),{worldFurnace:true}).item,'stick','sticks first');
+ assert.equal(duskKitJob(counts({...have,iron_pickaxe:1}),{worldFurnace:true}),null,'already held');
+ assert.equal(escapeY(-38),62);assert.equal(escapeY(131),131);assert.equal(escapeY(null),64);
 });
