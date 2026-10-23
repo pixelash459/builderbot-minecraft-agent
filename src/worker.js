@@ -1144,7 +1144,7 @@ export class Worker extends EventEmitter {
   let block=null,placedAt=null,placedFurnace=null,left=false,kept=null;
   try{
    block=b.findBlock({matching:b.registry.blocksByName.furnace.id,maxDistance:16});
-   if(!block){
+   const ownFurnace=async()=>{
     if(!this.count('furnace')){
      const provisioned=await this.ensureTable(token);
      placedAt=provisioned.created;
@@ -1154,11 +1154,21 @@ export class Worker extends EventEmitter {
      await craftConfirmed(b,recipe,provisioned.block,()=>this.check(token));
      if(this.count('furnace')<=furnaces)throw Error('Crafting a furnace produced no confirmed item');
     }
-    block=b.blockAt(placedFurnace=await this.placeBlockNear(token,'furnace'));
-   }
+    return b.blockAt(placedFurnace=await this.placeBlockNear(token,'furnace'));
+   };
+   if(!block)block=await ownFurnace();
    // A furnace the bot placed for an earlier batch and kept standing: this batch picks it up.
    if(!placedFurnace&&this.ownFurnaces?.has(block.position.x+','+block.position.y+','+block.position.z))kept=block.position;
-   await this.walk(block.position,token,2);
+   // Round 41 (round-40 normal3: `smelt raw_iron` 18 times, each `No path to the goal!` to a
+   // furnace within 16 it could not reach): an unreachable furnace is swapped for one here.
+   try{await this.walk(block.position,token,2);}
+   catch(e){
+    this.check(token);
+    if(placedFurnace||!/No path|timed out|no progress/i.test(String(e.message)))throw e;
+    this.log('Smelt: no way to the furnace at '+block.position+'; using one here');
+    kept=null;block=await ownFurnace();
+    await this.walk(block.position,token,2);
+   }
    this.check(token);
    const furnace=await b.openFurnace(block);
    // The output is taken as it comes (every SMELT_TAKE items) and, when the job ends early
@@ -1729,7 +1739,7 @@ export class Worker extends EventEmitter {
    }
    const item=b.inventory.items().find(i=>SHELTER_ITEMS.includes(i.name));
    const ref=b.blockAt(f.offset(0,-1,0));
-   if(!item||ref?.boundingBox!=='block')return false;
+   if(!item||ref?.boundingBox!=='block'){this.log('Pillar: stopped at y='+f.y+' ('+(!item?'no blocks held':'no solid block under the feet: '+(ref?.name||'unloaded'))+')');return false;}
    await b.equip(item,'hand');this.check(token);
    try{if(b.pathfinder?.goal)b.pathfinder.setGoal(null);}catch{} // a stale goal clears the controls every tick
    b.setControlState('jump',true);

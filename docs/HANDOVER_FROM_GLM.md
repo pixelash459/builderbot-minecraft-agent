@@ -1997,3 +1997,13 @@ Round 39 soak (`d0f93c1`): 1 death, **hard iron pick on two runs** (hard2 603 s,
 
 - **Ascend pillars when no path leads up** (`ASCEND_PILLAR`=24): if the walk up gains nothing, the bot pillars straight up toward the target (at most 24 per try), digging a ceiling only when it is not bedrock/obsidian/a container and has no fluid or falling block over it. Line: `Ascend: no path up from y=N; pillaring`. `pillarUp` takes a `maxDigs` option (default `TRUNK_PILLAR`).
 - **A big crowd by day pillars too** (`DAY_CROWD`=6): `nightRefuge` returns a pillar by day for 6+ hostiles within 16 (marked `day`). A day pillar (`NightPillarTask` `day`) is not ended by daylight: it comes down after 15 s of quiet on the perch, like a night pillar that is not holding.
+
+## Round 41 (2026-10-23)
+
+Round 40 soak (`f73a655`): **0 deaths**, iron pick on **5 of 6** runs (normal 421/361/361 s, hard1 542 s, hard2 602 s - both hard picks from the sunset grace), no diamonds, no drowning, no food-ascend loop. The day-crowd pillar never had to fire. Five escape pillars (`no path up ...; pillaring`): one reached the surface, two climbed the full 24, two gained 0 and 1 with no reason logged. Found:
+- normal3 **`smelt raw_iron` resubmitted 18 times**, each `No path to the goal!` to a furnace within 16 it could not reach;
+- hard3 never reached the iron step: **two 90 s chicken fights timed out** (`chicken is still standing`) and it held 4 raw iron, 0 ingots at night.
+
+- **An unreachable furnace is swapped** (`smelt`): when the walk to the found furnace fails (no path / timed out / no progress), the smelt places its own furnace here (crafting one from cobble if none is held). Line: `Smelt: no way to the furnace at ...; using one here`.
+- **A timed-out hunt rests that species** (`huntOff`, `HUNT_OFF_MS`=3 min): `Fight timed out; <animal> is still standing` makes `animalsNearby` skip that animal for 3 min. Line: `Autopilot: chicken hunt timed out; leaving chickens alone for 3 min`.
+- **`pillarUp` says why it stopped**: `Pillar: stopped at y=N (no blocks held | no solid block under the feet: X)`.

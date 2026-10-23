@@ -580,3 +580,15 @@ test('round 39: the sunset grace turns held ingots into an iron pick; escape cli
  assert.equal(duskKitJob(counts({...have,iron_pickaxe:1}),{worldFurnace:true}),null,'already held');
  assert.equal(escapeY(-38),62);assert.equal(escapeY(131),131);assert.equal(escapeY(null),64);
 });
+test('round 41: a timed-out chicken fight leaves chickens alone for a while',()=>{
+ const ap=Object.create(AP38.prototype);const logs=[];
+ Object.assign(ap,{failures:{},state:'',log:m=>logs.push(m),deepUnderground:()=>false,worker:{log(){},jobs:[]},current:{step:'food',spec:{type:'fight',entity:'chicken'}}});
+ ap.settle({status:'failed',message:'Fight timed out; chicken is still standing'});
+ assert.ok(ap.huntOff.chicken>Date.now());
+ assert.ok(logs.some(l=>/chicken hunt timed out; leaving chickens alone/.test(l)));
+ const me={position:new V38(0,64,0)};
+ const b={entity:me,entities:{1:me,2:{name:'chicken',position:new V38(5,64,0)},3:{name:'chicken',position:new V38(6,64,0)},4:{name:'cow',position:new V38(20,64,0)}}};
+ assert.equal(ap.animalsNearby(b).type,'cow','chickens skipped, the cow is the target');
+ ap.huntOff.chicken=Date.now()-1;
+ assert.equal(ap.animalsNearby(b).type,'chicken','back after the window');
+});

@@ -494,7 +494,7 @@ export function pickupJob(counts,ctx){
 // from base. Over INV_FULL the surplus goes into the home chest (placed beside home, crafted
 // when needed) while home is within HOME_DEPOSIT_RANGE; passing within INV_PASS of the chest
 // deposits it too; full and far from home, pure junk is dropped.
-export const CROWD_NEAR=3,FORGET_FAR=96,HOME_FAR=200,FORCED_DROP_MS=60000,NO_ROOM_MS=5*60000,BUCKET_FAIL_MS=5*60000,BUCKET_OFF_MS=15*60000;
+export const CROWD_NEAR=3,FORGET_FAR=96,HOME_FAR=200,HUNT_OFF_MS=3*60000,FORCED_DROP_MS=60000,NO_ROOM_MS=5*60000,BUCKET_FAIL_MS=5*60000,BUCKET_OFF_MS=15*60000;
 export const INV_FULL=0.75,INV_PASS=8,INV_PASS_MIN=16,HOME_DEPOSIT_RANGE=48,INV_OFF_MS=5*60000,DROP_LOOP_MS=3*60000;
 const SAPLING=/_sapling$/,FLOWER=/^(dandelion|poppy|blue_orchid|allium|azure_bluet|.*_tulip|oxeye_daisy|cornflower|lily_of_the_valley|sunflower|lilac|rose_bush|peony|pink_petals|short_grass|tall_grass|fern|dead_bush)$/;
 export const JUNK_KEEP={dirt:32,cobblestone:64,cobbled_deepslate:32,netherrack:16,wheat_seeds:16,gravel:0,andesite:0,diorite:0,granite:0,tuff:0,calcite:0,rotten_flesh:0,sand:0,red_sand:0,pointed_dripstone:0,poisonous_potato:0,spider_eye:0,snowball:0,clay_ball:0,flint:8}; // round 22: snowball/clay_ball filled bag slots
@@ -1083,6 +1083,9 @@ export class Autopilot{
    if(step==='bed-rung')this.bedOffUntil=Date.now()+BED_OFF_MS; // the ladder moves on
    if(step==='diamond-rung')this.diamondOffUntil=Date.now()+DIAMOND_OFF_MS;
    if(step==='inventory')this.invOffUntil=Date.now()+INV_OFF_MS; // a full chest, no spot: later
+   // Round 41 (round-40 hard3: two 90 s chicken fights timed out, `chicken is still standing`,
+   // and the iron step never started before night): that species is left alone for HUNT_OFF_MS.
+   {const m=/Fight timed out; (cow|pig|sheep|chicken) is still standing/.exec(String(job.message));if(m){(this.huntOff||(this.huntOff={}))[m[1]]=Date.now()+HUNT_OFF_MS;this.log('Autopilot: '+m[1]+' hunt timed out; leaving '+m[1]+'s alone for '+HUNT_OFF_MS/60000+' min');}}
    if(/[Dd]eep dark/.test(String(job.message))){this.escapeDark=true;const was=Date.now()<(this.diamondOffUntil||0);this.diamondOffUntil=Date.now()+DIAMOND_OFF_MS;if(!was)this.log('Autopilot: deep dark - climbing out; diamond trips set aside for '+DIAMOND_OFF_MS/60000+' min');}
    // Round 14 (round-13 normal2/normal3: `No room for crafting result` 167 times, a torch craft
    // every 8 s for 16 min in a full bag): no crafts for NO_ROOM_MS, and the inventory step is
@@ -1249,7 +1252,7 @@ export class Autopilot{
   const counts={};
   for(const e of Object.values(b.entities)){
    if(e===b.entity||!e.position)continue;
-   if(['cow','pig','sheep','chicken'].includes(e.name)&&e.position.distanceTo(b.entity.position)<=48)counts[e.name]=(counts[e.name]||0)+1;
+   if(['cow','pig','sheep','chicken'].includes(e.name)&&!(Date.now()<(this.huntOff?.[e.name]||0))&&e.position.distanceTo(b.entity.position)<=48)counts[e.name]=(counts[e.name]||0)+1;
   }
   const best=Object.keys(counts).sort((a,c)=>counts[c]-counts[a])[0];
   if(!best)return null;
