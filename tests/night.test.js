@@ -288,8 +288,10 @@ test('NightPillarTask climbs by placing under the feet at the apex, then shields
  t.onTick(bot);
  assert.equal(t.phase,'perch');
  // Round 7: the overhang ring goes down first (4 sides against the top, then 4 corners).
- for(let i=0;i<12&&!calls.some(c=>c[0]==='shield-up');i++){t.ringAt=-1e9;t.onTick(bot);}
- assert.equal(calls.filter(c=>c[0]==='place').length,3+8,'column + ring');
+ // Round 42: then the walls (4 at the feet, 4 at the head) before the shield.
+ for(let i=0;i<40&&!calls.some(c=>c[0]==='shield-up');i++){t.ringAt=-1e9;t.wallAt=-1e9;t.onTick(bot);}
+ assert.equal(calls.filter(c=>c[0]==='place').length,3+8+8,'column + ring + walls');
+ for(const dy of [-57,-56])for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]])assert.equal(world.blockAt(dx,dy,dz).name,'cobblestone','wall '+dx+','+dy+','+dz);
  for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]])assert.equal(world.blockAt(dx,-58,dz).name,'cobblestone',dx+','+dz);
  assert.ok(calls.some(c=>c[0]==='shield-up'),'shield toward the skeleton');
  assert.equal(t.isFinished(bot),false);
@@ -473,4 +475,30 @@ test('round 40: a day pillar is not ended by daylight, only by a quiet perch',as
  day.phase='perch';day.quietSince=day.now()-16;
  assert.equal(day.isFinished(bot,{}),true,'down once quiet for 15 s');
  assert.equal(day.resumeCopy().day,true);
+});
+test('round 42: under a canopy (2 cells of headroom) a day pillar is 2 high; a night one still needs 3',async()=>{
+ const {nightRefuge,DAY_CROWD}=await import('../src/night.js');
+ const me={x:0,y:64,z:0};const crowd=Array.from({length:DAY_CROWD},(_,i)=>({position:{x:5+i,y:64,z:5}}));
+ const day=nightRefuge({tod:3000,me,hostiles:crowd,blocks:8,room:2,onGround:true});
+ assert.equal(day?.height,2);assert.equal(day.day,true);
+ assert.equal(nightRefuge({tod:13000,me,hostiles:crowd,blocks:8,room:2,onGround:true}),null);
+ assert.equal(nightRefuge({tod:3000,me,hostiles:crowd,blocks:8,room:1,onGround:true}),null,'1 cell is not a pillar');
+});
+test('round 42: a perched bot walls its two cells after the ring',async()=>{
+ const {NightPillarTask}=await import('../src/chains/fallbackTasks.js');
+ const {Vec3}=await import('vec3');
+ const solid=new Set();const k=(x,y,z)=>x+','+y+','+z;
+ // column 100..102 at 0,0 and the ring at y=102
+ for(let y=99;y<=102;y++)solid.add(k(0,y,0));
+ for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]])solid.add(k(dx,102,dz));
+ const logs=[];
+ const bot={heldItem:{name:'cobblestone'},inventory:{items:()=>[{name:'cobblestone',count:20}],slots:[]},
+  blockAt:p=>({position:new Vec3(p.x,p.y,p.z),boundingBox:solid.has(k(p.x,p.y,p.z))?'block':'empty',name:solid.has(k(p.x,p.y,p.z))?'cobblestone':'air'}),
+  placeBlock:(ref,face)=>{solid.add(k(ref.position.x+face.x,ref.position.y+face.y,ref.position.z+face.z));return Promise.resolve();}};
+ const t=new NightPillarTask(3);t.base={x:0,y:100,z:0};
+ const ctx={worker:{log:m=>logs.push(m)}};
+ let clock=0;
+ for(let i=0;i<20;i++){clock+=0.31;t._walls(bot,ctx,clock);}
+ for(const dy of [103,104])for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]])assert.ok(solid.has(k(dx,dy,dz)),'wall at '+dx+','+dy+','+dz);
+ assert.ok(logs.some(l=>/walled the perch 8\/8/.test(l)),JSON.stringify(logs));
 });

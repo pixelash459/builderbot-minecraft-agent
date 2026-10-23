@@ -143,10 +143,13 @@ export function nightRefuge({tod,me,hostiles,blocks=0,room=0,onGround=true,inFlu
  const close=near.filter(h=>Math.hypot(h.position.x-me.x,h.position.z-me.z)<=8);
  const crowd=near.length>=3||(!fightAllowed&&close.length>0);
  if(!crowd&&!forced)return null;
- if(inFluid||!onGround||blocks<3||room<3)return null;
+ // Round 42 (round-41 hard run: slain by day fleeing ~20 mobs, no pillar line - under a dark-oak
+ // canopy the leaves leave 2 cells of headroom): a day pillar may be 2 high.
+ const day=!darkNow(tod),need=day?2:3;
+ if(inFluid||!onGround||blocks<need||room<need)return null;
  // A mob already touching the column climbs with us (spiders) or blocks the jump: fight/flee.
  if(near.some(h=>Math.hypot(h.position.x-me.x,h.position.z-me.z)<1.2))return null;
- if(!darkNow(tod))return {action:'pillar',height:3,crowd:near.length,day:true};
+ if(day)return {action:'pillar',height:Math.min(3,room),crowd:near.length,day:true};
  return forced?{action:'pillar',height:3,crowd:near.length,hold:true}:{action:'pillar',height:3,crowd:near.length};
 }
 // Deep water: a water cell with water above or below it (no footing). The step cost bans

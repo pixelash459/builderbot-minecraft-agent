@@ -499,3 +499,22 @@ test('round 40: an ascend with no path up pillars straight up instead',async()=>
  assert.ok(logs.some(l=>/no path up from y=53; pillaring/.test(l)));
  assert.ok(logs.some(l=>/Ascend: y=53 -> 70/.test(l)));
 });
+test('round 42: a skeleton 20 away or a recent fall explains lost health - not drowning',()=>{
+ const air={name:'air',boundingBox:'empty'};
+ const mk=()=>({health:20,food:18,oxygenLevel:17,entity:{position:new Vec3(0,64,0),onGround:true},entities:{},blockAt:()=>air,setControlState(){}});
+ const w=new WorldSurvivalChain();const bot=mk();bot.entities={1:{type:'hostile',position:new Vec3(20,64,0)}};
+ w._handleDrowning(bot,{},{});bot.health=18;w._handleDrowning(bot,{},{});bot.health=16;w._handleDrowning(bot,{},{});
+ assert.ok(!w._drowning,'a skeleton 20 away');
+ const w2=new WorldSurvivalChain();const b2=mk();
+ b2.entity.onGround=false;w2._handleDrowning(b2,{},{});b2.entity.onGround=true;
+ b2.health=18;w2._handleDrowning(b2,{},{});b2.health=16;w2._handleDrowning(b2,{},{});
+ assert.ok(!w2._drowning,'just landed from a fall');
+});
+test('round 42: one burrow try per spot - a new stand 3+ away gets another',()=>{
+ const w=Object.create(Worker.prototype);w.bot={entity:{position:new Vec3(110.5,136,-25.5)}};
+ const job={spec:{type:'shelter'}};
+ assert.equal(w.burrowAgain(job),true);assert.equal(job.burrowTried,true);
+ assert.equal(w.burrowAgain(job),false,'same spot');
+ w.bot.entity.position=new Vec3(100.5,135,-26.5);
+ assert.equal(w.burrowAgain(job),true,'10 blocks on');
+});

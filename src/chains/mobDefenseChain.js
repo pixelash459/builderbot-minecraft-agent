@@ -12,7 +12,7 @@ import {SingleTaskChain} from './singleTaskChain.js';
 import {chainConfig,inGame,onFire} from './settings.js';
 import {getHostiles,nearestDistance,withinRange,distanceTo,armorValue,BURNS_IN_SUNLIGHT,canDealWithCount,evaluateFight,isCornered,canCraftWoodenSword,hasItemName,inventoryItems,nightish} from './combatPolicy.js';
 import {movementTask,RunAwayFromHostilesTask,RunAwayFromCreepersTask,DodgeProjectilesTask,KeepDistanceTask,KillEntitiesTask,CraftWeaponTask,ShelterTask,SleepTask,NightPillarTask,pillarBlocks,cellAt,projectileClose,approachingProjectiles} from './fallbackTasks.js';
-import {nightRefuge,pillarRoom} from '../night.js';
+import {nightRefuge,pillarRoom,DAY_CROWD} from '../night.js';
 import {dayTicks} from '../daytime.js';
 import {FightTask} from './fightTask.js';
 import {creeperSwell} from '../creeper.js';
@@ -231,7 +231,12 @@ export class MobDefenseChain extends SingleTaskChain{
   const plan=nightRefuge({tod:dayTicks(bot),me:e.position,hostiles,blocks:blocks?blocks.total:0,
    room:blocks?pillarRoom(cellAt(bot),x,y,z,3):0,onGround:e.onGround!==false,inFluid:!!(e.isInWater||e.isInLava),fightAllowed:policy.allowed,
    forced:!!(w&&typeof w.nightPillarWanted==='function'&&w.nightPillarWanted(bot))});
-  if(!plan)return null;
+  if(!plan){
+   // Round 42: a big crowd and no pillar - say why (once per 10 s).
+   const crowd=hostiles.filter(h=>h&&h.position&&h.position.distanceTo(e.position)<=16).length;
+   if(crowd>=DAY_CROWD&&this.now()-(this._noPillarLog||-99)>=10){this._noPillarLog=this.now();try{w&&w.log&&w.log('Night: no pillar for '+crowd+' hostiles (blocks '+(blocks?blocks.total:0)+', room '+(blocks?pillarRoom(cellAt(bot),x,y,z,3):'-')+', onGround '+(e.onGround!==false)+', fluid '+!!(e.isInWater||e.isInLava)+')');}catch{}}
+   return null;
+  }
   return this._pillar=new NightPillarTask(plan.height,{hold:plan.hold,day:!!plan.day});
  }
  // The armed response as a FightTask (ActionTask subclass): the TaskRunner is the single

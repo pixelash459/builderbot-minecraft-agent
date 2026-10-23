@@ -637,7 +637,7 @@ export class NightPillarTask extends Task{
  _log(ctx,m){const c=pickCtx(this,ctx),w=c&&c.worker;if(w&&w.log)try{w.log(m);}catch{}}
  // A runner teardown (a higher band took over for a moment) stops this instance for good:
  // the chain adopts a fresh one that keeps the column, the phase and the quiet clock.
- resumeCopy(){const q=new NightPillarTask(this.height,{hold:this.hold,day:this.day});Object.assign(q,{base:this.base,phase:this.phase,t0:this.t0,quietSince:this.quietSince,ringTries:this.ringTries,ringLogged:this.ringLogged});return q;}
+ resumeCopy(){const q=new NightPillarTask(this.height,{hold:this.hold,day:this.day});Object.assign(q,{base:this.base,phase:this.phase,t0:this.t0,quietSince:this.quietSince,ringTries:this.ringTries,ringLogged:this.ringLogged,wallTries:this.wallTries,wallsLogged:this.wallsLogged});return q;}
  isFinished(bot,ctx){
   if(this.failed)return true;
   // Morning: down once it is light and clear (round 7: not at the wrap to 0 - the night's
@@ -725,6 +725,7 @@ export class NightPillarTask extends Task{
   }
   forget(bot,'forward');
   if(this._ring(bot,ctx,now))return null;
+  if(this._walls(bot,ctx,now))return null;
   const archer=hostiles.find(h=>/^(skeleton|stray|bogged|pillager)$/.test(h.name||''));
   const shield=bot.inventory&&bot.inventory.slots&&bot.inventory.slots[45]&&bot.inventory.slots[45].name==='shield';
   if(archer&&shield){
@@ -758,6 +759,34 @@ export class NightPillarTask extends Task{
    return true;
   }
   if(!open&&!this.ringLogged){this.ringLogged=true;this._log(ctx,'Night: overhang ring '+placed+'/'+RING.length+' around the pillar top (spiders cannot climb past it)');}
+  return false;
+ }
+ // Round 42 (round-41 hard run: perched 3 up with the ring done, shot by a skeleton 78 s later):
+ // with the ring laid, wall the bot's own two cells on the deck - the 4 sides at the feet, then
+ // at the head, each on the block under it - so an archer has no line but straight down.
+ _walls(bot,ctx,now){
+  const y=this.base.y+this.height-1;
+  if(!this.wallTries)this.wallTries={};
+  let open=0,placed=0;
+  for(const dy of [1,2])for(const [dx,dz] of RING.slice(0,4)){
+   const x=this.base.x+dx,z=this.base.z+dz,cy=y+dy,key=dx+','+dz+','+dy;
+   if(solidAt(bot,x,cy,z)){placed++;continue;}
+   if((this.wallTries[key]||0)>=3)continue;
+   open++;
+   if(now-(this.wallAt||-1e9)<0.3)return true;
+   const ref=bot.blockAt&&bot.blockAt(new Vec3(x,cy-1,z));
+   if(!ref||ref.boundingBox!=='block')continue;
+   const blocks=pillarBlocks(bot);
+   if(!blocks)break;
+   if(!bot.heldItem||!PILLAR_ITEMS.some(re=>re.test(bot.heldItem.name))){
+    if(now-this._equipAt>=0.5){this._equipAt=now;equipSafe(bot,blocks.item,'hand');}
+    return true;
+   }
+   this.wallAt=now;this.wallTries[key]=(this.wallTries[key]||0)+1;
+   try{const p=bot.placeBlock(ref,new Vec3(0,1,0));p&&p.catch&&p.catch(()=>{});}catch{}
+   return true;
+  }
+  if(!open&&!this.wallsLogged){this.wallsLogged=true;this._log(ctx,'Night: walled the perch '+placed+'/8 (archers have no line but from above)');}
   return false;
  }
  _lower(bot){if(!this._shield)return;this._shield=false;try{const p=bot.deactivateItem();p&&p.catch&&p.catch(()=>{});}catch{}}

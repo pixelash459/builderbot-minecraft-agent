@@ -2007,3 +2007,15 @@ Round 40 soak (`f73a655`): **0 deaths**, iron pick on **5 of 6** runs (normal 42
 - **An unreachable furnace is swapped** (`smelt`): when the walk to the found furnace fails (no path / timed out / no progress), the smelt places its own furnace here (crafting one from cobble if none is held). Line: `Smelt: no way to the furnace at ...; using one here`.
 - **A timed-out hunt rests that species** (`huntOff`, `HUNT_OFF_MS`=3 min): `Fight timed out; <animal> is still standing` makes `animalsNearby` skip that animal for 3 min. Line: `Autopilot: chicken hunt timed out; leaving chickens alone for 3 min`.
 - **`pillarUp` says why it stopped**: `Pillar: stopped at y=N (no blocks held | no solid block under the feet: X)`.
+
+## Round 42 (2026-10-24)
+
+Round 41 soak (`38f0561`): **2 deaths, both hard1** (by day fleeing ~20 mobs at 7.5 min; at night shot off a perched pillar), iron pick on the three normal runs (391/572/513 s), **no hard iron pick**, no diamonds. The hunt rest fired (chicken, sheep) and moved on; no smelt loop; no `Pillar: stopped` or `pillaring` line. Found:
+- hard1 by day: no pillar line at all - under a dark-oak canopy the leaves leave 2 cells of headroom (`pillarRoom` < 3), so `nightRefuge` refused silently;
+- hard1 at night: `Burrow: not here (dark_oak_log ...)`, 47 s of dirt digging to a new spot, `a 1x1 pod would need 13` with 12 held, the night pillar, the ring - then `shot by Skeleton` 78 s later (and `losing health with no attacker` fired after a knock-off under arrows).
+
+- **Day pillars may be 2 high** (`nightRefuge`): by day the pillar needs 2 blocks and 2 cells of headroom (`height` = room, at most 3); at night still 3.
+- **A declined pillar says why**: with 6+ hostiles within 16 and no pillar, `Night: no pillar for N hostiles (blocks B, room R, onGround G, fluid F)` (once per 10 s).
+- **The perch is walled** (`NightPillarTask._walls`): after the overhang ring, the 4 side cells at the feet and then at the head go up on the deck, so an archer has no line but from above. Line: `Night: walled the perch N/8 (archers have no line but from above)`.
+- **Silent damage needs no hostile within 24 and no fall in the last 2 s** (`SILENT_HOSTILE`, `SILENT_FALL_MS`) before it counts as drowning.
+- **A burrow per spot** (`burrowAgain`, `BURROW_MOVED`=3): the shelter tries a burrow again where it now stands once it has moved 3+ blocks from the last try, including right before a pod-short night pillar.

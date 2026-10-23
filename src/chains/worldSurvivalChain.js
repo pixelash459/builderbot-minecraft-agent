@@ -155,6 +155,7 @@ export class WorldSurvivalChain extends SingleTaskChain{
  }
  // Round 38: two health drops within SILENT_HURT_MS with the air under 20 and no other cause.
  _silentHurt(bot,air,now){
+  if(bot.entity&&bot.entity.onGround===false)this._airborneAt=now;
   const hp=typeof bot.health==='number'?bot.health:null;if(hp==null)return false;
   if(this._hp!=null&&hp<this._hp-0.01)(this._hurts||(this._hurts=[])).push(now);
   this._hp=hp;
@@ -162,7 +163,10 @@ export class WorldSurvivalChain extends SingleTaskChain{
   if(this._hurts.length<2||!(air<20))return false;
   if(bot.food===0)return false;
   const me=bot.entity&&bot.entity.position;if(!me)return false;
-  for(const e of Object.values(bot.entities||{}))if(e&&e!==bot.entity&&e.type==='hostile'&&e.position&&e.position.distanceTo(me)<=6)return false;
+  // Round 42 (round-41 hard run: `losing health with no attacker` right after being knocked off
+  // a pillar under skeleton fire): arrows come from 16+ away, and a fall hurts on landing.
+  for(const e of Object.values(bot.entities||{}))if(e&&e!==bot.entity&&e.type==='hostile'&&e.position&&e.position.distanceTo(me)<=SILENT_HOSTILE)return false;
+  if(bot.entity.onGround===false||now-(this._airborneAt||0)<SILENT_FALL_MS)return false;
   if(onFire(bot)||blockInLava(bot))return false;
   return true;
  }
@@ -193,7 +197,7 @@ export class WorldSurvivalChain extends SingleTaskChain{
   return !!b&&b.name==='nether_portal';
  }
 }
-const WET=/^(water|bubble_column|seagrass|tall_seagrass|kelp|kelp_plant)$/,HEAD_WET_MS=8000,DROWN_AIR=8,DRY_HOLD_MS=1500,SILENT_HURT_MS=4000;
+const WET=/^(water|bubble_column|seagrass|tall_seagrass|kelp|kelp_plant)$/,HEAD_WET_MS=8000,DROWN_AIR=8,DRY_HOLD_MS=1500,SILENT_HURT_MS=4000,SILENT_HOSTILE=24,SILENT_FALL_MS=2000;
 // Round 24: a reading above 20 is the raw air supply in ticks (0-300; the round-23 report saw
 // 10-400): scaled to the 0-20 bubbles every threshold here uses.
 const airOf=bot=>{const a=typeof bot.oxygenLevel==='number'?bot.oxygenLevel:(typeof bot.oxygen==='number'?bot.oxygen:20);return a>20?Math.min(20,a/15):a;};

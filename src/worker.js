@@ -151,6 +151,7 @@ export const DROWN_RECENT_MS=10000;
 export const HAZARD_NEAR=8,HAZARD_MS=5*60000;
 // Round 36: the farthest ore (from the eye) the gather tunnels to when no walk reaches it.
 export const ORE_TUNNEL=10;
+export const BURROW_MOVED=3;
 // Round 40: the most an ascend pillars (and digs) in one try when no path leads up.
 export const ASCEND_PILLAR=24;
 // Round 37: the pathfinder's cost per water cell (its default is 1, the same as land).
@@ -1512,8 +1513,7 @@ export class Worker extends EventEmitter {
   // unfinished stone kit still needs (cobbleReserve) is spent only as the last resort.
   const here=()=>b.entity.position.floored();
   // Round 32: dark and short of blocks for even a pod - the walk to dig dirt is the danger.
-  if(!job.burrowTried&&darkNow(dayTicks(b))&&this.shelterStock(true)<this.shelterNeed(here(),true)){
-   job.burrowTried=true;
+  if(this.burrowAgain(job)&&darkNow(dayTicks(b))&&this.shelterStock(true)<this.shelterNeed(here(),true)){
    let r=null;
    try{r=await this.burrow(job,token);}catch(e){this.check(token);this.log('Burrow: '+String(e.message).slice(0,100));}
    if(r)return this.holdBurrow(job,token,r);
@@ -1525,7 +1525,16 @@ export class Worker extends EventEmitter {
   job.pod=false;
   if(held<need){
    const pod=this.shelterNeed(origin,true);
-   if(held<pod){this.log('Shelter: a 1x1 pod would need '+pod+' here');this.shelterFallback(job,'Short of shelter blocks: '+held+' held, '+need+' needed at '+origin);}
+   if(held<pod){
+    this.log('Shelter: a 1x1 pod would need '+pod+' here');
+    // Round 42: short of a pod here - a burrow where the bot now stands before the pillar.
+    if(darkNow(dayTicks(b))&&this.burrowAgain(job)){
+     let r=null;
+     try{r=await this.burrow(job,token);}catch(e){this.check(token);this.log('Burrow: '+String(e.message).slice(0,100));}
+     if(r)return this.holdBurrow(job,token,r);
+    }
+    this.shelterFallback(job,'Short of shelter blocks: '+held+' held, '+need+' needed at '+origin);
+   }
    job.pod=true;this.log('Shelter: '+held+' blocks held, '+need+' for the box; sealing a 1x1 pod ('+pod+') at '+origin);
   }
   // A world-survival escape (water, fire) may resume the job somewhere else: the old box
@@ -1551,8 +1560,8 @@ export class Worker extends EventEmitter {
    if(!gaps||!holdableShell(origin,gaps)){
     // Round 32 (round-31 hard1: `Could not seal the shelter in 30 s: 17 open cells`, then a night
     // pillar knocked down in the crowd, the first of seven deaths): dig in before the pillar.
-    if(!job.burrowTried&&darkNow(dayTicks(b))){
-     job.burrowTried=true;let r=null;
+    if(this.burrowAgain(job)&&darkNow(dayTicks(b))){
+     let r=null;
      try{r=await this.burrow(job,token);}catch(e2){this.check(token);this.log('Burrow: '+String(e2.message).slice(0,100));}
      if(r)return this.holdBurrow(job,token,r);
     }
@@ -1799,6 +1808,16 @@ export class Worker extends EventEmitter {
  // The shelter cannot go up: fail with the reason and leave tonight to the night pillar
  // (Mob Defense climbs 3 and holds until morning; nightPillarWanted).
  // Round 32: dig in where the bot stands (burrowPlan) and cap the hole from below.
+ // Round 42 (round-41 hard1: `Burrow: not here (dark_oak_log ...)`, then 47 s of dirt digging to
+ // a new spot one block short of a pod, and the night pillar - no second burrow): one attempt per
+ // spot - a stand BURROW_MOVED+ blocks from the last try gets another.
+ burrowAgain(job){
+  const p=this.bot?.entity?.position;if(!p)return false;
+  const last=job.burrowAt;
+  if(last&&Math.hypot(p.x-last.x,p.z-last.z)<BURROW_MOVED)return false;
+  job.burrowAt={x:p.x,y:p.y,z:p.z};job.burrowTried=true;
+  return true;
+ }
  async burrow(job,token){
   const b=this.bot,feet=b.entity.position.floored(),at3=(x,y,z)=>b.blockAt(new Vec3(x,y,z));
   const pick=b.inventory.items().some(i=>/_pickaxe$/.test(i.name));
