@@ -4236,3 +4236,178 @@ The round 36 stone-pickaxe loop did not return (0 `No clear spot` lines, 20 ston
 ### Uncaught
 
 `logs/dashboard-uncaught.log` gained no bytes during the soak (size stayed 2576174). There is no new line from this round 37 soak window. The one death is the normal1 drown at (59, 51, 37) after the home explore lost its path, and hard3's iron pick is the first hard iron pick in rounds 35–37, made after a no-kiln line while 5 cobble was held.
+
+## 2026-10-23 02:17–05:26 IST — round 38 rerun soak (bot code `400cfd0`)
+
+This is the round 38 rerun. The soak which died at 00:05 IST on 23 Oct, two minutes into hard2, is not a result and was not resumed. The test server stopped answering (last server line 00:03:03), the bot got read ECONNRESET, and the supervisor and soak script were gone when the editor session stopped. This section is a fresh soak started after units and a fresh restart.
+
+Units first, then one model-off restart, then one six-run soak. No combat and no integration. `git pull --rebase` stashed local `data/` dumps, origin was already at `400cfd0`, and the stash was popped. HEAD is `400cfd0` (`Round 38: forget a home in another world, treat unexplained damage as drowning, step out of water before any job, and avoid hazard spots`).
+
+Unit tests, every `tests/*.test.js` except `resources.test.js`, `--max-old-space-size=2048 --test-timeout=60000 --test-skip-pattern resources`: **601 pass, 0 fail**, 0 skipped, 41870 ms. Round 37 was 598 pass, 0 fail. Round 36 was 595 pass, 0 fail. The live fail count is 0, so this is a pass. `resources.test.js` was not run.
+
+Before the restart, ports 8765, 8766, 25569, and 8081 were closed. `data/processes.json` still named test-server 29644 and dashboard 44532, and both PIDs were dead, as was the aborted soak PID 46948. `Stop-Agent.ps1` failed because the supervisor was already down. Nothing was listening on the project ports, so services were started with `AGENT_MODEL=off`. Dashboard 8765, supervisor 8766, and the test server 25569 came up. Port 8081 stayed closed. The supervisor log's first line was `model server disabled (config.model.enabled=false): skipping llama-server, saving ~6.5 GB commit`. The soak then stopped those services itself, deleted `agent-soak-world`, and started again. The new supervisor log's first line is the same disabled line.
+
+`AGENT_MODEL=off`, one soak, exit 0, 11286 s (02:17:56–05:26:00 IST, 20:47:56Z–23:56:00Z). `SOAK DONE (clean)`, promoted to `data/soak-results.json`. Anchors this regenerated seed: hard [141, 131, 30] (canopy light 14), normal [310, 131, 30] (open sky 15). Interventions 2, resumes 0, deaths 0. Six valid runs, each on the first attempt (`normal1a1` through `hard3a3`). No `INVALID`. No `timeOfDay=None` and no `dawn/clear weather not confirmed` in the soak output. Every run header was dawn, clear weather, empty inventory, full vitals. `tod_end` is `day` on all six. Dashboard window used below is the bytes appended after offset 59281658, from `20:47:57.688Z Stopped by user` through the flat-world `Dashboard ready` after `23:55:46.939Z`. The six runs are the six `Autopilot started` / `Autopilot stopped` pairs: normal1 20:51:05.486Z–21:31:13.782Z, normal2 21:31:25.561Z–22:11:34.170Z, normal3 22:11:45.857Z–22:51:54.222Z, hard1 22:52:08.724Z–23:13:12.833Z, hard2 23:13:24.569Z–23:34:28.641Z, hard3 23:34:40.307Z–23:55:44.141Z. After the stop, the flat world was restored (`level-name=agent-test-world`, `server-ip=0.0.0.0`, `difficulty=peaceful`, `level-type=minecraft\:flat`). Supervisor log first line is still the model-disabled line. Port 8081 was closed. The soak was not stopped early.
+
+The wood / stone-pick / furnace / iron-pick columns are the first sample that held the item. **Iron pick on all three normal runs (392/451/422 s). No hard run held an iron pick.** Hard iron-ore peaks (max raw ore / ingots): hard1 3/4, hard2 0/0, hard3 2/0. Round 37 normal iron was 512/572/361, ore 5/4/6, ingots 7/7/8, diamonds 0, and hard iron pick was none/none/512 with ore 0/3/6 and ingots 0/0/4. Round 36 normal iron was 542/331/391, hard ore 0/0/7, ingots 0, diamonds 0, and no hard iron pick. This rerun's normal picks are earlier than round 37 on normal1 and normal2, and later than round 37's 361 s on normal3. The hard iron pick from round 37 did not return. Diamonds stayed 0.
+
+Normal wood 60/90/151, stone 181/150/181, furnace 271/301/211, iron 392/451/422. Round 37 normal was wood 90/90/90, stone 241/181/120, furnace 301/271/211, iron 512/572/361. Round 36 normal was wood 90/90/150, stone 211/150/241, furnace 301/241/271, iron 542/331/391.
+
+Hard wood 90/151/150, stone 181/301/241, furnace 331/391/361. Round 37 hard was wood 151/181/151, stone 271/331/241, furnace 391/391/271. Round 36 hard was wood 90/181/120, stone 150/301/211, furnace 241/391/271.
+
+Diamonds: 0 on all six. No `Diamonds!` advancement. No `diamond_pickaxe` craft. No diamond pick. Three `gather diamond_ore` count 3 jobs (normal1 `21:06:32.858Z`, normal2 `21:48:45.973Z`, normal3 `22:29:36.686Z`).
+
+| Run | Wood | Stone pick | Furnace | Iron pick | Iron ore peak | Ingots peak | Diamonds | Diamond pick | Deaths |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| normal1a1 | 60 | 181 | 271 | 392 | 6 | 7 | 0 | no | 0 |
+| normal2a2 | 90 | 150 | 301 | 451 | 9 | 11 | 0 | no | 0 |
+| normal3a3 | 151 | 181 | 211 | 422 | 5 | 8 | 0 | no | 0 |
+| hard1a1 | 90 | 181 | 331 | - | 3 | 4 | 0 | no | 0 |
+| hard2a2 | 151 | 301 | 391 | - | 0 | 0 | 0 | no | 0 |
+| hard3a3 | 150 | 241 | 361 | - | 2 | 0 | 0 | no | 0 |
+
+The end-of-run `stone` flag is the full stone kit plus a furnace still in the inventory. normal1's flag is no because the end inventory has `furnace: 0` (a stone pick and the iron pick were still held). normal3's flag is no because `stone_pickaxe: 0` and `stone_shovel: 0` at the end; a stone pick had been held at 181 s, and the end inventory still has `furnace: 2`. hard3's flag is no because `furnace: 0` at the end; it still held 2 stone pickaxes. normal2, hard1, and hard2 ended with the full stone flag.
+
+### Forgot home, and home jobs
+
+One forget line. No `[home]` job was submitted. The string `1,-60,0` does not appear. No run walked toward the flat-world home.
+
+`20:55:56.482Z Autopilot: forgot the home at 141,131,30 (over 200 blocks away)`
+
+That coordinate is this soak's hard anchor, set during the scout, not the flat world. normal1 had been on food explores. The path failure 17 s before is `Job: Navigation climbed above the graze cap at (315, 139, 22)`. The failure 8 s after is `(350, 139, 8)`. The next job is another food explore, not a walk to 141,131,30. Sixteen seconds later the bot set a new home beside itself: `20:56:12.986Z Autopilot: home set to the table at 317,119,33`. There is no `Home set` sleep line and no deposit walk.
+
+### Losing health with no attacker
+
+Zero `losing health with no attacker` lines. Nothing to quote.
+
+### Drowning and stepping out
+
+One drowning episode, on normal1, and it is not a death. Four `WorldSurvival: drowning` lines, all `swimming up`, from `21:31:07.102Z` to `21:31:14.107Z` (7 s). Air values in order: 5, 4, 4, 4. No `could not step out` line.
+
+The job in progress was a furnace smelt, `21:31:06.983Z Autopilot [furnace] {"type":"smelt","item":"raw_iron","count":5,"take":true}`. It was preempted, then resumed with a step-out, twice:
+
+`21:31:07.242Z Reflex: resumed the smelt job (stepping out of the water first)`
+
+`21:31:08.608Z Water: stepped out to (410, 15, 29)`
+
+`21:31:11.790Z WorldSurvival: drowning (air 4), swimming up`
+
+`21:31:12.375Z Reflex: resumed the smelt job (stepping out of the water first)`
+
+`21:31:12.922Z Water: stepped out to (416, 14, 35)`
+
+`21:31:13.311Z WorldSurvival: drowning (air 4), swimming up`
+
+The run clock then stopped (`21:31:13.782Z Autopilot stopped`) and one more drowning line fired at air 4. The smelt did not complete. The t=2408 sample is still at (416, 14, 35), hp 20, step furnace. The next run is normal2, whose first job is a wood gather after the setup teleport to (310, 131, 30), which is away from that water. That wood gather has no step-out line.
+
+A third `Water: stepped out` is not a drowning. normal3 `22:27:00.899Z` used a bucket at (384, 62, 141), and `22:27:19.195Z Water: stepped out to (386, 65, 141)` is the same timestamp as `Completed use`. No air value and no drowning line. The next job, one second later, is a bed explore, and it does not say it stepped out first. The t=963 sample is at (360, 61, 141), off the step-out block, still on that explore.
+
+### Hazard avoid
+
+Zero `led into a hazard` lines. No gather was skipped for a hazard spot.
+
+### Deaths
+
+Zero deaths. The soak counter is 0. The dashboard window has no `Bot died` line. The server bytes appended after offset 15506484 have no `drowned` chat and no `shot by` chat. Round 37 had 1 (normal1 drowned). Round 36 had 2. There is no 30 s of log before a death.
+
+### Repeated jobs
+
+No spec was submitted 5 or more times in a row with the same type, target, count, and error. `craft stone_pickaxe` was submitted 20 times across the six runs. Zero `No clear spot` lines. Round 36's stone-pickaxe loop did not return. Round 37 was also 20 crafts and no run of 5.
+
+The new repeat is a status line, not a job submit. `Autopilot: deep dark - climbing out; diamond trips set aside for 20 min` is 53 lines, from `22:03:35.238Z` to `22:51:53.874Z`. Three of them are at the end of normal2, 16 s apart. The other 50 run from `22:38:35.359Z` through the last second of normal3, still about every 16 s, after the diamond gather at `22:29:36.686Z`. The 20-minute aside did not stop the line. Diamonds stayed 0. Round 37 logged two of these lines.
+
+### Hard iron, kiln, ingots before night
+
+Twelve `Gather: kiln at` lines. Two `Gather: crafted a furnace for the kiln` lines (normal3 `22:19:58.074Z`, hard1 `23:01:03.344Z`). One `could not craft a furnace` line, normal1 `21:15:34.594Z Gather: could not craft a furnace for the kiln (No room for crafting result)`, immediately followed by `Gather: no kiln (no furnace held); smelting after the gather`. The iron pick on that run was already held (392 s, about 20:57). The other kiln loads are normal1 (two), normal2 (three), and normal3 (four), each `smelting raw_iron while mining`.
+
+hard1's iron step starts at `22:59:58.155Z Autopilot [iron] {"type":"craft","item":"stick","count":2}`, then a stone-pick craft, then `23:00:15.408Z` iron-ore gather count 6. The t=512 sample is that gather: ore 2, ingots 0, furnace 0. `23:01:03.344Z` crafts a furnace for the kiln and `23:01:04.545Z` loads 4 raw iron with 0 ingots taken. The t=602 sample, still before the night step, holds furnace 1, ore 2, ingots 4, and no iron pick. The shelter goes out at `23:02:16.334Z`. Ingots before night: 4. No iron-pick craft on this run. The night samples keep those 4 ingots.
+
+hard2 never submitted an `[iron]` job and has no kiln line. The t=572 sample is still the food step (ore 0, ingots 0, furnace 1). The t=602 sample is already the night shelter, still ore 0 and ingots 0. Ingots before night: 0.
+
+hard3's iron step starts at `23:43:03.095Z Autopilot [iron] {"type":"craft","item":"stick","count":2}`, then a stone-pick craft, then `23:43:29.725Z` iron-ore gather count 6. `23:44:25.871Z Gather: kiln at 144,137,6; smelting raw_iron while mining` and the load line says 3 raw iron, 0 ingots taken. The shelter is 11 s later at `23:44:34.341Z`. The run peak is ore 2, ingots 0, no iron pick. Ingots before night: 0. There is no `no kiln` line on this run.
+
+### Shelters before sunset
+
+Four `[night] {"type":"shelter"}` submits. None is before sunset, and none is a crowd of 3+. The only dusk lines are hard3, four times, each `dusk: no hunting (0 hostiles within 16)`, the last at `23:43:29.694Z`. There is no `crowd: no hunting` line. hard1 and hard2 have no dusk line. Sunset is tod 12000. Each run's first night mine logs a tod just after 12600, and the shelter submit is 15–29 s before that mine, which puts the submit a few hundred ticks after sunset.
+
+hard1 `23:02:16.334Z`. Sealed at `23:02:25.359Z` at (202, 125, 21), 17 blocks. Samples around it are hp 20. The night mine left that box. A second shelter at `23:03:30.871Z` sealed at (202, 113, 11). After the mine failed to climb back, it resealed at (201, 113, 11) at `23:04:30.891Z`. `23:12:01.481Z Shelter: dawn (tod 5); staying sealed until the morning is light and clear`. The run stopped at `23:13:12.833Z` with no `opening up` line. The resealed box held until dawn.
+
+hard2 `23:23:18.197Z`. No dusk line before it. Sealed at `23:23:35.404Z` at (196, 151, 15), 23 blocks, hp 20. The night mine left the box. It resealed at (196, 151, 16) at `23:25:29.662Z`. `23:33:17.482Z Shelter: dawn (tod 8); staying sealed until the morning is light and clear`. The run stopped with no `opening up` line. The box held until dawn.
+
+hard3 `23:44:34.341Z`. The dusk lines before it are crowd 0. Sealed at `23:44:36.776Z` at (147, 137, 6), 4 blocks, hp 20. The night mine left the box. It resealed at (148, 137, 6) at `23:47:11.621Z`. `23:54:33.378Z Shelter: dawn (tod 12); staying sealed until the morning is light and clear`, then `23:55:23.485Z Shelter: morning (tod 1012, nearest hostile 21.4); opening up`. The box held until dawn.
+
+### Falls, ledge, tunnels
+
+Zero `Fall: dropping` lines. Round 37 had 8, none fatal. Zero `Ledge guard: stopped` lines. Round 37 was also 0.
+
+Zero `Gather: tunnelled` lines and zero `Gather: tunnel to` lines. Three descents refused a cave opening instead of digging: normal1 `21:11:56.668Z` stopped at y=29, normal2 `21:57:16.385Z` stopped at y=21, normal3 `22:34:17.177Z` stopped at y=-4. Each line is `Tunnel stopped` plus `searching from here`. No ore tunnel was dug.
+
+The two interventions are both y-returns, and neither is a resume: normal1 `operator: returned the bot from y=122`, normal2 `operator: returned the bot from y=7`.
+
+### Night mine and bed
+
+All three hard runs went down. None got back into the box it left. Each resealed where it stood and held that box until dawn, as above.
+
+hard1 went down twice. The first mine has no "not back" line; a lower box was sealed a minute later and mined again. The second mine logged 0 ore items.
+
+`23:02:31.551Z Night mine: down from the shelter at (202, 125, 21) (tod 12605)`
+
+`23:03:34.527Z Night mine: down from the shelter at (202, 113, 11) (tod 13865)`
+
+`23:04:27.475Z Night mine: could not climb back into (202, 113, 11): Took to long to decide path to goal!`
+
+`23:04:27.475Z Night mine: not back in the shelter (opened onto a cave at 203,105,17; 7 steps, 0 ore items, 0 wall digs); bot at (201, 113, 11), the box is at (202, 113, 11)`
+
+The soak samples' raw iron goes from 2 at t=632 to 3 at t=692 while that night is in progress. The mine line says 0 ore items. Ingots stay 4. No iron pick.
+
+hard2 went down and logged 0 ore.
+
+`23:23:47.577Z Night mine: down from the shelter at (196, 151, 15) (tod 12608)`
+
+`23:25:22.690Z Night mine: could not climb back into (196, 151, 15): Took to long to decide path to goal!`
+
+`23:25:22.691Z Night mine: not back in the shelter (done; 27 steps, 0 ore items, 0 wall digs); bot at (196, 151, 16), the box is at (196, 151, 15)`
+
+hard3 went down and logged 3 ore items, and still did not get back. The run's ore peak is 2 and ingots stayed 0, so those 3 items did not become a held ingot or a pick.
+
+`23:45:03.577Z Night mine: down from the shelter at (147, 137, 6) (tod 12612)`
+
+`23:47:09.035Z Night mine: could not climb back into (147, 137, 6): Took to long to decide path to goal!`
+
+`23:47:09.035Z Night mine: not back in the shelter (done; 27 steps, 3 ore items, 3 wall digs); bot at (148, 137, 6), the box is at (147, 137, 6)`
+
+No bed was crafted. Zero `black_bed`, zero `white_bed`, zero `Home set`, zero `Sleeping`. Bed stayed 0 on every sample. `no sheep after 3 search legs; bed set aside for 10 min` is on normal1 `21:29:56.351Z`, normal2 `21:48:21.486Z`, and normal3 `22:02:49.689Z` and `22:27:20.134Z`. normal2 and hard2 each finished a sheep fight (2 hits and 3 hits) and still crafted no bed. Round 37 crafted a black bed and a white bed and slept in neither.
+
+### Path counts
+
+`Navigation made no progress` is 1 Job line, on normal1. Round 37 was 2. Round 36 was 1.
+
+`21:06:23.819Z Job: Navigation made no progress at (346, 105, 31) (last path: success, 13 steps, 60 nodes)`
+
+An `Error:` line repeats it. `last path: none` is 0.
+
+`Took to long to decide path to goal!` is 2 Job lines, both normal2. Round 37 was 0 Job lines. Round 36 was 4.
+
+`21:46:12.791Z Job: Took to long to decide path to goal!`
+
+`22:07:37.811Z Job: Took to long to decide path to goal!`
+
+Each has a `Timeout:` line. The night-mine climbs add three more, one on each hard run (`23:04:27.475Z`, `23:25:22.690Z`, `23:47:09.035Z`). Round 37's night-mine count was 2.
+
+### Disconnects
+
+Server log size at soak start was 15506484. In the bytes after that: `kicked` 0, `disconnecting` 0, `out-of-order` 0, `too many packets` 0. `lost connection` is 1, the restore:
+
+`[05:25:46 INFO]: BuilderBot lost connection: Disconnected`
+
+The dashboard window's `ECONNREFUSED` and `Disconnected by user` lines are the world switch at 20:48Z, before the first run, and `Server closed` is the restore at 23:55:46Z. No kick during a run.
+
+### Other
+
+The two interventions are the two y-returns. Resumes 0. Deaths 0.
+
+The round 37 drown on the way to the flat-world home did not return: the far home that was saved was this soak's hard anchor, it was forgotten, and no home job walked anywhere. The silent-damage drowning line never fired. The one real drowning stepped out and was not fatal, and the run ended before that smelt finished. Hazard avoidance was not exercised. hard1 made 4 ingots before night and never crafted the pick. hard2 never started iron. hard3's kiln loaded ore and made 0 ingots. No hard iron pick. No bed. The deep-dark aside printed every 16 s until normal3 ended. `SOAK DONE (clean)`.
+
+### Uncaught
+
+`logs/dashboard-uncaught.log` gained no bytes during the soak (size stayed 2576174). There is no new line from this round 38 rerun window. Deaths are 0. The hard iron pick from round 37 is absent, and the 53 deep-dark lines on the diamond aside are the new repeat.
