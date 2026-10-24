@@ -2050,3 +2050,10 @@ Round 45 soak (`78b1ad8`): **0 deaths**, iron pick on the three normal runs (602
 
 - **A lone creeper that keeps following is fought** (`CREEPER_PERSIST`=20 s): the same creeper (by id, ticks no more than 5 s apart) within 10 for 20 s, with the fight policy allowed (armed, health), 2+ pillar blocks held and no other hostile within 6, gets a `FightTask` instead of another flee - the combat controller's creeper tactic (pillar up, strike or shoot from the top; 0 damage in every combat run). A swelling creeper still sprints away first. Line: `Reflex: a creeper has followed for N s; fighting it from a pillar`.
 - **Job walks sprint** (`normalMovements.allowSprinting=true`): every job walk uses the normal movements, which had sprinting off since the first import, so the bot walked everywhere at walking speed (explore and some gather walks already sprinted). The round-31 ledge guard still lets go of the sprint key beside any 5+ drop, and sprinting stops by itself at a food bar of 6 or less.
+
+## Round 47 (2026-10-24)
+
+Round 46 soak (`8a1d4bb`): **0 deaths**, iron pick on 5 of 6 (normal 512/452/391 s, hard1 391 s, hard2 512 s; hard3 none), no diamonds. The followed-creeper handoff fired once (hard3): the combat controller spaced in melee (no pillar), stopped after 4.5 s with 0 hits and 0 damage. The live watch caught `smelt porkchop` count 2 x16, `Not enough fuel to smelt 2 items`. Sprinting could not be confirmed from the 30 s samples: the pathfinder only presses sprint when its simulation clears a straight sprint line (`canStraightLine(path, true)`), and the ledge guard releases it beside drops.
+
+- **Fuel must cover the count** (`fuelBurns`): a smelt (not a `take`) whose held fuel smelts fewer items than its count (coal/charcoal 8, planks/logs 1.5) gathers 4 logs first.
+- **The sprint share is logged** (`gaitTick`, every 5 min): `Movement: sprinting N% of S s of pathfinder walking (food F)`.

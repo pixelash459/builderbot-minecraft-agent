@@ -818,11 +818,15 @@ export function plan(counts,ctx={}){
 // make one`, at y=45): a craft that needs a crafting table, with none held, none in the world
 // and under 4 planks, first fetches the planks (logs when short) - the worker makes the table.
 const HAND_CRAFT=/_planks$|^(stick|crafting_table|torch)$/;
+// Items the held fuel can smelt (a coal or charcoal smelts 8, a plank or a log 1.5).
+export const fuelBurns=(c,ctx)=>(c('coal')+c('charcoal'))*8+((ctx.planksTotal||0)+(ctx.logsTotal||0))*1.5;
 export function tableFirst(c,ctx,job){
  // Round 36 (round-35 soak: `smelt chicken` 11 times, `Not enough fuel to smelt 1 items`): a
  // smelt with no fuel held (coal, charcoal, planks or logs) fetches logs first. Raw iron
  // left in a burning furnace (take) needs none.
- if(job&&job.type==='smelt'&&!job.take&&c('coal')+c('charcoal')<1&&(ctx.planksTotal||0)<2&&(ctx.logsTotal||0)<1)
+ // Round 47 (round-46 soak: `smelt porkchop` count 2 x16, `Not enough fuel to smelt 2 items` -
+ // one log burns 1.5 items): the fuel held must cover the count (coal 8, planks and logs 1.5).
+ if(job&&job.type==='smelt'&&!job.take&&fuelBurns(c,ctx)<(job.count||1))
   return {type:'gather',block:'log',count:4,radius:32,searchIfMissing:true,belowFoots:true,surface:true};
  if(!job||job.type!=='craft'||HAND_CRAFT.test(job.item))return job;
  if(c('crafting_table')>=1||ctx.worldTable||ctx.planksTotal>=4)return job;

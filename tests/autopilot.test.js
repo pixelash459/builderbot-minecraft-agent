@@ -592,3 +592,10 @@ test('round 41: a timed-out chicken fight leaves chickens alone for a while',()=
  ap.huntOff.chicken=Date.now()-1;
  assert.equal(ap.animalsNearby(b).type,'chicken','back after the window');
 });
+test('round 47: the fuel held must cover the smelt count',()=>{
+ const none=()=>0;const smelt2={type:'smelt',item:'porkchop',count:2,leave:true};
+ assert.equal(tableFirst(none,{planksTotal:0,logsTotal:1},smelt2).block,'log','one log burns 1.5: short of 2');
+ assert.equal(tableFirst(none,{planksTotal:1,logsTotal:1},smelt2),smelt2,'a log and a plank burn 3');
+ assert.equal(tableFirst(n=>n==='coal'?1:0,{planksTotal:0,logsTotal:0},{type:'smelt',item:'raw_iron',count:8}).type,'smelt','one coal smelts 8');
+ assert.equal(tableFirst(n=>n==='coal'?1:0,{planksTotal:0,logsTotal:0},{type:'smelt',item:'raw_iron',count:9}).block,'log','9 is past one coal');
+});
