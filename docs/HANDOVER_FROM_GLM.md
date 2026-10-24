@@ -2043,3 +2043,9 @@ Round 44 soak (`91de340`): **iron pick on all six runs** (normal 421/481/452 s, 
 
 - **The stranded retry lowers the surface floor too** (`surfaceFloor` - 6 for that try; the explore's floor exclusion now reads the live floor), then restores it.
 - **Still stranded: pillar up 3 and path again** (`STRAND_PILLAR`=3): if the 6-drop try also finds no path, the bot pillars up 3 (digging a ceiling only with no fluid or falling block over it) and paths once more from the top. Line: `Navigation: still stranded at ...; pillaring up 3`.
+
+## Round 46 (2026-10-24)
+
+Round 45 soak (`78b1ad8`): **0 deaths**, iron pick on the three normal runs (602/632/602 s) and hard1 (422 s); hard2 and hard3 none, no diamonds. The stranded retry plus the 3-block pillar left most stands (48 stranded, 23 pillar lines); the one that never left was (444, -47, 267) at the end of normal2, and three pillars stopped on `no blocks held`. Found: **hard2's iron gather never ran** - from about t=320 a creeper under the canopy was fled every second (`fleeing creeper (never melee a creeper)`, the gather preempted and resubmitted) until the shelter, ore 0.
+
+- **A lone creeper that keeps following is fought** (`CREEPER_PERSIST`=20 s): the same creeper (by id, ticks no more than 5 s apart) within 10 for 20 s, with the fight policy allowed (armed, health), 2+ pillar blocks held and no other hostile within 6, gets a `FightTask` instead of another flee - the combat controller's creeper tactic (pillar up, strike or shoot from the top; 0 damage in every combat run). A swelling creeper still sprints away first. Line: `Reflex: a creeper has followed for N s; fighting it from a pillar`.

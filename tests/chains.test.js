@@ -528,3 +528,18 @@ test('MobDefenseChain: the witch flee is bounded',()=>{
  const close=makeBot({hostiles:[witch([4,-60,0])],timeOfDay:6000});
  assert.equal(m.priority(close.bot,ctxOf()),68,'still fled within 6');
 });
+test('round 46: a lone creeper that keeps following for 20 s is fought (from a pillar), not fled forever',()=>{
+ const m=new MobDefenseChain();let t=1000;m.now=()=>t;
+ const {bot}=makeBot({hostiles:[{name:'creeper',position:[8,-60,0]}],inventory:['iron_sword','cobblestone'],counts:{cobblestone:16},timeOfDay:6000});
+ m.priority(bot,ctxOf({killAnnoyingHostileWhenCloseForSeconds:0}));
+ assert.equal(m.root.name,'RunAwayFromCreepersTask','first: flee');
+ for(let i=0;i<5;i++){t+=2;m.priority(bot,ctxOf({killAnnoyingHostileWhenCloseForSeconds:0}));}
+ assert.equal(m.root.name,'RunAwayFromCreepersTask','10 s: still flee');
+ for(let i=0;i<6;i++){t+=2;m.priority(bot,ctxOf({killAnnoyingHostileWhenCloseForSeconds:0}));}
+ assert.equal(m.root.name,'FightTask','21 s of the same creeper: fight it');
+ // no blocks for the pillar: keep fleeing
+ const m2=new MobDefenseChain();let t2=1000;m2.now=()=>t2;
+ const {bot:b2}=makeBot({hostiles:[{name:'creeper',position:[8,-60,0]}],inventory:['iron_sword'],timeOfDay:6000});
+ for(let i=0;i<13;i++){t2+=2;m2.priority(b2,ctxOf({killAnnoyingHostileWhenCloseForSeconds:0}));}
+ assert.equal(m2.root.name,'RunAwayFromCreepersTask');
+});

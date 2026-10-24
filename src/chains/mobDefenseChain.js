@@ -18,6 +18,7 @@ import {FightTask} from './fightTask.js';
 import {creeperSwell} from '../creeper.js';
 // MobDefenseChain.java constants.
 const CREEPER_KEEP_DISTANCE=10;
+export const CREEPER_PERSIST=20;
 const ARROW_KEEP_DISTANCE_HORIZONTAL=2;
 const ARROW_KEEP_DISTANCE_VERTICAL=10;
 const DANGER_KEEP_DISTANCE=15*2;
@@ -104,6 +105,22 @@ export class MobDefenseChain extends SingleTaskChain{
   const creeper=hostiles.filter(e=>e.name==='creeper'&&withinRange(e,bot,CREEPER_KEEP_DISTANCE))
    .sort((a,b)=>distanceTo(a,bot)-distanceTo(b,bot))[0];
   if(creeper){
+   // Round 46 (round-45 hard2: a creeper fled every second for 3.5 min under the canopy, the
+   // iron gather never ran, no hard iron): one creeper that keeps following for CREEPER_PERSIST
+   // seconds is fought instead - the combat controller's creeper tactic (pillar up, strike or
+   // bow from the top), which took 0 damage in every combat run - when armed and able to fight,
+   // holding blocks for the pillar, and with nothing else within 6.
+   const now=this.now();
+   if(!this._creeperChase||this._creeperChase.id!==creeper.id||now-this._creeperChase.last>5)this._creeperChase={id:creeper.id,since:now,last:now};
+   this._creeperChase.last=now;
+   const lone=hostiles.filter(e=>withinRange(e,bot,CREEPER_KEEP_DISTANCE)&&e.name==='creeper').length===1&&!hostiles.some(e=>e.name!=='creeper'&&withinRange(e,bot,6));
+   const blocks=pillarBlocks(bot);
+   if(policy.allowed&&lone&&blocks&&blocks.total>=2&&now-this._creeperChase.since>=CREEPER_PERSIST){
+    this._runAwayTask=null;
+    this.root=this._fight(ctx);
+    this._fleeLog(ctx,'creeper-fight','Reflex: a creeper has followed for '+Math.round(now-this._creeperChase.since)+' s; fighting it from a pillar');
+    return 66;
+   }
    this._runAwayTask=null;
    this._doingFunkyStuff=true;
    const fuse=Math.max(0,Math.min(1,1-distanceTo(creeper,bot)/CREEPER_KEEP_DISTANCE));
