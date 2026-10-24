@@ -941,7 +941,10 @@ export class Worker extends EventEmitter {
   return movement;
  }
  normalMovements(bot){
-  const movement=new Movements(bot);movement.canDig=false;movement.allow1by1towers=false;movement.allowParkour=false;movement.allowSprinting=false;movement.canOpenDoors=false;movement.maxDropDown=3;
+  // Round 46 (the bot walked everywhere at walking speed - job walks use these movements, and
+  // sprinting was off here since the first import): sprint like the explore movements do. The
+  // ledge guard (round 31) lets go of the sprint key beside any 5+ drop.
+  const movement=new Movements(bot);movement.canDig=false;movement.allow1by1towers=false;movement.allowParkour=false;movement.allowSprinting=true;movement.canOpenDoors=false;movement.maxDropDown=3;
   this.applyMobAvoidance(movement,bot);this.avoidHazards(movement,bot);
   return guardDiagonals(movement);
  }

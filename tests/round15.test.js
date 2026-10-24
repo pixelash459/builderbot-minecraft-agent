@@ -566,3 +566,11 @@ test('round 45: still stranded after the 6-drop try, the bot pillars up and path
  assert.ok(w.logs.some(l=>/still stranded at .*pillaring up 3/.test(l)));
  assert.equal(mv.maxDropDown,3);
 });
+test('round 46: job walks sprint (the normal movements allow it, like the explore ones)',async()=>{
+ const reg=(await import('prismarine-registry')).default('1.21.4');
+ const bot={registry:reg,version:'1.21.4',world:{},entities:{},blockAt:()=>null,entity:{position:new Vec3(0,64,0)}};
+ const w=Object.create(Worker.prototype);w.bot=bot;w.applyMobAvoidance=()=>{};w.avoidHazards=()=>{};
+ const m=w.normalMovements(bot);
+ assert.equal(m.allowSprinting,true);
+ assert.equal(m.maxDropDown,3);
+});
