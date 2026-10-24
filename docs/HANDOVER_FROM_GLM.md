@@ -2057,3 +2057,9 @@ Round 46 soak (`8a1d4bb`): **0 deaths**, iron pick on 5 of 6 (normal 512/452/391
 
 - **Fuel must cover the count** (`fuelBurns`): a smelt (not a `take`) whose held fuel smelts fewer items than its count (coal/charcoal 8, planks/logs 1.5) gathers 4 logs first.
 - **The sprint share is logged** (`gaitTick`, every 5 min): `Movement: sprinting N% of S s of pathfinder walking (food F)`.
+
+## Round 48 (2026-10-25)
+
+Round 47 soak (`f1a2d89`): **0 deaths (hp 20 on every sample)**, iron pick on 5 of 6 (normal2 572 s, normal3 963 s, **all three hard runs** 392/422/573 s), no diamonds. **Sprinting works**: 28 `Movement: sprinting` lines, about 50-60% of pathfinder walking time per run (the pathfinder sprints only where its straight-line sprint check passes; the ledge guard releases it by drops). The fuel loop did not return. Of 288 `Tool left the inventory` lines only 10 were breaks; the bursts are inventory moves with uses left. Found: **normal1 stood stranded at (313, 112, 51) for the run** - the 6-drop retry still saw 1 node, and the pillar stopped on `no blocks held`: job walks use the normal movements, which never dig, so a bot walled in by blocks had no way out.
+
+- **The stranded retry may dig** (`canDig` on for that one try, restored after): a walled-in stand can tunnel out, and the dug blocks feed the pillar. Line: `Navigation: stranded at ... (drops on every side); allowing drops of up to 6 and digging`.

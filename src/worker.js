@@ -880,9 +880,11 @@ export class Worker extends EventEmitter {
      // Round 45 (round-44 normal: `stranded ... allowing drops of up to 6` and still 1 node - a food
      // explore's surfaceFloor sat at the bot's own y and refused every cell below it): the floor
      // drops with it for this one try.
-     this._deepDrop=true;const was=mv.maxDropDown,wasFloor=this.surfaceFloor;mv.maxDropDown=STRANDED_DROP;
+     // Round 48 (round-47: still 1 node with drops allowed at (313, 112, 51), and the pillar had no
+     // blocks - job walks use the normal movements, which never dig): this try may dig too.
+     this._deepDrop=true;const was=mv.maxDropDown,wasFloor=this.surfaceFloor,wasDig=mv.canDig;mv.maxDropDown=STRANDED_DROP;mv.canDig=true;
      if(wasFloor!=null)this.surfaceFloor=wasFloor-STRANDED_DROP;
-     this.log('Navigation: stranded at '+bot.entity.position.floored()+' (drops on every side); allowing drops of up to '+STRANDED_DROP);
+     this.log('Navigation: stranded at '+bot.entity.position.floored()+' (drops on every side); allowing drops of up to '+STRANDED_DROP+' and digging');
      try{return await this.navigate(goal,token,seconds);}
      catch(e){
       this.check(token);if(!/No path/.test(String(e.message))||this._strandPillar)throw e;
@@ -898,7 +900,7 @@ export class Worker extends EventEmitter {
        throw e;
       }finally{this._strandPillar=false;}
      }
-     finally{mv.maxDropDown=was;this.surfaceFloor=wasFloor;this._deepDrop=false;}
+     finally{mv.maxDropDown=was;mv.canDig=wasDig;this.surfaceFloor=wasFloor;this._deepDrop=false;}
     }
     throw new Error('No path to the goal! (empty path at '+bot.entity.position.floored()+', last path: '+last+')');
    }}

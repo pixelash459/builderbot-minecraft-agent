@@ -539,7 +539,7 @@ test('round 44: a stand with drops on every side paths once more allowing 6-bloc
  await w.navigate(new pf.goals.GoalNear(380,131,35,1),0,5);
  assert.deepEqual(seenDrop,[3,6],'second try with 6-block drops');
  assert.equal(mv.maxDropDown,3,'restored');
- assert.ok(w.logs.some(l=>/stranded at .*allowing drops of up to 6/.test(l)));
+ assert.ok(w.logs.some(l=>/stranded at .*allowing drops of up to 6 and digging/.test(l)));
  // low health: no deep drops
  bot.health=8;bot.entity.position=new Vec3(369.5,137,35.5);seenDrop=[];
  await assert.rejects(()=>w.navigate(new pf.goals.GoalNear(380,131,35,1),0,5),/No path/);
@@ -583,4 +583,13 @@ test('round 47: the sprint share of pathfinder walking is logged every 5 min',()
  const line=gaitTick(bot,g,GAIT_LOG_MS+1);
  assert.match(line,/^Movement: sprinting 7\d% of 5 s of pathfinder walking \(food 18\)$/);
  assert.equal(g.walk,0,'reset');
+});
+test('round 48: the stranded retry may dig, then the movements go back to no digging',async()=>{
+ const {EventEmitter:EE}=await import('node:events');
+ const mv={maxDropDown:3,canDig:false,exclusionAreasStep:[]};const digs=[];
+ const bot=Object.assign(new EE(),{health:20,entity:{onGround:true,position:new Vec3(313.5,112,51.5)},targetDigBlock:null,
+  pathfinder:{movements:mv,goto(){digs.push(mv.canDig);bot.emit('path_update',{status:'noPath',path:[],visitedNodes:1});if(mv.canDig)bot.entity.position=new Vec3(320.5,110,51.5);return Promise.resolve();},setGoal(){},isMining:()=>false},clearControlStates(){}});
+ const w=Object.assign(Object.create(Worker.prototype),{bot,epoch:0,ready:true,deadline:Date.now()+60000,survivalJob:true,config:{limits:{minHealth:10,minFood:6}},logs:[],log(m){this.logs.push(m);},applyMobAvoidance(){},stairOut:async()=>false});
+ await w.navigate(new pf.goals.GoalNear(320,110,51,1),0,5);
+ assert.deepEqual(digs,[false,true]);assert.equal(mv.canDig,false,'restored');
 });
