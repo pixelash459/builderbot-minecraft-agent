@@ -2036,3 +2036,10 @@ Round 43 soak (`325acd9`): 2 deaths, **hard iron pick on two runs at 391 s and 4
 - **The deep dark is marked** (`markDeepDark`, `DEEP_DARK_AVOID`=32, `DEEP_DARK_MS`=30 min): a job ending `Deep dark` records the spot; a furnace batch within 32 is given up (`Deep dark: giving up the furnace batch at ...`), and gathers skip target columns within 32 of it (`nearHazard`).
 - **Fleeing a universally dangerous mob logs it**: `Reflex: fleeing warden (universally dangerous)`.
 - **Stranded stands may drop 6** (`STRANDED_DROP`=6, `STRANDED_HEALTH`=12): after the mob-avoidance retry and the stair-out, a search that never left 0-3 nodes paths once more with `maxDropDown` 6 when health is 12+ (3 damage at most), then restores it. Line: `Navigation: stranded at ... (drops on every side); allowing drops of up to 6`.
+
+## Round 45 (2026-10-24)
+
+Round 44 soak (`91de340`): **iron pick on all six runs** (normal 421/481/452 s, hard 361/451/421 s - the first time every run reached it), 1 death (hard2 shot by a skeleton 50 s after the last log line, gathering wood by day under the canopy; no Mob Defense line in those 50 s - open), no diamonds. Found: the stranded 6-drop retry fired 87 times and never left a stand by itself (the ascend pillar did, twice); at (359, 101, 129) a food explore's `surfaceFloor` was the bot's own y, so the 6-drop search still saw 1 node, 56 times to the end of normal2.
+
+- **The stranded retry lowers the surface floor too** (`surfaceFloor` - 6 for that try; the explore's floor exclusion now reads the live floor), then restores it.
+- **Still stranded: pillar up 3 and path again** (`STRAND_PILLAR`=3): if the 6-drop try also finds no path, the bot pillars up 3 (digging a ceiling only with no fluid or falling block over it) and paths once more from the top. Line: `Navigation: still stranded at ...; pillaring up 3`.

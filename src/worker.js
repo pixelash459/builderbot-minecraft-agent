@@ -148,7 +148,7 @@ export function bedSpots(at,feet){
 // keys. True when it stopped the bot.
 // Round 33: a drowning escape this recent marks the resumed job to leave the water first.
 export const DROWN_RECENT_MS=10000;
-export const STRANDED_DROP=6,STRANDED_HEALTH=12;
+export const STRANDED_DROP=6,STRANDED_HEALTH=12,STRAND_PILLAR=3;
 export const HAZARD_NEAR=8,HAZARD_MS=5*60000,DEEP_DARK_AVOID=32,DEEP_DARK_MS=30*60000;
 // Round 36: the farthest ore (from the eye) the gather tunnels to when no walk reaches it.
 export const ORE_TUNNEL=10;
@@ -865,9 +865,28 @@ export class Worker extends EventEmitter {
     // 35) ... 3 nodes` - a stand with a 3+ drop into a cave on every side, the whole run): with
     // health to spare, path once more allowing drops of up to STRANDED_DROP (3 damage at most).
     if(/ [0-3] nodes/.test(last)&&!this._deepDrop&&mv&&(bot.health??0)>=STRANDED_HEALTH&&(mv.maxDropDown??3)<STRANDED_DROP){
-     this._deepDrop=true;const was=mv.maxDropDown;mv.maxDropDown=STRANDED_DROP;
+     // Round 45 (round-44 normal: `stranded ... allowing drops of up to 6` and still 1 node - a food
+     // explore's surfaceFloor sat at the bot's own y and refused every cell below it): the floor
+     // drops with it for this one try.
+     this._deepDrop=true;const was=mv.maxDropDown,wasFloor=this.surfaceFloor;mv.maxDropDown=STRANDED_DROP;
+     if(wasFloor!=null)this.surfaceFloor=wasFloor-STRANDED_DROP;
      this.log('Navigation: stranded at '+bot.entity.position.floored()+' (drops on every side); allowing drops of up to '+STRANDED_DROP);
-     try{return await this.navigate(goal,token,seconds);}finally{mv.maxDropDown=was;this._deepDrop=false;}
+     try{return await this.navigate(goal,token,seconds);}
+     catch(e){
+      this.check(token);if(!/No path/.test(String(e.message))||this._strandPillar)throw e;
+      // Round 45 (round-44: the 6-drop retry never left a stranded stand, 87 lines; the ascend
+      // pillar did, twice): climb STRAND_PILLAR and path once more from the top.
+      this._strandPillar=true;
+      try{
+       const safe=bl=>{const up=bot.blockAt(bl.position.offset(0,1,0));return !/bedrock|obsidian|chest|furnace|crafting_table|spawner/.test(bl.name)&&!isFluid(bl)&&!isFluid(up)&&!isGravity(up);};
+       const y0=Math.floor(bot.entity.position.y);
+       this.log('Navigation: still stranded at '+bot.entity.position.floored()+'; pillaring up '+STRAND_PILLAR);
+       await this.pillarUp(y0+STRAND_PILLAR,token,{clear:safe,maxDigs:STRAND_PILLAR});
+       if(Math.floor(bot.entity.position.y)>y0)return await this.navigate(goal,token,seconds);
+       throw e;
+      }finally{this._strandPillar=false;}
+     }
+     finally{mv.maxDropDown=was;this.surfaceFloor=wasFloor;this._deepDrop=false;}
     }
     throw new Error('No path to the goal! (empty path at '+bot.entity.position.floored()+', last path: '+last+')');
    }}
@@ -1015,7 +1034,7 @@ export class Worker extends EventEmitter {
   // Food-step graze floor: the graze is a surface activity. Round 3 normal3 followed the
   // terrain from the y=131 anchor down into a cave and was shot dead at y=41. Paths below
   // the floor cost extra, and the leg aborts once the bot is under it.
-  const moves=this.exploreMovements(),floor=job.spec.surfaceFloor,deep=block=>block.position.y<floor?100:0;
+  const moves=this.exploreMovements(),floor=job.spec.surfaceFloor,deep=block=>block.position.y<(this.surfaceFloor??floor)?100:0; // round 45: the live floor (a stranded retry lowers it)
   if(floor!=null){this.surfaceFloor=floor;moves.exclusionAreasStep.push(deep);}
   try{await this.exploreLeg(token,{direction:job.direction,distance:job.spec.distance});}
   finally{

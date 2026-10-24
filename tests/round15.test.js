@@ -545,3 +545,24 @@ test('round 44: a stand with drops on every side paths once more allowing 6-bloc
  await assert.rejects(()=>w.navigate(new pf.goals.GoalNear(380,131,35,1),0,5),/No path/);
  assert.deepEqual(seenDrop,[3]);
 });
+test('round 45: the stranded retry lowers the surface floor with the drop limit, then restores it',async()=>{
+ const {EventEmitter:EE}=await import('node:events');
+ const mv={maxDropDown:3,exclusionAreasStep:[]};const floors=[];
+ const bot=Object.assign(new EE(),{health:20,entity:{onGround:true,position:new Vec3(359.5,101,129.5)},targetDigBlock:null,
+  pathfinder:{movements:mv,goto(){floors.push(w.surfaceFloor);bot.emit('path_update',{status:'noPath',path:[],visitedNodes:1});if(mv.maxDropDown===6)bot.entity.position=new Vec3(365.5,97,129.5);return Promise.resolve();},setGoal(){},isMining:()=>false},clearControlStates(){}});
+ const w=Object.assign(Object.create(Worker.prototype),{bot,epoch:0,ready:true,deadline:Date.now()+60000,survivalJob:true,config:{limits:{minHealth:10,minFood:6}},logs:[],log(m){this.logs.push(m);},applyMobAvoidance(){},stairOut:async()=>false,surfaceFloor:101});
+ await w.navigate(new pf.goals.GoalNear(365,97,129,1),0,5);
+ assert.deepEqual(floors,[101,95]);assert.equal(w.surfaceFloor,101,'restored');
+});
+test('round 45: still stranded after the 6-drop try, the bot pillars up and paths again',async()=>{
+ const {EventEmitter:EE}=await import('node:events');
+ const mv={maxDropDown:3,exclusionAreasStep:[]};let calls=0,pillared=0;
+ const bot=Object.assign(new EE(),{health:20,entity:{onGround:true,position:new Vec3(340.5,78,142.5)},targetDigBlock:null,
+  pathfinder:{movements:mv,goto(){calls++;bot.emit('path_update',{status:'noPath',path:[],visitedNodes:1});if(pillared)bot.entity.position=new Vec3(350.5,80,142.5);return Promise.resolve();},setGoal(){},isMining:()=>false},clearControlStates(){}});
+ const w=Object.assign(Object.create(Worker.prototype),{bot,epoch:0,ready:true,deadline:Date.now()+60000,survivalJob:true,config:{limits:{minHealth:10,minFood:6}},logs:[],log(m){this.logs.push(m);},applyMobAvoidance(){},stairOut:async()=>false,
+  pillarUp:async(y)=>{pillared++;bot.entity.position=new Vec3(340.5,81,142.5);return true;}});
+ await w.navigate(new pf.goals.GoalNear(350,80,142,1),0,5);
+ assert.equal(pillared,1);
+ assert.ok(w.logs.some(l=>/still stranded at .*pillaring up 3/.test(l)));
+ assert.equal(mv.maxDropDown,3);
+});
