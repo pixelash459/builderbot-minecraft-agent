@@ -5314,3 +5314,154 @@ The afternoon iron-before-food rule held on all three hard runs while the bar st
 
 `logs/dashboard-uncaught.log` gained no bytes during the soak (size stayed 2576174). There is no new line from this round 43 window. Deaths are 2, both already counted above.
 
+## 2026-10-24 10:47–13:55 IST — round 44 soak (bot code `91de340`)
+
+Units first, then one model-off restart, then one six-run soak. No combat and no integration. `git pull --rebase` stashed local `data/` dumps, origin was already at `91de340`, and the stash was popped. HEAD is `91de340` (`Round 44: mark the deep dark and give up a furnace beside it, let a stranded stand drop 6, and log warden flees`).
+
+Unit tests, every `tests/*.test.js` except `resources.test.js`, `--max-old-space-size=2048 --test-timeout=60000 --test-skip-pattern resources`: **613 pass, 0 fail**, 0 skipped, 41280 ms. Round 43 was 611 pass, 0 fail. The live fail count is 0, so this is a pass. `resources.test.js` was not run.
+
+`AGENT_MODEL=off`. The pre-soak `Start-Agent.ps1` waiter did not return after the services were already up (new test-server and dashboard PIDs, port 8081 closed); the test runner stopped that waiter PID only. The soak then stopped and started the services itself. Supervisor log first line after that start is `model server disabled (config.model.enabled=false): skipping llama-server, saving ~6.5 GB commit`. Port 8081 stayed closed. One soak, exit 0, 11287 s (10:47:41–13:55:47 IST, 05:17:41Z–08:25:47Z 24 Oct). `SOAK DONE (clean)`, promoted to `data/soak-results.json` (`clean triple promoted`). Anchors on this regenerated seed: hard [142, 131, 31] (canopy light 10), normal [310, 131, 30] (open sky 15). Harness interventions 3, resumes 1, deaths 1. Six valid runs, each on the first attempt (`normal1a1` through `hard3a3`). `invalid_attempts` is empty. No `timeOfDay=None`. `tod_at_start` and `tod_end` are `day` on all six. Every run header was dawn, clear weather, empty inventory, full vitals. Dashboard window is the bytes after offset 61651177. The runs are the `Autopilot started` / `Autopilot stopped` pairs: normal1 05:20:52Z–06:01:05Z, normal2 06:01:12Z–06:41:25Z, normal3 06:41:31Z–07:21:48Z, hard1 07:21:55Z–07:43:04Z, hard2 07:43:11Z–08:04:20Z (resumed after the death at 07:46:11Z), hard3 08:04:26Z–08:25:20Z. After the stop, the flat world was restored (`level-name=agent-test-world`, `level-type=minecraft\:flat`, `server-ip=0.0.0.0`, `difficulty=peaceful`). The soak was not stopped early. normal2's stranded loop ate the last 8 minutes of that run and the run timer still ended.
+
+The wood / stone-pick / furnace / iron-pick columns are the first sample that held the item. **Iron pick on every run: normal 421 / 481 / 452 s, hard 361 / 451 / 421 s.** Iron-ore peaks: normal 12/7/4, hard 7/6/5. Ingot peaks from samples: normal 7/9/8, hard 0/7/3. Diamonds mined: 0/0/0 and 0/0/0. Diamond pick: none. Round 43 normal iron was 572/none/602, ore 4/0/7, ingots 7/0/7, diamonds 1/0/0 and no pick; hard iron was 391/none/421, ore 7/4/3, ingots 0/0/3. Round 42 normal iron was 482/813/572, ore 8/5/6, ingots 7/9/6, diamonds 0; hard iron was none, ore 5/0/0, ingots 0. Every run this round held a pick. Round 43 normal2 and hard2 held none. normal1's pick (421 s) is earlier than round 43 (572) and round 42 (482). normal2's pick (481 s) is back; round 43 normal2 had none and round 42 had one at 813 s. normal3 (452 s) is earlier than round 43 (602) and round 42 (572). Normal ore is above round 43 on normal1 (12 vs 4) and normal2 (7 vs 0), and below it on normal3 (4 vs 7). Hard picks are on all three runs. hard2's sample ingot peak of 7 is the batch it took from hard1's furnace before the death; after the respawn every ingot sample is 0.
+
+Normal wood 120/151/90, stone 211/211/181, furnace 271/331/362, iron 421/481/452. Round 43 normal was wood 90/90/120, stone 211/271/241, furnace 301/361/301, iron 572/—/602. Round 42 normal was wood 120/120/150, stone 181/271/241, furnace 271/361/331, iron 482/813/572.
+
+Hard wood 90/271/120, stone 151/331/211, furnace 241/391/331, iron 361/451/421. Round 43 hard was wood 120/211/120, stone 211/421/181, furnace 331/512/301, iron 391/—/421. Round 42 hard was wood 90/120/181, stone 150/241/482, furnace 271/331/—, iron —/—/—.
+
+The normal step order is still wood, stone, food, then iron. normal1: food at t=301, iron at t=361, furnace step again at t=451 (the furnace item was already held at 271 s). normal2: food at t=361, iron at t=391. normal3: food at t=362, iron at t=392. None of the normal runs started iron while still on the wood or stone step.
+
+| Run | Wood | Stone pick | Furnace | Iron pick | Iron ore peak | Ingots peak | Diamonds | Diamond pick | Deaths |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| normal1a1 | 120 | 211 | 271 | 421 | 12 | 7 | 0 | no | 0 |
+| normal2a2 | 151 | 211 | 331 | 481 | 7 | 9 | 0 | no | 0 |
+| normal3a3 | 90 | 181 | 362 | 452 | 4 | 8 | 0 | no | 0 |
+| hard1a1 | 90 | 151 | 241 | 361 | 7 | 0 | 0 | no | 0 |
+| hard2a2 | 271 | 331 | 391 | 451 | 6 | 7 | 0 | no | 1 |
+| hard3a3 | 120 | 211 | 331 | 421 | 5 | 3 | 0 | no | 0 |
+
+### Deep dark, furnace give-up, warden flee
+
+`Deep dark` lines: 0. `giving up the furnace batch`: 0. `fleeing warden`: 0. `sculk` and `warden`: 0. No walk back toward a marked deep-dark spot. The diamond rung ran on all three normal runs (`gather diamond_ore` at 05:36:02Z, 06:17:36Z, 07:00:40Z) and the inventory diamond count stayed 0. Round 43's warden death at y=-45 had no give-up line either; this soak never reached a deep-dark block, so the new mark-and-give-up path was not exercised. A warden did not kill the bot.
+
+### Hard iron before food
+
+No hard run hunted food before the iron pick existed. hard1 and hard3 stayed at food 20 through the pick craft. hard2's bar was 20, then 19 in the sample before the death, still on wood; after the respawn it was 20 through the pick. None went under 18 before the pick. hard3's bar reached 17 only after the pick, during the night shelter (hp 14.3 from t=542 on).
+
+hard1. First `[iron]` job is `07:26:11.670Z Autopilot [iron] {"type":"craft","item":"stick","count":2}` (about t=256, run start 07:21:55Z), then a stone-pick craft, then `07:26:22.976Z Autopilot [iron] {"type":"gather","block":"iron_ore","count":6,...}`. Samples at t=271 are `step=iron food=20`. The pick craft is `07:27:32.668Z Autopilot [iron] {"type":"craft","item":"iron_pickaxe","count":1}`. The t=361 sample is `pick=1 ing=0 food=20`. The first `[food]` job is after that, `07:27:52.934Z Autopilot [food] {"type":"fight","entity":"chicken","maxSeconds":90}`, bar still 20. Night mine `07:32:18.519Z Night mine: down from the shelter at (178, 151, 41) (tod 12615)`. Ingots at sunset are 0. The 3 kiln ingots were spent on the pick. A later batch, `07:30:55.145Z Smelt: furnace at 179,151,41 loaded with 7 raw_iron`, was still in that furnace when hard1 stopped. hard2 took it (below).
+
+hard2. The death is during wood, before any `[iron]` job. First `[iron]` after the resume is `07:49:38.604Z Autopilot [iron] {"type":"craft","item":"stick","count":2}` (about t=387, run start 07:43:11Z). Samples at t=391 are `step=iron food=20 hp=20` and at t=421 `ore=2 ing=0 food=20`. No `[food]` job in the run. The pick craft is `07:50:35.571Z Autopilot [stone] {"type":"craft","item":"iron_pickaxe","count":1,"keepTable":true}` after `07:50:35.563Z Autopilot: dusk - finishing the stone kit first (iron_pickaxe)`. The t=451 sample is `pick=1 ing=0`. Night mine `07:53:33.399Z Night mine: down from the shelter at (109, 127, -18) (tod 12600)`. Ingots at sunset are 0. The sample peak of 7 is only t=30 through t=150, before the death, from hard1's furnace.
+
+hard3. First `[iron]` is `08:09:34.261Z Autopilot [iron] {"type":"craft","item":"stick","count":2}` (about t=308, run start 08:04:26Z), then `08:09:45.586Z Autopilot [iron] {"type":"gather","block":"iron_ore","count":6,...}`. Samples at t=331 and t=361 are `step=iron food=20`. The t=391 sample is `ing=3 pick=0 food=20`. The pick craft is `08:11:05.366Z Autopilot [iron] {"type":"craft","item":"iron_pickaxe","count":1}`. The t=421 sample is `pick=1 ing=0 food=20 step=food`. The first `[food]` job is `08:11:17.626Z Autopilot [food] {"type":"fight","entity":"chicken","maxSeconds":90}`, after the pick, bar still 20. Shelter `08:12:56.404Z Autopilot [night] {"type":"shelter"}`, sealed at tod 10546. Ingots at the t=512 night sample are 0. The peak of 3 was the kiln batch spent on the pick between t=391 and t=421.
+
+### Stranded stands
+
+87 lines, `Navigation: stranded at ... (drops on every side); allowing drops of up to 6`. The allow-drop fired many times at the same block. It did not fire once and then stop.
+
+normal1, five lines at `(677, 44, -36)` from `05:53:06.684Z` to `05:53:23.336Z`. Quote: `Navigation: stranded at (677, 44, -36) (drops on every side); allowing drops of up to 6`. Nearest samples are t=1927 `(677, 42, -36)` hp 19 and t=1957 `(677, 44, -36)` hp 19. The next move is `05:53:36.521Z Ascend: no path up from y=44; pillaring`. The 6-drop path did not leave the spot. hp stayed 19.
+
+normal1, five lines at `(677, 68, -36)` from `05:56:35.897Z` to `05:56:55.013Z`. Samples t=2137 `(677, 67, -36)` hp 19 and t=2167 `(677, 68, -36)` hp 19, then t=2197 `(684, 69, -36)` hp 19. The bot left that column. hp stayed 19.
+
+normal2, 15 lines at `(340, 78, 142)` from `06:27:44.393Z` through `06:29:09.077Z`. Samples t=1595, t=1625, t=1655, and t=1685 stay on `(340, 78, 142)` hp 20 food 9. Then `06:29:22.382Z Ascend: no path up from y=78; pillaring`, and t=1715 is y=81, hp 20. The 6-drop path did not leave; the pillar did.
+
+normal2, three lines at `(340, 102, 142)` around `06:31:38.282Z`. t=1836 is `(340, 102, 142)` hp 20 food 9; t=1866 is `(339, 95, 140)` hp 20. The bot left. hp stayed 20.
+
+normal2, 56 lines at `(359, 101, 129)` from `06:33:50.610Z` to `06:41:15.847Z`, the end of the run. Quote: `Navigation: stranded at (359, 101, 129) (drops on every side); allowing drops of up to 6`. With it, 56 times each: `Navigation: no path with mob avoidance at (359, 101, 129); trying without it` and `Job: No path to the goal! (empty path at (359, 101, 129), last path: noPath, 0 steps, 1 nodes)`. The job beside them is `Autopilot [food] {"type":"explore","distance":32,"direction":"east","surfaceCeiling":142,"surfaceFloor":101,"forFood":true}`, also 56 times. Samples from t=1986 through t=2407 stay on `(359, 101, 129)` hp 20 food 5, step food, pick 1. The next path did not work. hp stayed 20; food was already 5 at t=1956, one sample before the stand. This is the last 8 minutes, after a pick at 481 s, armour 4, ore peak 7, and ingot peak 9. Round 43 normal2 stood at `(369, 137, 35)` for the whole run and submitted the same iron gather 153 times. This run did not do that. It did the same empty-path stand, on a food explore, for the last 8 minutes. `Autopilot: food step set aside for 8 min (failed 3 times)` also fired 20 times on this run.
+
+normal3, three lines at `(252, 54, 8)` from `07:17:12.105Z` to `07:18:22.645Z`. The next kiln is `07:20:28.956Z Gather: kiln at 251,70,-14`. The bot left that spot. normal3's run hp minimum is 16; the stranded lines themselves do not print hp.
+
+### Repeated 10+
+
+Counted across the whole run, including lines that alternate with other jobs.
+
+normal2: the 56-line cluster above, plus 20 times `food step set aside for 8 min`, plus the 15 stranded lines at `(340, 78, 142)`.
+
+normal3: `Navigation: no path with mob avoidance at (325, 151, 11)` 41 times; the same text at `(333, 130, 30)` 20 times and at `(333, 131, 29)` 14 times; `Autopilot [iron] gather iron_ore count 6 ... smeltAt 3` 11 times.
+
+hard1: `Job: Reflex: preempted by Mob Defense` 21 times.
+
+hard2: `Navigation: no path with mob avoidance at (181, 158, 45)` 13 times, in the minute before the death. After the resume, `Job: Reflex: preempted by Mob Defense` 30 times and `Autopilot [iron] gather coal_ore count 1` 18 times.
+
+hard3: `Navigation: no path with mob avoidance at (134, 133, 34)` 21 times and at `(135, 135, 31)` 18 times, both during wood, plus `Job: Reflex: preempted by Mob Defense` 20 times.
+
+### Falls
+
+Seven `Fall:` lines. No explosion line and no knockback line on any of them.
+
+`05:47:47.244Z Fall: dropping from (671, 5, -80) (job explore, pathing true, sprint true)` on normal1, during the diamond rung. The 10 s before are tool-switch lines (`iron_pickaxe`, `stone_axe`, `stone_shovel`). pathing true and sprint true: the pathfinder had it moving. hp minimum on the run is 19. It lived.
+
+`06:02:40.778Z Fall: dropping from (331, 135, 29) (job gather, pathing false, sprint false)` on normal2, 16 s after `Autopilot [wood] gather log`. The lines in between are that gather submit. pathing false. No flee. The run lived (hp minimum 20).
+
+`06:46:03.977Z Fall: dropping from (335, 135, 31) (job gather, pathing true, sprint true)` on normal3, the same second as `Server set position to (335, 135, 31) (teleport #29)`. That teleport is the harness unstuck `operator: unstuck the bot at [333, 131, 29]`. The mover is the operator teleport.
+
+`06:51:35.181Z Fall: dropping from (327, 155, 13) (job gather, pathing false, sprint false)` on normal3, the same second as `Server set position to (327, 155, 13) (teleport #30)`, the unstuck at `[325, 151, 11]`. The mover is the operator teleport.
+
+`07:00:27.251Z Fall: dropping from (264, 70, 125) (job use, pathing true, sprint false)` on normal3, one second after `Autopilot [iron] {"type":"use","item":"bucket","position":{"x":264,"y":62,"z":125}}`. pathing true. The pathfinder was walking the bucket use. `07:00:39.946Z Water: stepped out to (263, 63, 123)` follows. It lived.
+
+`07:11:32.333Z Fall: dropping from (270, 85, 106) (job none, pathing false, sprint false)` on normal3. The same timestamp is `Pause trace: fight -> Reflex: preempted by MLG Water Bucket Fall Chain` after a pig fight with 0 damage taken. The MLG reflex is what the log names. pathing false.
+
+`07:13:55.784Z Fall: dropping from (251, 73, 64) (job none, pathing false, sprint false)` on normal3. The same timestamp is `Pause trace: explore -> Reflex: preempted by MLG Water Bucket Fall Chain`. Same mover. It lived (no death on normal3).
+
+Hard runs have no `Fall:` line. hard3 has `08:12:09.998Z Ledge guard: stopped at (147, 117, 73) (a 5+ drop ahead)`, during the coal-gather crowd, and the next samples are the night shelter at hp 14.3. Round 43's hard3 fall from `(206, 150, 27)` did not recur.
+
+### Deaths
+
+One death. The soak terminal, the dashboard window, and the server log agree. Round 43 had 2. Round 42 had 0.
+
+hard2, `07:46:11.252Z BuilderBot was shot by Skeleton` and `Bot died at 178, 155, 44 (killed by skeleton)`. Server log `[13:16:11 INFO]: System chat: BuilderBot was shot by Skeleton`. The 30 s before that line are empty in the dashboard. The previous lines are 50 s earlier: `07:45:18.963Z Reflex: fleeing creeper (never melee a creeper)`, `07:45:20.858Z Navigation: no path with mob avoidance at (179, 158, 43)`, `07:45:20.993Z Reflex: Mob Defense engaging`, `07:45:21.046Z Reflex: fleeing creeper (never melee a creeper)`, `07:45:21.468Z Autopilot [wood] gather log`. Samples: t=120 `(181, 158, 45)` hp 16 food 20, t=150 `(178, 155, 44)` hp 16 food 19, t=180 respawn `(104, 142, -30)` hp 20 food 20 deaths 1. No fall line. The bot was on the wood step at hard1's old shelter, holding the 7 ingots it had just taken, and a skeleton shot it. The resume is `operator: resumed the ladder after death 1`.
+
+### Pillars, walls, burrows
+
+`walled the perch`: 0. `burrow`: 0. No declined-pillar line.
+
+Ascend pillars: normal1 `05:51:01.613Z Ascend: no path up from y=20; pillaring` and `05:53:36.521Z Ascend: no path up from y=44; pillaring`. normal2 `06:24:29.129Z` from y=54, `06:29:22.382Z` from y=78, `06:33:35.550Z` from y=77. normal3 `06:59:43.065Z Ascend: no path up from y=69; pillaring`.
+
+One night-mine pillar, and it got back: hard2 `07:54:05.464Z Night mine: pillaring up the sump from y=125`, then `07:54:07.393Z Night mine: back in the shelter (opened onto a cave at 109,120,-12; 6 steps, 0 ore items, 0 wall digs)`.
+
+hard1's night mine did not get back. `07:33:27.747Z Night mine: could not climb back into (178, 151, 41): Took to long to decide path to goal!` and `Night mine: not back in the shelter (opened onto a cave at 178,142,33; 8 steps, 6 ore items, 3 wall digs); bot at (179, 151, 42)`. Samples from t=692 through t=1264 stay at `(179, 151, 42)` on `step night` with the pick held and ingots 0. `07:41:48.600Z Shelter: dawn (tod 15); staying sealed until the morning is light and clear`. No morning-open line before hard1 stopped.
+
+### Drowning and water
+
+`06:17:46.277Z WorldSurvival: drowning (air 7), swimming up` and `06:17:47.595Z WorldSurvival: drowning (air 5), swimming up` on normal2, then `06:18:02.424Z Water: stepped out to (337, 64, 148)`. Also `06:33:09.722Z Water: stepped out to (400, 63, 143)` on normal2 and `07:00:39.946Z Water: stepped out to (263, 63, 123)` on normal3 after the bucket fall. `could not step out`: 0. No drowning death. No health-loss line with no attacker except the two MLG falls above, which name the fall chain.
+
+### Kiln and furnace swaps
+
+Kiln loads that were followed by a take: normal1 took 3 at `343,133,9`, then 12 at `345,132,12`, then 8 at `706,91,-38`. normal2 took 7, 3, 3, and 3 from four furnaces, and one kiln reported `3 ingots taken so far` then `4 ingots taken so far`. normal3 took 3, 1, 3, 3, and 3, plus 2 cooked chicken. `Smelt: no way to the furnace` and `using one here`: 0.
+
+normal1's second kiln failed fuel: `05:30:12.629Z Job: Not enough fuel to smelt 2 items; needs coal, charcoal, planks or logs` with the stack through `Worker.kilnTick`, then `05:30:26.051Z Gather: no kiln (Not enough fuel to smelt 3 items...); smelting after the gather`. The run continued and took the 12-ingot batch.
+
+hard1's 7 raw iron were loaded at `07:30:55.145Z` and not taken during hard1. `07:43:12.754Z Smelt: walk back to the furnace at 179,151,41 failed (No path to the goal!); trying the explore moves` is 1 s after hard2 started, and `07:43:33.742Z Smelt: took 7 iron_ingot from the furnace at 179,151,41`. hard2's t=30 sample is already at `(179, 155, 43)` with ingots 7, on the wood step. Those 7 are hard1's batch. The death dropped them (t=180 ingots 0).
+
+hard2 and hard3 each loaded one kiln of 3 raw iron and crafted the pick from it. No later take line on those runs.
+
+### Hunt timeouts
+
+One. hard1 `07:30:22.166Z Job: Fight timed out; cow is still standing` and `07:30:22.616Z Autopilot: cow hunt timed out; leaving cows alone for 3 min`. The cow fight had started at `07:28:51.944Z`, after the pick, bar 20. No other `hunt timed out` or `Fight timed out`.
+
+### Bed
+
+No bed craft, no bed place, no `Home set`, no `Sleeping`. Bed column is none on all six, and every bed sample is 0. Each normal run logged `Autopilot: no sheep after 3 search legs; bed set aside for 10 min` (normal1 `05:35:36.979Z`, normal2 `06:16:59.190Z`, normal3 `06:58:29.400Z` and again `07:16:00.722Z`). The bed rung then submitted another explore.
+
+### Path counts
+
+`Navigation made no progress`: 0. Round 43 was 0. `last path: none`: 0. Failed walks log `last path: noPath` (61, all normal2's stranded cluster) or `last path: partial` (normal2 2, normal3 5, hard2 1, hard3 2).
+
+`Job: Took to long to decide path to goal!` is 1 line: `07:00:10.197Z` on normal3, during the food explore before the bucket fall. Round 43 was 1 Job line. The same phrase also appears once on an ascend (`07:19:40.385Z Ascend: path up stopped` on normal3) and once on the hard1 night-mine climb (`07:33:27.747Z`). Round 43's night-mine climb with that text was 1. This round adds the ascend line.
+
+### Disconnects
+
+Server log size at soak start was 15905083. In the bytes after that: `kicked` 0, `lost connection` 1, the restore:
+
+`[13:55:33 INFO]: BuilderBot lost connection: Disconnected`
+
+`was shot` is 1 (the skeleton). `was slain` is 0. `fell from a high place` is 0. Three `moved wrongly` warnings on normal3 (`12:44:15`, `12:45:48`, `12:45:49` IST), around the two MLG falls. The dashboard window's `ECONNREFUSED` and `Disconnected by user` lines are the world switch at 05:17:42Z–05:19:29Z, before the first run. No kick during a run.
+
+### Other
+
+Harness interventions, not tester interrupts: normal3 unstuck at `[333, 131, 29]` and `[325, 151, 11]` (the two teleports that the fall detector also logged); hard2 resumed after the death. normal1's eat failed once: `05:58:50.254Z Food: meal failed - Cannot read properties of null (reading 'name') (2 tries)`. The run ate 5 other meals and ended food 15, hp 19. normal1's iron_pick sample is 0 at t=2227 and 1 again at t=2408. normal2 held no food while the bar went from 20 to 5 (hp stayed 20).
+
+The deep-dark give-up and the warden-flee line did not appear. The stranded 6-drop line did appear, and on normal2 it repeated 56 times at one block until the run ended. All six runs still crafted an iron pick, which round 43 did not. `SOAK DONE (clean)`.
+
+### Uncaught
+
+`logs/dashboard-uncaught.log` gained no bytes during the soak (size stayed 2576174). There is no new line from this round 44 window. Deaths are 1, already counted above.
+
