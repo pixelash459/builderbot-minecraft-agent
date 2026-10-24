@@ -2025,3 +2025,14 @@ Round 41 soak (`38f0561`): **2 deaths, both hard1** (by day fleeing ~20 mobs at 
 Round 42 soak (`0fa4984`): **0 deaths**, no loop, no kick, iron pick on the three normal runs (482/813/572 s), **no hard iron pick**, no diamonds. No pillar was needed (no night pillar, no day crowd during a run); every hard night sealed a box (a burrow only runs when short of blocks or the box will not seal, so none logged). Found: hard1 and hard2 spent ~3-3.5 min of the afternoon on chicken and sheep fights that timed out (90 s each) **with the food bar full**, then the iron gather was cut off by the shelter (hard2 11 s in); hard3 was still on the stone kit at dusk.
 
 - **Iron before food in the afternoon** (`foodDone`, `IRON_FIRST_BAR`=18, `IRON_FIRST_TOD`=5000): with no iron pick yet, from tod 5000 to sunset, a food bar of 18+ and health not low, the food step counts as done and the ladder goes on to iron. Hunger, low health and a nearly empty bar still bring it back. The normal runs' frozen morning (tod under 5000) is unchanged. `ctx.tod` is now passed to the plan.
+
+## Round 44 (2026-10-24)
+
+Round 43 soak (`325acd9`): 2 deaths, **hard iron pick on two runs at 391 s and 421 s** (the earliest yet - the iron-before-food rule fired), iron pick on normal1 and normal3 (572/602 s), 1 diamond. Found:
+- normal1 **slain by a warden** at (148, -45, 47): the deep-dark escape reached y=-19, then the furnace batch at 148,-44,45 (beside the sculk) walked it back down; Mob Defense fled (no line) and lost;
+- hard3 **fell 22** (150 -> 128) during a creeper flee, `pathing true` - no ledge line, cause not in the log;
+- normal2 **stranded the whole run** at (369, 137, 35): 153 iron gathers and 75 explores, each `empty path ... 3 nodes` - a 3+ drop into a cave on every side (the descent refused too), no iron pick.
+
+- **The deep dark is marked** (`markDeepDark`, `DEEP_DARK_AVOID`=32, `DEEP_DARK_MS`=30 min): a job ending `Deep dark` records the spot; a furnace batch within 32 is given up (`Deep dark: giving up the furnace batch at ...`), and gathers skip target columns within 32 of it (`nearHazard`).
+- **Fleeing a universally dangerous mob logs it**: `Reflex: fleeing warden (universally dangerous)`.
+- **Stranded stands may drop 6** (`STRANDED_DROP`=6, `STRANDED_HEALTH`=12): after the mob-avoidance retry and the stair-out, a search that never left 0-3 nodes paths once more with `maxDropDown` 6 when health is 12+ (3 damage at most), then restores it. Line: `Navigation: stranded at ... (drops on every side); allowing drops of up to 6`.

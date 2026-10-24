@@ -1091,6 +1091,10 @@ export class Autopilot{
    // Round 41 (round-40 hard3: two 90 s chicken fights timed out, `chicken is still standing`,
    // and the iron step never started before night): that species is left alone for HUNT_OFF_MS.
    {const m=/Fight timed out; (cow|pig|sheep|chicken) is still standing/.exec(String(job.message));if(m){(this.huntOff||(this.huntOff={}))[m[1]]=Date.now()+HUNT_OFF_MS;this.log('Autopilot: '+m[1]+' hunt timed out; leaving '+m[1]+'s alone for '+HUNT_OFF_MS/60000+' min');}}
+   // Round 44 (round-43 normal: the deep-dark escape climbed to y=-19, the furnace batch at
+   // 148,-44,45 walked it back down, and a warden killed it there 42 s later): the deep dark is
+   // marked, and a furnace batch near it is given up.
+   if(/[Dd]eep dark/.test(String(job.message))){try{this.worker.markDeepDark?.();}catch{}}
    if(/[Dd]eep dark/.test(String(job.message))){this.escapeDark=true;const was=Date.now()<(this.diamondOffUntil||0);this.diamondOffUntil=Date.now()+DIAMOND_OFF_MS;if(!was)this.log('Autopilot: deep dark - climbing out; diamond trips set aside for '+DIAMOND_OFF_MS/60000+' min');}
    // Round 14 (round-13 normal2/normal3: `No room for crafting result` 167 times, a torch craft
    // every 8 s for 16 min in a full bag): no crafts for NO_ROOM_MS, and the inventory step is

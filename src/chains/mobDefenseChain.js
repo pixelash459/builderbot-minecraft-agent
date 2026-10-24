@@ -134,6 +134,8 @@ export class MobDefenseChain extends SingleTaskChain{
   if(this._universallyDangerous(hostiles,bot)){
    this._runAwayTask=movementTask(ctx,'RunAwayFromHostilesTask',()=>new RunAwayFromHostilesTask(DANGER_KEEP_DISTANCE,false));
    this.root=this._runAwayTask;
+   const worst=hostiles.find(e=>e.name==='warden')||hostiles.find(e=>e.name==='wither_skeleton')||hostiles[0];
+   this._fleeLog(ctx,'danger-'+(worst?.name||'?'),'Reflex: fleeing '+(worst?.name||'a dangerous mob')+' (universally dangerous)');
    return 70;
   }
   // Dodge incoming projectiles while not busy eating.

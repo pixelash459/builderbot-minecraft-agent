@@ -518,3 +518,30 @@ test('round 42: one burrow try per spot - a new stand 3+ away gets another',()=>
  w.bot.entity.position=new Vec3(100.5,135,-26.5);
  assert.equal(w.burrowAgain(job),true,'10 blocks on');
 });
+test('round 44: leaving the deep dark gives up a furnace batch there and keeps gathers 32 away',()=>{
+ const w=Object.create(Worker.prototype);const logs=[];
+ w.bot={entity:{position:new Vec3(148.5,-46,50.5)}};w.log=m=>logs.push(m);
+ w.furnaceRun={x:148,y:-44,z:45,started:1};
+ w.markDeepDark();
+ assert.equal(w.furnaceRun,null,'the batch beside the sculk is given up');
+ assert.ok(logs.some(l=>/giving up the furnace batch at 148,-44,45/.test(l)));
+ assert.equal(w.nearHazard(new Vec3(160,-40,60)),true,'an ore 20 away is skipped');
+ assert.equal(w.nearHazard(new Vec3(200,-40,50)),false,'52 away is fine');
+ w.furnaceRun={x:300,y:60,z:10};w.markDeepDark();
+ assert.ok(w.furnaceRun,'a far batch is kept');
+});
+test('round 44: a stand with drops on every side paths once more allowing 6-block drops',async()=>{
+ const {EventEmitter:EE}=await import('node:events');
+ const mv={maxDropDown:3,exclusionAreasStep:[]};let calls=0,seenDrop=[];
+ const bot=Object.assign(new EE(),{health:20,entity:{onGround:true,position:new Vec3(369.5,137,35.5)},targetDigBlock:null,
+  pathfinder:{movements:mv,goto(){calls++;seenDrop.push(mv.maxDropDown);bot.emit('path_update',{status:'noPath',path:[],visitedNodes:3});if(mv.maxDropDown===6)bot.entity.position=new Vec3(380.5,131,35.5);return Promise.resolve();},setGoal(){},isMining:()=>false},clearControlStates(){}});
+ const w=Object.assign(Object.create(Worker.prototype),{bot,epoch:0,ready:true,deadline:Date.now()+60000,survivalJob:true,config:{limits:{minHealth:10,minFood:6}},logs:[],log(m){this.logs.push(m);},applyMobAvoidance(){},stairOut:async()=>false});
+ await w.navigate(new pf.goals.GoalNear(380,131,35,1),0,5);
+ assert.deepEqual(seenDrop,[3,6],'second try with 6-block drops');
+ assert.equal(mv.maxDropDown,3,'restored');
+ assert.ok(w.logs.some(l=>/stranded at .*allowing drops of up to 6/.test(l)));
+ // low health: no deep drops
+ bot.health=8;bot.entity.position=new Vec3(369.5,137,35.5);seenDrop=[];
+ await assert.rejects(()=>w.navigate(new pf.goals.GoalNear(380,131,35,1),0,5),/No path/);
+ assert.deepEqual(seenDrop,[3]);
+});

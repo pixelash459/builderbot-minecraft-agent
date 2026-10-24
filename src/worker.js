@@ -148,7 +148,8 @@ export function bedSpots(at,feet){
 // keys. True when it stopped the bot.
 // Round 33: a drowning escape this recent marks the resumed job to leave the water first.
 export const DROWN_RECENT_MS=10000;
-export const HAZARD_NEAR=8,HAZARD_MS=5*60000;
+export const STRANDED_DROP=6,STRANDED_HEALTH=12;
+export const HAZARD_NEAR=8,HAZARD_MS=5*60000,DEEP_DARK_AVOID=32,DEEP_DARK_MS=30*60000;
 // Round 36: the farthest ore (from the eye) the gather tunnels to when no walk reaches it.
 export const ORE_TUNNEL=10;
 export const BURROW_MOVED=3;
@@ -859,6 +860,14 @@ export class Worker extends EventEmitter {
     if(/ [12] nodes/.test(last)&&!this._staired){
      this._staired=true;
      try{if(await this.stairOut(token,goal))return await this.navigate(goal,token,seconds);}finally{this._staired=false;}
+    }
+    // Round 44 (round-43 normal2: 153 iron gathers and 75 explores, all `empty path at (369, 137,
+    // 35) ... 3 nodes` - a stand with a 3+ drop into a cave on every side, the whole run): with
+    // health to spare, path once more allowing drops of up to STRANDED_DROP (3 damage at most).
+    if(/ [0-3] nodes/.test(last)&&!this._deepDrop&&mv&&(bot.health??0)>=STRANDED_HEALTH&&(mv.maxDropDown??3)<STRANDED_DROP){
+     this._deepDrop=true;const was=mv.maxDropDown;mv.maxDropDown=STRANDED_DROP;
+     this.log('Navigation: stranded at '+bot.entity.position.floored()+' (drops on every side); allowing drops of up to '+STRANDED_DROP);
+     try{return await this.navigate(goal,token,seconds);}finally{mv.maxDropDown=was;this._deepDrop=false;}
     }
     throw new Error('No path to the goal! (empty path at '+bot.entity.position.floored()+', last path: '+last+')');
    }}
@@ -3544,12 +3553,22 @@ export class Worker extends EventEmitter {
  // feet and head, no water in either, a solid floor.
  // Round 38: where a job led into a World Survival hazard (water, lava, fire), gathers skip
  // targets within HAZARD_NEAR for HAZARD_MS.
+ // Round 44: the deep dark the bot just left: gathers keep DEEP_DARK_AVOID away from it for
+ // DEEP_DARK_MS, and a furnace batch left within that range is given up.
+ markDeepDark(){
+  const p=this.bot?.entity?.position;if(!p)return;
+  const now=Date.now();
+  this.deepDarks=(this.deepDarks||[]).filter(h=>h.until>now).concat([{x:p.x,y:p.y,z:p.z,until:now+DEEP_DARK_MS}]).slice(-4);
+  const run=this.furnaceRun;
+  if(run&&Math.hypot(run.x-p.x,run.y-p.y,run.z-p.z)<=DEEP_DARK_AVOID){this.log('Deep dark: giving up the furnace batch at '+run.x+','+run.y+','+run.z);this.furnaceRun=null;}
+ }
  markHazard(){
   const p=this.bot?.entity?.position;if(!p)return;
   const now=Date.now();this.hazards=(this.hazards||[]).filter(h=>h.until>now).concat([{x:p.x,y:p.y,z:p.z,until:now+HAZARD_MS}]).slice(-8);
  }
  nearHazard(pos){
   const now=Date.now();
+  if((this.deepDarks||[]).some(h=>h.until>now&&Math.hypot(h.x-pos.x,h.y-pos.y,h.z-pos.z)<=DEEP_DARK_AVOID))return true;
   return (this.hazards||[]).some(h=>h.until>now&&Math.hypot(h.x-pos.x,h.y-pos.y,h.z-pos.z)<=HAZARD_NEAR);
  }
  async leaveWater(token){
