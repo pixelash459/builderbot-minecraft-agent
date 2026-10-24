@@ -2019,3 +2019,9 @@ Round 41 soak (`38f0561`): **2 deaths, both hard1** (by day fleeing ~20 mobs at 
 - **The perch is walled** (`NightPillarTask._walls`): after the overhang ring, the 4 side cells at the feet and then at the head go up on the deck, so an archer has no line but from above. Line: `Night: walled the perch N/8 (archers have no line but from above)`.
 - **Silent damage needs no hostile within 24 and no fall in the last 2 s** (`SILENT_HOSTILE`, `SILENT_FALL_MS`) before it counts as drowning.
 - **A burrow per spot** (`burrowAgain`, `BURROW_MOVED`=3): the shelter tries a burrow again where it now stands once it has moved 3+ blocks from the last try, including right before a pod-short night pillar.
+
+## Round 43 (2026-10-24)
+
+Round 42 soak (`0fa4984`): **0 deaths**, no loop, no kick, iron pick on the three normal runs (482/813/572 s), **no hard iron pick**, no diamonds. No pillar was needed (no night pillar, no day crowd during a run); every hard night sealed a box (a burrow only runs when short of blocks or the box will not seal, so none logged). Found: hard1 and hard2 spent ~3-3.5 min of the afternoon on chicken and sheep fights that timed out (90 s each) **with the food bar full**, then the iron gather was cut off by the shelter (hard2 11 s in); hard3 was still on the stone kit at dusk.
+
+- **Iron before food in the afternoon** (`foodDone`, `IRON_FIRST_BAR`=18, `IRON_FIRST_TOD`=5000): with no iron pick yet, from tod 5000 to sunset, a food bar of 18+ and health not low, the food step counts as done and the ladder goes on to iron. Hunger, low health and a nearly empty bar still bring it back. The normal runs' frozen morning (tod under 5000) is unchanged. `ctx.tod` is now passed to the plan.

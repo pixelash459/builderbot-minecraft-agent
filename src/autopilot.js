@@ -357,6 +357,7 @@ function replacementJob(c,ctx){
 // Done at FOOD_ENOUGH edible held, or that many held + eaten this run (`_eaten`), unless the
 // bot is hungry (bar <= FOOD_HUNGRY) with nothing to eat. A food step that keeps failing is
 // set aside (ctx.foodOff, FOOD_OFF_MS) and comes back only on that hunger (ctx.foodDeferred).
+export const IRON_FIRST_BAR=18,IRON_FIRST_TOD=5000;
 export const FOOD_CRITICAL=6,FOOD_ENOUGH=4,FOOD_HUNGRY=14,FOOD_LEGS=6,FOOD_OFF_MS=8*60000,FOOD_BATCH=6;
 // Round 28: a food-step trip (hunt, fight, collect, explore) between DUSK_PREP and sunset that
 // is not a food emergency.
@@ -385,6 +386,10 @@ export function foodDone(c,ctx){
  // 40 min of `Health or food is low`): health only regenerates at a bar of 18+, so low health
  // with no food is a food emergency too.
  if(edible<1&&ctx?.lowHealth&&Number.isFinite(ctx?.foodBar)&&ctx.foodBar<18)return false;
+ // Round 43 (round-42 hard1/hard2: 3+ min of chicken and sheep fights timing out with the bar
+ // full, then sunset before any ingot - no hard iron pick): a full bar puts the iron pick first.
+ // From the afternoon (IRON_FIRST_TOD; the normal runs' frozen morning never gets there).
+ if(c('iron_pickaxe')<1&&Number.isFinite(ctx?.tod)&&ctx.tod>=IRON_FIRST_TOD&&ctx.tod<SUNSET&&Number.isFinite(ctx?.foodBar)&&ctx.foodBar>=IRON_FIRST_BAR&&!ctx?.lowHealth)return true;
  if(ctx?.foodOff)return true;
  if(starving)return false;
  return edible+c('_eaten')>=FOOD_ENOUGH||!!ctx?.foodDeferred;
@@ -1340,7 +1345,7 @@ export class Autopilot{
   const worldTable=!!b.findBlock({matching:b.registry.blocksByName.crafting_table?.id,maxDistance:8})||!!(left&&left.distance<=32);
   const worldFurnace=!!b.findBlock({matching:b.registry.blocksByName.furnace?.id,maxDistance:16});
   const standY=b.entity&&b.entity.position?Math.floor(b.entity.position.y):null;
-  const ctx={slotsFull:items/36,animalsNearby:animals?animals.type:null,animalsClose:animals?animals.close:0,huntPhase:this.huntPhase,homeChest:this.homeChest,home:this.home,chestSpot:this.home?this.chestSpotNear(b):null,hostileDistance:this.hostileDistance(b),worldTable,worldFurnace,grazeDirection:grazeDirection(b),standY,underSky:underSky(b),lastSurfaceY:this.lastSurfaceY??this.foodAnchorY,
+  const ctx={slotsFull:items/36,animalsNearby:animals?animals.type:null,animalsClose:animals?animals.close:0,huntPhase:this.huntPhase,homeChest:this.homeChest,home:this.home,chestSpot:this.home?this.chestSpotNear(b):null,hostileDistance:this.hostileDistance(b),worldTable,worldFurnace,grazeDirection:grazeDirection(b),standY,underSky:underSky(b),tod:dayTicks(b),lastSurfaceY:this.lastSurfaceY??this.foodAnchorY,
    // Round 8 rung: coal in reach, the bed's wool, the last equip (no equip loops).
    coalNear:this.oreNear(b,['coal_ore','deepslate_coal_ore'],32),waterAt:this.waterSource(b),sheepNear:this.sheepNear(b),bedNear:this.bedNear(b),lastEquip:this.lastEquip||null,coalOff:Date.now()<(this.coalOffUntil||0),bedOff:Date.now()<(this.bedOffUntil||0),bedSearch:(this.bedSearch?.legs||0)<BED_SEARCH_LEGS,sheepFar:this.sheepFar(b),searchDistance:BED_SEARCH_DIST[Math.min(this.bedSearch?.legs||0,BED_SEARCH_DIST.length-1)],diamondOff:Date.now()<(this.diamondOffUntil||0),
    breedable:this.breedable(b,counts),hayNear:this.hayNear(b),

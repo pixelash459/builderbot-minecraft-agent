@@ -97,3 +97,11 @@ test('autopilot: meals eaten since start count toward the food step (meals.ok or
   assert.equal(ap.currentStep,'iron');
  }finally{fs.rmSync(root,{recursive:true,force:true});}
 });
+test('round 43: in the afternoon, on a full bar, the iron pick comes before the hunt',()=>{
+ const c=m=>n=>m[n]||0;
+ assert.equal(foodDone(c({_edible:0}),{foodBar:20,tod:7000}),true,'afternoon, full bar, no iron pick: iron first');
+ assert.equal(foodDone(c({_edible:0}),{foodBar:20,tod:1000}),false,'morning: food as before');
+ assert.equal(foodDone(c({_edible:0,iron_pickaxe:1}),{foodBar:20,tod:7000}),false,'iron pick held: food as before');
+ assert.equal(foodDone(c({_edible:0}),{foodBar:16,tod:7000}),false,'not full: food');
+ assert.equal(foodDone(c({_edible:0}),{foodBar:20,tod:7000,lowHealth:true}),false,'low health: food');
+});
