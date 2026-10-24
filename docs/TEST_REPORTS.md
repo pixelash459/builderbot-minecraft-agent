@@ -5618,3 +5618,45 @@ Harness interventions 0. Resumes 0. The round 44 normal2 stand of 56 identical f
 
 `logs/dashboard-uncaught.log` gained no bytes during the soak (size stayed 2576174). There is no new line from this round 45 window. Deaths are 0.
 
+## 2026-10-24 18:24–18:29 IST — round 46 combat (bot code `8a1d4bb`)
+
+Units first, then one model-off restart, then one combat run. No soak yet. `git pull --rebase` stashed local `data/` dumps, origin was already at `8a1d4bb`, and the stash was popped. HEAD is `8a1d4bb` (`Round 46: let job walks sprint`), a descendant of `899a096` (`Round 46: fight a lone creeper that keeps following instead of fleeing it forever`).
+
+Unit tests, every `tests/*.test.js` except `resources.test.js`, `--max-old-space-size=2048 --test-timeout=60000 --test-skip-pattern resources`: **617 pass, 0 fail**, 0 skipped, 41317 ms. Round 45 was 615 pass, 0 fail. The live fail count is 0, so this is a pass. `resources.test.js` was not run.
+
+`AGENT_MODEL=off`. Ports before the restart were 8765, 8766, and 25569 open, 8081 closed. `Stop-Agent.ps1` returned 0 and those ports closed. The following `Start-Agent.ps1 -NoBrowser` brought the services up (test-server PID 5320, dashboard PID 55804, dashboard HTTP 200, port 8081 still closed). Supervisor log first line: `model server disabled (config.model.enabled=false): skipping llama-server, saving ~6.5 GB commit`. The Start-Agent waiter did not return after that (the child script had already exited and the pipe stayed open). The test runner stopped that waiter PID only. The bot process is the one this start launched. Combat was not rerun: both creeper legs measured damage.
+
+Combat window 18:24:33–18:29:37 IST (12:54:33Z–12:59:37Z), exit 0, 305 s. `All combat acceptance tests passed`. Dashboard bytes after offset 62501910 (314 new lines). `logs/dashboard-uncaught.log` stayed 2576174.
+
+`4_creeper` damage_taken **0**, ttk 7.3 s, hits 5, crits 0, tactic bow, job complete, end health 20, killed, no crater on the lane floor. The fight log:
+
+`12:56:22.143Z Combat: pillar-up 2 at 1499,-60,1518 (creeper at 7.1)`
+`12:56:22.967Z Combat: pillar perched 2 up`
+`12:56:22.968Z Combat: pillar-equip-bow creeper`
+`12:56:23.032Z Combat: pillar-draw creeper`
+`12:56:23.263Z Combat: perch 2 up is inside the fuse ring; knocking the creeper back (at 3.8)`
+`12:56:23.575Z Combat: pillar-strike creeper`
+`12:56:25.653Z Combat: pillar-strike creeper`
+`12:56:27.738Z Combat: pillar-strike creeper`
+`12:56:28.774Z Fight result: creeper tactic=bow hits=5 crits=0 sweeps=0 shots=0 released=0 landed=0 damage taken=0 disengages=0 result=finished`
+
+The lane bow draw did not release an arrow. The pillar was already inside the fuse ring, so the strike from the perch is what killed it. No `Combat: kite` line and no flee line on this leg. No `pillar-up failed`.
+
+`4b_creeper_roofed` damage_taken **0**, ttk 7.3 s, hits 3, crits 0, tactic bow, job complete, end health 20, killed, no crater. The fight log:
+
+`12:56:36.788Z Combat: creeper-bow d=9.5 held=cooked_beef arrows=32`
+`12:56:37.315Z Combat: pillar-up 2 at 1496,-60,1497 (creeper at 7.8)`
+`12:56:38.089Z Combat: pillar perched 2 up`
+`12:56:39.383Z Combat: pillar-shoot creeper`
+`12:56:39.385Z Combat: arrow creeper @0s: released (arrow entity 145 at 2.99 b/t)`
+`12:56:39.438Z Combat: arrow creeper @0.05s: landed (hurt event)`
+`12:56:40.766Z Combat: arrow creeper @0s: released (arrow entity 146 at 2.97 b/t)`
+`12:56:40.837Z Combat: arrow creeper @0.07s: landed (hurt event)`
+`12:56:40.888Z Combat: perch 2 up is inside the fuse ring; knocking the creeper back (at 3.5)`
+`12:56:42.130Z Combat: pillar-strike creeper`
+`12:56:43.109Z Fight result: creeper tactic=bow hits=3 crits=0 sweeps=0 shots=2 released=2 landed=2 damage taken=0 disengages=0 result=finished`
+
+Two arrows left the bow and both landed. Then one melee strike from the perch. No `Combat: kite` state, no sprint-away flee, no `pillar-up failed`. The creeper-bow lines show the range closing from 9.5 to 8.2 before the pillar, which is the approach, not a kite.
+
+Mob Defense did not hand a creeper to a fight during this run. The harness turns reflexes off before the fights (`12:54` through the suite) and turns them back on at `12:59:36.645Z Reflexes enabled`, after the last fight. There is no `Reflex: a creeper has followed for N s; fighting it from a pillar` line in the window. The two creeper legs are direct fight jobs. The two `Unarmed; retreated from the fight` lines at 12:55:03Z and 12:55:07Z are the unarmed style probe, before either creeper. The followed-creeper handoff is still unmeasured here; the soak is the run that can show it.
+
