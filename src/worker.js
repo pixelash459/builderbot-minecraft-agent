@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {EventEmitter} from 'node:events';
 import {jobSchema,validateBlueprint} from './schema.js';
+import {Ledger,StorageIndex,storePlan,storageSpots,categoryOf} from './storage.js';
 import {installMovementFix,installWeatherFix} from './compat.js';
 import {eatMeal,guardEquip,afterInject} from './eating.js';
 import {creeperSwell} from './creeper.js';
@@ -152,6 +153,8 @@ export const STRANDED_DROP=6,STRANDED_HEALTH=12,STRAND_PILLAR=3;
 export const HAZARD_NEAR=8,HAZARD_MS=5*60000,DEEP_DARK_AVOID=32,DEEP_DARK_MS=30*60000;
 // Round 36: the farthest ore (from the eye) the gather tunnels to when no walk reaches it.
 export const ORE_TUNNEL=10;
+// Round 51: storage chests belong to the base within this range.
+export const STORE_NEAR=32;
 export const BURROW_MOVED=3;
 // Round 40: the most an ascend pillars (and digs) in one try when no path leads up.
 export const ASCEND_PILLAR=24;
@@ -704,7 +707,7 @@ export class Worker extends EventEmitter {
   const bot=this.bot=mineflayer.createBot({...this.config.server,hideErrors:true});
   installMovementFix(bot);installWeatherFix(bot);this.trackMeals(bot);guardEquip(bot);
   bot.loadPlugin(pathfinder);bot.loadPlugin(toolPackage.plugin);
-  bot.once('spawn',()=>{this.ready=true;installToolWear(bot);if(!bot.inventory._lossWatch){bot.inventory._lossWatch=true;watchToolLoss(bot,m=>this.log(m));}const movement=this.movements=this.normalMovements(bot);bot.pathfinder.setMovements(movement);bot.pathfinder.searchRadius=128;if(!bot._ledgeGuard){bot._ledgeGuard=true;let last=0;const fall={};const gait=newGait();bot.on('physicsTick',()=>{try{const g=gaitTick(bot,gait,Date.now());if(g)this.log(g);if(ledgeGuard(bot)&&Date.now()-last>5000){last=Date.now();this.log('Ledge guard: stopped at '+bot.entity.position.floored()+' (a '+LEDGE_DROP+'+ drop ahead)');}const f=fallWatch(bot,fall);if(f)this.log('Fall: dropping from '+new Vec3(f.from.x,f.from.y,f.from.z).floored()+' (job '+((this.jobs||[]).find(j=>j.status==='running')?.spec?.type||'none')+', pathing '+!!bot.pathfinder?.isMoving?.()+', sprint '+!!bot.getControlState?.('sprint')+')');}catch{}});}bot.pathfinder.LOSWhenPlacingBlocks=false;bot.pathfinder.thinkTimeout=10000;/* round 27: 5 s timed out every night-mine climb home (`Took to long to decide path to goal!`) *//* round 25: its returningPos is never cleared by a reset and wedged all pathing */// in blocks: bounds searches for unreachable goals; legit paths may still cost up to goal distance + 128
+  bot.once('spawn',()=>{this.ready=true;installToolWear(bot);if(!bot._earnHook){bot._earnHook=true;bot.on('playerCollect',(collector,collected)=>{try{if(collector!==bot.entity)return;const it=collected?.getDroppedItem?.();if(it)this.earn(it.name,it.count);}catch{}});}if(!bot.inventory._lossWatch){bot.inventory._lossWatch=true;watchToolLoss(bot,m=>this.log(m));}const movement=this.movements=this.normalMovements(bot);bot.pathfinder.setMovements(movement);bot.pathfinder.searchRadius=128;if(!bot._ledgeGuard){bot._ledgeGuard=true;let last=0;const fall={};const gait=newGait();bot.on('physicsTick',()=>{try{const g=gaitTick(bot,gait,Date.now());if(g)this.log(g);if(ledgeGuard(bot)&&Date.now()-last>5000){last=Date.now();this.log('Ledge guard: stopped at '+bot.entity.position.floored()+' (a '+LEDGE_DROP+'+ drop ahead)');}const f=fallWatch(bot,fall);if(f)this.log('Fall: dropping from '+new Vec3(f.from.x,f.from.y,f.from.z).floored()+' (job '+((this.jobs||[]).find(j=>j.status==='running')?.spec?.type||'none')+', pathing '+!!bot.pathfinder?.isMoving?.()+', sprint '+!!bot.getControlState?.('sprint')+')');}catch{}});}bot.pathfinder.LOSWhenPlacingBlocks=false;bot.pathfinder.thinkTimeout=10000;/* round 27: 5 s timed out every night-mine climb home (`Took to long to decide path to goal!`) *//* round 25: its returningPos is never cleared by a reset and wedged all pathing */// in blocks: bounds searches for unreachable goals; legit paths may still cost up to goal distance + 128
   if(!this.trackersTimer){ // tracker refresh + preemption resume + idle armour, port of the reflex cadence
    this.loopWatch.start();
    this.trackersTimer=setInterval(()=>this.loopWatch.timeTick('cadence',()=>{
@@ -1305,6 +1308,7 @@ export class Worker extends EventEmitter {
    if(!job.spec.keepFurnace){try{if(furnace.fuelItem&&furnace.fuelItem())await furnace.takeFuel();}catch{}}
   }finally{try{await b.closeWindow(furnace);}catch{}}
   this.furnaceRun=null;
+  if(taken)this.earn(run.output,taken); // round 51: smelted is earned
   this.log('Smelt: took '+taken+' '+run.output+' from the furnace at '+at.x+','+at.y+','+at.z+(job.spec.keepFurnace?' (left standing)':''));
   if(run.placed&&!job.spec.keepFurnace&&b.inventory.items().some(i=>/_pickaxe$/.test(i.name))){
    try{await this.pickUp(at,'furnace',token);this.ownFurnaces?.delete(run.x+','+run.y+','+run.z);}catch(e){this.log('Left the furnace at '+at+': '+e.message);}
@@ -2458,6 +2462,7 @@ export class Worker extends EventEmitter {
   if(spec.type==='gather')return this.gather(job,token);
   if(spec.type==='craft')return this.craft(job,token);
   if(spec.type==='deposit')return this.deposit(job,token);
+  if(spec.type==='store')return this.store(job,token);
   if(spec.type==='build')return this.build(job,token);
   if(spec.type==='explore')return this.explore(job,token);
   if(spec.type==='place')return this.place(job,token);
@@ -3244,7 +3249,7 @@ export class Worker extends EventEmitter {
  }
  async craft(job,token){
   const b=this.bot,s=job.spec,item=b.registry.itemsByName[s.item];if(!item)throw Error('Unknown item');
-  if(job.targetCount===undefined)job.targetCount=this.count(s.item)+s.count;this.save();
+  if(job.targetCount===undefined){job.targetCount=this.count(s.item)+s.count;job.startCount=this.count(s.item);}this.save();
   let placedAt=null,usedTable=null;
   try{
    while(this.count(s.item)<job.targetCount){
@@ -3283,6 +3288,7 @@ export class Worker extends EventEmitter {
     try{await this.pickUp(collectAt,'crafting_table',token);if(this.leftTable&&pos(this.leftTable).equals(collectAt))this.leftTable=null;}
     catch(e){this.log('Left the crafting table at '+collectAt);this.leftTable={x:collectAt.x,y:collectAt.y,z:collectAt.z};}
    }
+   if(job.startCount!=null)this.earn(s.item,this.count(s.item)-job.startCount); // round 51: crafted is earned
   }
  }
  async placeBlocks(support,face,target,name,token){
@@ -3509,6 +3515,84 @@ export class Worker extends EventEmitter {
   await sleep(400);await this.sweepDrops(token);
   if(b.blockAt(point)?.name===name)throw Error('Could not pick up the '+name);
   if(this.count(name)<=before)throw Error('The '+name+' drop was not collected');
+ }
+ // Round 51: the ledger of earned items and the storage index, created on first use.
+ get ledger(){if(!this._ledger){let d=null;try{d=JSON.parse(fs.readFileSync(path.join(this.root,'data/ledger.json'),'utf8'));}catch{}this._ledger=new Ledger(d);}return this._ledger;}
+ get storage(){if(!this._storage)this._storage=new StorageIndex(path.join(this.root,'data/storage.json'));return this._storage;}
+ earn(name,n){if(!(n>0))return;this.ledger.add(name,n);try{fs.writeFileSync(path.join(this.root,'data/ledger.json'),JSON.stringify(this.ledger));}catch{}}
+ held(){const m={};for(const i of this.bot.inventory.items())m[i.name]=(m[i.name]||0)+i.count;return m;}
+ // Round 51: put earned items away by category in the base's storage chests (storage.js). A
+ // category with no chest (or only full ones) gets a new chest on the next free storage spot,
+ // crafted from planks when none is held. Every chest opened is re-read into the index.
+ async store(job,token){
+  const b=this.bot,base=job.spec.position?pos(job.spec.position):(this.autopilot?.home?pos(this.autopilot.home):null);
+  if(!base)throw Error('No base to store at: no home set');
+  // Chests recorded for another base (another world, a moved home) are forgotten.
+  for(const c of [...this.storage.chests])if(Math.hypot(c.x-base.x,c.y-base.y,c.z-base.z)>STORE_NEAR)this.storage.forget(c);
+  this.ledger.clamp(this.held());
+  const plan=storePlan(this.held(),this.ledger);
+  if(!plan.length){this.log('Store: nothing earned to put away');return;}
+  const byCat={};for(const p of plan)(byCat[p.category]||(byCat[p.category]=[])).push(p);
+  const done={};
+  for(const [cat,items] of Object.entries(byCat)){
+   this.check(token);
+   const left=items.map(p=>({...p}));
+   for(let tries=0;tries<3&&left.some(p=>p.count>0);tries++){
+    let entry=this.storage.chestFor(cat);
+    if(entry){const bl=b.blockAt(pos(entry));if(bl&&bl.name!=='chest'){this.storage.forget(entry);entry=null;}}
+    let at=entry?pos(entry):null;
+    if(!at){at=await this.newStorageChest(base,token);if(!at){this.log('Store: no chest for '+cat+' (no free spot or no planks)');break;}}
+    const full=await this.fillChest(at,cat,left,token);
+    if(!full)break;
+   }
+   for(const p of items){const moved=p.count-(left.find(q=>q.item===p.item)?.count||0);if(moved>0)done[p.item]=(done[p.item]||0)+moved;}
+  }
+  for(const [item,n] of Object.entries(done))this.ledger.take(item,n);
+  try{fs.writeFileSync(path.join(this.root,'data/ledger.json'),JSON.stringify(this.ledger));}catch{}
+  const summary=Object.entries(done).map(([k,v])=>k+' x'+v).join(', ');
+  this.log('Store: put away '+(summary||'nothing')+' ('+this.storage.chests.length+' storage chests)');
+ }
+ // A chest on the next free storage spot beside the base; its position, or null.
+ async newStorageChest(base,token){
+  const b=this.bot,used=new Set(this.storage.chests.map(c=>c.x+','+c.y+','+c.z));
+  if(!this.count('chest')){
+   const planks=b.inventory.items().filter(i=>/_planks$/.test(i.name)).reduce((a,i)=>a+i.count,0);
+   if(planks<8)return null;
+   try{await this.craft({spec:{type:'craft',item:'chest',count:1,keepTable:true,collectTable:true}},token);}catch(e){this.check(token);this.log('Store: could not craft a chest ('+String(e.message).slice(0,60)+')');return null;}
+  }
+  for(const spot of storageSpots(base,12)){
+   if(used.has(spot.x+','+spot.y+','+spot.z))continue;
+   const at=pos(spot),here=b.blockAt(at),below=b.blockAt(at.offset(0,-1,0)),above=b.blockAt(at.offset(0,1,0));
+   if(here?.name==='chest'){this.log('Store: found a chest on the storage row at '+spot.x+','+spot.y+','+spot.z);return at;}
+   if(!here||!below||below.boundingBox!=='block'||!empty(here)||(above&&above.boundingBox==='block'))continue;
+   try{await this.place({spec:{type:'place',block:'chest',position:spot}},token);}catch(e){this.check(token);continue;}
+   if(b.blockAt(at)?.name==='chest'){this.log('Store: placed a storage chest at '+spot.x+','+spot.y+','+spot.z);return at;}
+  }
+  return null;
+ }
+ // Deposit `items` ({item,count}; counts drop as they go in) into the chest at `at`, then read
+ // it into the index. True when the chest ran out of room.
+ async fillChest(at,cat,items,token){
+  const b=this.bot;await this.walk(at,token,2);
+  const block=b.blockAt(at);if(!block||block.name!=='chest')throw Error('No chest at '+at);
+  const chest=await b.openContainer(block);let full=false;
+  try{
+   for(const p of items){
+    this.check(token);
+    for(const stack of b.inventory.items().filter(i=>i.name===p.item)){
+     if(p.count<=0)break;
+     const n=Math.min(stack.count,p.count);
+     try{await chest.deposit(stack.type,stack.metadata,n);p.count-=n;}catch(e){full=true;break;}
+    }
+    if(full)break;
+   }
+   await sleep(150);try{await b._syncWindow(chest);}catch{}
+   const contents={};for(const i of chest.containerItems())contents[i.name]=(contents[i.name]||0)+i.count;
+   if(chest.inventoryStart-chest.containerItems().length<=0)full=true;
+   this.storage.record(at,cat,contents,full);
+  }finally{await chest.close();}
+  await sleep(150);try{await b._syncWindow(b.inventory);}catch{}
+  return full;
  }
  async deposit(job,token){
   const b=this.bot,p=pos(job.spec.position);await this.walk(p,token,2);const block=b.blockAt(p);

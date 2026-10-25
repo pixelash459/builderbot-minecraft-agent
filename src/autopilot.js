@@ -8,6 +8,7 @@ import {dayTicks} from './daytime.js';
 import {shelterDue,nightJobFor,DUSK_PREP,SUNSET} from './night.js';
 import {EDIBLE_SKIP} from './observe.js';
 import {isExposed} from './digDown.js';
+import {storePlan} from './storage.js';
 
 const BED=/(_bed)$/;
 const WOOLS=['white_wool','light_gray_wool','gray_wool','black_wool','brown_wool','red_wool','orange_wool','yellow_wool','lime_wool','green_wool','cyan_wool','light_blue_wool','blue_wool','purple_wool','magenta_wool','pink_wool'];
@@ -428,6 +429,14 @@ export const RISKY_HEALTH=16,HEAL_WAIT_MS=90000;
 // Round 39: an escape climb aims at the surface anchor, never below ESCAPE_FLOOR (sea level).
 export const ESCAPE_FLOOR=62;
 export const escapeY=anchor=>Math.max(Number.isFinite(anchor)?anchor:64,ESCAPE_FLOOR);
+// Round 51: sheep live on the surface. A sheep-search explore from deep underground walks
+// caves with digging on (round 50 normal2 dropped 36 blocks into a ravine at y=15 on one):
+// climb out first, then search.
+export function sheepSearchJob(job,{underSky,standY,lastSurfaceY}={}){
+ if(underSky||!Number.isFinite(standY))return job;
+ const top=escapeY(lastSurfaceY);
+ return standY<top-ASCEND_BELOW?{type:'ascend',y:top}:job;
+}
 export function underSky(b){
  try{const p=b?.entity?.position;if(!p)return false;const h=b.blockAt(p.offset(0,1.6,0));return !!h&&Number.isFinite(h.skyLight)&&h.skyLight>=12;}catch{return false;}
 }
@@ -540,6 +549,8 @@ export function inventoryJob(counts,ctx){
  const c=countFactory(counts);
  ctx=woodTotals(counts,{...ctx});
  const full=(ctx.slotsFull||0)>INV_FULL;
+ // Round 51: a full bag near the base puts its earned items away by category (worker store).
+ if(full&&ctx.canStore)return {type:'store'};
  const extra=surplus(counts,full);
  if(!extra.length)return null;
  const top=extra[0];
@@ -1416,7 +1427,8 @@ export class Autopilot{
   const forced=bagStuck&&Date.now()-(this.forcedDropAt||0)>=FORCED_DROP_MS;
   if(Date.now()>=(this.invOffUntil||0)||forced){
    if(forced)this.forcedDropAt=Date.now();
-   const inv=inventoryJob(counts,{...ctx,noCraft:Date.now()<(this.noRoomUntil||0),slotsFull:this.worker.slotsFull?this.worker.slotsFull():ctx.slotsFull,...this.homeCtx(b)});
+   const hc=this.homeCtx(b);
+   const inv=inventoryJob(counts,{...ctx,noCraft:Date.now()<(this.noRoomUntil||0),slotsFull:this.worker.slotsFull?this.worker.slotsFull():ctx.slotsFull,...hc,canStore:this.canStore(hc)});
    if(inv&&!(inv.type==='craft'&&choice.job?.type==='craft')){this.submit('inventory',inv);return;}
   }
   // Habit 7: light. Torches from held coal and sticks; a lit base.
@@ -1481,7 +1493,7 @@ export class Autopilot{
   if(choice.step==='iron'&&choice.job.type==='explore'){
    const s=this.bedSearch||(this.bedSearch={legs:0});
    if(++s.legs>=BED_SEARCH_LEGS){s.legs=0;this.bedOffUntil=Date.now()+BED_OFF_MS;this.log('Autopilot: no sheep after '+BED_SEARCH_LEGS+' search legs; bed set aside for '+BED_OFF_MS/60000+' min');}
-   this.submit('bed-rung',choice.job);return;
+   this.submit('bed-rung',sheepSearchJob(choice.job,{underSky:underSky(b),standY,lastSurfaceY:this.lastSurfaceY}));return;
   }
   if(choice.step==='iron'&&isDiamondJob(choice.job)){this.submit('diamond-rung',choice.job);return;}
   if(choice.job.type==='equip')this.lastEquip=armourToWear(counts);
@@ -1511,6 +1523,12 @@ export class Autopilot{
  }
  // Home distances and the chest's spot for inventoryJob. A remembered chest that is gone
  // (broken, or the soak reset the world) is forgotten when its cell is loaded and not a chest.
+ // Round 51: home within HOME_DEPOSIT_RANGE and earned items above the working set to put away.
+ canStore(hc){
+  try{if(!this.home||!((hc?.homeDistance??Infinity)<=HOME_DEPOSIT_RANGE)||!this.worker.ledger)return false;
+   const held={};for(const i of this.worker.bot.inventory.items())held[i.name]=(held[i.name]||0)+i.count;
+   return storePlan(held,this.worker.ledger).length>0;}catch{return false;}
+ }
  homeCtx(b){
   const me=b.entity&&b.entity.position,h=this.home;
   if(!me)return {};

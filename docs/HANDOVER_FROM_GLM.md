@@ -2082,3 +2082,16 @@ The round-49 soak on the new seed was stopped in normal1: from 16:15 the iron ga
 - **No tool better than a hand: hold something that does not wear** (`toolWear.js` `handItem`, `beatsHand`): with no shovel, the pathfinder's `bestHarvestTool` and mineflayer-tool's `equipForBlock` took the first item at the hand's speed (often the axe). Now, when no tool beats the bare hand for the block, an item without durability is held (dirt, cobble, food...); with none, the hand. A shovel on dirt (or any faster tool) is still used.
 - **Obsolete tools are junk** (`obsoleteTool`): a wooden or golden tool is surplus and droppable once a stone-or-better tool of the same kind is held, so a full bag of kit always has something to drop.
 - **The wood step accepts any tier** (`anyTier`): done with a pickaxe, sword and axe of any tier (and a table); it crafts a wooden one only when no tool of that kind is held - dropping the wooden tools no longer sends the ladder back to craft them.
+
+## Round 51 (2026-10-25)
+
+The round-50 soak (seed 8675309): iron picks on 4 of 6, 2 deaths - normal3 fell 36 blocks on a sheep-search explore that started at y=22, hard2 was killed by a spider in a cave crowd at y=40 after its crowd pillar was knocked off at 1.4 blocks. Wooden tools stayed in the bags beside stone and iron ones (they are dropped only when the bag is full).
+
+- **Storage: the bot puts what it earns away in chests at its base, by category** (`src/storage.js`, worker `store` job).
+  - A ledger (`data/ledger.json`) counts what the bot earned from the world: items picked up (`playerCollect`), crafted, and smelted. Items a server command handed over (`/give`, the soak's steak) never enter it, so they are never stored. The ledger is clamped to the bag (a death or `/clear` empties it).
+  - `storePlan` stores earned items above a working set the bot keeps on it (cobble 32, dirt 16, coal 8, sticks 8, planks 8, food 8, arrows 32). Tools, armour, the bed, shield, buckets, torches, tables, furnaces and chests are never stored - except a wooden or golden tool with a better tier of the same tool held, which goes in the `tools` chest.
+  - Categories: wood, stone, metal, food, drops, tools, misc. One chest per category on a storage row beside the home (`storageSpots`: 2 to the side, every second block); a category with no chest, or only full ones, gets a new chest (crafted from 8 planks when none is held).
+  - `data/storage.json` (`StorageIndex`) records each chest's category and contents as last read; `find(item)` and `totals()` answer where things are. Chests more than 32 from the base, or no longer a chest, are forgotten.
+  - The autopilot submits `{type:'store'}` instead of a drop/deposit when the bag is full, the home is within `HOME_DEPOSIT_RANGE`, and the plan is not empty (`canStore`). Away from home the old drop/deposit path runs.
+- **A sheep search from deep underground climbs out first** (`sheepSearchJob`): with no sky overhead and 16+ below the surface anchor, the bed's search explore becomes an ascend to `escapeY(lastSurfaceY)`.
+- Not changed yet: the cave-crowd pillar failure (a burrow when a pillar fails underground with a pickaxe is the candidate), and the 11 unreachable deepslate-diamond tries 20 below the bot on normal2.

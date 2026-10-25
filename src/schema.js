@@ -10,6 +10,7 @@ export const jobSchema=z.discriminatedUnion('type',[
  z.object({type:z.literal('craft'),item,count:z.number().int().min(1).max(128),keepTable:z.boolean().optional(),collectTable:z.boolean().optional()}).strict(),
  // keep (round 10, habit 6): with item, deposit all but this many.
  z.object({type:z.literal('deposit'),position,item:item.optional(),keep:z.number().int().min(0).max(2304).optional()}).strict(),
+ z.object({type:z.literal('store'),position:position.optional()}).strict(),
  // drop (round 10, habit 6): toss count (default all) of item - the autopilot drops only junk.
  z.object({type:z.literal('drop'),item,count:z.number().int().min(1).max(2304).optional()}).strict(),
  z.object({type:z.literal('build'),blueprint:z.string().regex(/^[a-zA-Z0-9_-]{1,64}$/),origin:position}).strict(),
