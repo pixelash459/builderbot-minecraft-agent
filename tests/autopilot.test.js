@@ -599,3 +599,15 @@ test('round 47: the fuel held must cover the smelt count',()=>{
  assert.equal(tableFirst(n=>n==='coal'?1:0,{planksTotal:0,logsTotal:0},{type:'smelt',item:'raw_iron',count:8}).type,'smelt','one coal smelts 8');
  assert.equal(tableFirst(n=>n==='coal'?1:0,{planksTotal:0,logsTotal:0},{type:'smelt',item:'raw_iron',count:9}).block,'log','9 is past one coal');
 });
+test('round 49: with a warden near, climbing out is the only job and a paused ascend is not superseded',()=>{
+ const ap=Object.create(AP38.prototype);const subs=[],logs=[];
+ const warden={name:'warden',position:new V38(10,3,0)};
+ Object.assign(ap,{log:m=>logs.push(m),submit:(st,spec)=>subs.push(spec),state:'',lastSurfaceY:131,counts:()=>({}),forgetFar(){},worker:{jobs:[]}});
+ const b={entity:{position:new V38(0,3,0)},entities:{1:warden}};
+ ap.decide(b);
+ assert.deepEqual(subs,[{type:'ascend',y:131}]);assert.ok(logs.some(l=>/a warden 10 away; climbing out/.test(l)));
+ ap.worker.jobs=[{status:'paused',spec:{type:'ascend',y:131}}];subs.length=0;
+ ap.decide(b);
+ assert.deepEqual(subs,[],'the paused ascend is left to resume - no drop, no gather');
+ assert.equal(ap.state,'warden near: climbing out');
+});

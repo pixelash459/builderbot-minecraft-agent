@@ -499,7 +499,7 @@ export function pickupJob(counts,ctx){
 // from base. Over INV_FULL the surplus goes into the home chest (placed beside home, crafted
 // when needed) while home is within HOME_DEPOSIT_RANGE; passing within INV_PASS of the chest
 // deposits it too; full and far from home, pure junk is dropped.
-export const CROWD_NEAR=3,FORGET_FAR=96,HOME_FAR=200,HUNT_OFF_MS=3*60000,FORCED_DROP_MS=60000,NO_ROOM_MS=5*60000,BUCKET_FAIL_MS=5*60000,BUCKET_OFF_MS=15*60000;
+export const CROWD_NEAR=3,FORGET_FAR=96,HOME_FAR=200,WARDEN_NEAR=48,HUNT_OFF_MS=3*60000,FORCED_DROP_MS=60000,NO_ROOM_MS=5*60000,BUCKET_FAIL_MS=5*60000,BUCKET_OFF_MS=15*60000;
 export const INV_FULL=0.75,INV_PASS=8,INV_PASS_MIN=16,HOME_DEPOSIT_RANGE=48,INV_OFF_MS=5*60000,DROP_LOOP_MS=3*60000;
 const SAPLING=/_sapling$/,FLOWER=/^(dandelion|poppy|blue_orchid|allium|azure_bluet|.*_tulip|oxeye_daisy|cornflower|lily_of_the_valley|sunflower|lilac|rose_bush|peony|pink_petals|short_grass|tall_grass|fern|dead_bush)$/;
 export const JUNK_KEEP={dirt:32,cobblestone:64,cobbled_deepslate:32,netherrack:16,wheat_seeds:16,gravel:0,andesite:0,diorite:0,granite:0,tuff:0,calcite:0,rotten_flesh:0,sand:0,red_sand:0,pointed_dripstone:0,poisonous_potato:0,spider_eye:0,snowball:0,clay_ball:0,flint:8}; // round 22: snowball/clay_ball filled bag slots
@@ -1046,6 +1046,11 @@ export class Autopilot{
   return true;
  }
  // Hostiles within 16 (the dusk-crowd shelter and the crowd hunting rule).
+ wardenDistance(b){
+  const me=b?.entity?.position;if(!me)return Infinity;
+  let d=Infinity;for(const e of Object.values(b.entities||{}))if(e&&e.name==='warden'&&e.position)d=Math.min(d,e.position.distanceTo(me));
+  return d;
+ }
  crowdNear(b){
   const me=b?.entity?.position;if(!me)return 0;
   return Object.values(b.entities||{}).filter(e=>e&&e.type==='hostile'&&e.position&&e.position.distanceTo(me)<=16).length;
@@ -1345,6 +1350,17 @@ export class Autopilot{
   this.forgetFar(b);
   // Round 23 (round-22 normal1: `Deep dark: sculk_catalyst ...; leaving (warden)` 26 times in
   // 5 min while the bot stood on the same cell): leaving means going - climb toward the surface.
+  // Round 49 (round-48 confirmation normal3: a warden fled at y=3, the paused escape ascend was
+  // superseded by a junk drop submitted the same second, and the bot stood dropping cobble until
+  // the warden killed it 43 s later): with a warden within WARDEN_NEAR, climbing out is the only
+  // job - a paused or queued ascend is left to resume, nothing newer is submitted over it.
+  const warden=this.wardenDistance(b);
+  if(warden<=WARDEN_NEAR){
+   const climbing=(this.worker.jobs||[]).some(j=>['running','queued','paused'].includes(j.status)&&j.spec?.type==='ascend');
+   if(!climbing){this.log('Autopilot: a warden '+Math.round(warden)+' away; climbing out, nothing else');this.submit('escape',{type:'ascend',y:escapeY(this.lastSurfaceY)});}
+   else this.state='warden near: climbing out';
+   return;
+  }
   if(this.escapeDark){this.escapeDark=false;this.submit('escape',{type:'ascend',y:escapeY(this.lastSurfaceY)});return;}
   if(this.furnaceTick(b,counts))return;
   const animals=this.animalsNearby(b);

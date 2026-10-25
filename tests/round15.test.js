@@ -593,3 +593,26 @@ test('round 48: the stranded retry may dig, then the movements go back to no dig
  await w.navigate(new pf.goals.GoalNear(320,110,51,1),0,5);
  assert.deepEqual(digs,[false,true]);assert.equal(mv.canDig,false,'restored');
 });
+test('round 49: a World Survival band says what it saw, at most every 10 s',()=>{
+ const w=new WorldSurvivalChain();const logs=[];let t=100;w.now=()=>t;
+ const bot={entity:{position:new Vec3(272.5,54,20.5)},blockAt:p=>({name:p.y>55?'gravel':'air'})};
+ const ctx={worker:{log:m=>logs.push(m)}};
+ w._bandLog(bot,ctx,'wall','head in a wall; digging out');
+ w._bandLog(bot,ctx,'wall','head in a wall; digging out');t+=11;w._bandLog(bot,ctx,'wall','head in a wall; digging out');
+ assert.equal(logs.length,2);
+ assert.match(logs[0],/^WorldSurvival: head in a wall; digging out at \(272, 54, 20\) \(head gravel, feet air\)$/);
+});
+test('round 49: 30 s under water at full health stands the stale-air backstop down',()=>{
+ const w=new WorldSurvivalChain();
+ const water={name:'water',boundingBox:'empty'};
+ const bot={health:20,food:20,oxygenLevel:20,entity:{position:new Vec3(272.5,54,20.5),isInWater:true,onGround:true},entities:{},blockAt:()=>water,setControlState(){}};
+ const real=Date.now;let t=real();Date.now=()=>t;
+ try{
+  w._handleDrowning(bot,{},{});t+=9000;w._handleDrowning(bot,{},{});
+  assert.equal(w._drowning,true,'9 s under with a stale reading: the round-21 backstop still fires');
+  w._drowning=false;t+=22000;w._handleDrowning(bot,{},{});
+  assert.ok(!w._drowning,'31 s under at full health: breathing, the backstop stands down');
+  bot.health=14;w._handleDrowning(bot,{},{});
+  assert.equal(w._drowning,true,'losing health: back on');
+ }finally{Date.now=real;}
+});

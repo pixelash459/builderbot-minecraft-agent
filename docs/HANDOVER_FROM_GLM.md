@@ -2063,3 +2063,13 @@ Round 46 soak (`8a1d4bb`): **0 deaths**, iron pick on 5 of 6 (normal 512/452/391
 Round 47 soak (`f1a2d89`): **0 deaths (hp 20 on every sample)**, iron pick on 5 of 6 (normal2 572 s, normal3 963 s, **all three hard runs** 392/422/573 s), no diamonds. **Sprinting works**: 28 `Movement: sprinting` lines, about 50-60% of pathfinder walking time per run (the pathfinder sprints only where its straight-line sprint check passes; the ledge guard releases it by drops). The fuel loop did not return. Of 288 `Tool left the inventory` lines only 10 were breaks; the bursts are inventory moves with uses left. Found: **normal1 stood stranded at (313, 112, 51) for the run** - the 6-drop retry still saw 1 node, and the pillar stopped on `no blocks held`: job walks use the normal movements, which never dig, so a bot walled in by blocks had no way out.
 
 - **The stranded retry may dig** (`canDig` on for that one try, restored after): a walled-in stand can tunnel out, and the dug blocks feed the pillar. Line: `Navigation: stranded at ... (drops on every side); allowing drops of up to 6 and digging`.
+
+## Round 49 (2026-10-25)
+
+Round 48 confirmation soak (`f2fbdab`, same code): **iron pick on all six again** (normal 392/542/512 s, hard 482/452/422 s), 1 death, no diamonds or bed this time. Found:
+- normal1 **slain by a warden** at (364, 3, -111): a deep-dark escape ascend was paused by the warden flee, a junk drop submitted the same second superseded it, and the bot stood dropping cobble until it died 43 s later;
+- normal2 stood **17.5 min at (272, 54, 20)**, hp and food 20, with 556 `Misc World Survival Chain engaging` and 517 server snaps: the stale-air backstop (round 21, for an air reading that never arrives) kept firing on a head in water with the air at a full 20.
+
+- **A warden near: only climbing out** (`WARDEN_NEAR`=48, `wardenDistance`): the autopilot submits an escape ascend if none is running, queued or paused, and nothing else - a paused ascend is left to resume. Line: `Autopilot: a warden N away; climbing out, nothing else`.
+- **The stale-air backstop stands down at full health** (`BREATHING_MS`=30 s): after 30 s with the head in water and health still 20 it no longer fires (drowning would have cost health by then); losing health brings it back.
+- **Every World Survival band logs what it saw** (`_bandLog`, at most every 10 s): `WorldSurvival: in lava / on fire / head in a wall ... at (x, y, z) (head H, feet F)`.

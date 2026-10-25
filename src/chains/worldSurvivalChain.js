@@ -35,12 +35,14 @@ export class WorldSurvivalChain extends SingleTaskChain{
   this._handleDrowning(bot,cfg,ctx);
   // Lava escape
   if(this._isInLavaOhShit(bot)){
+   this._bandLog(bot,ctx,'lava','in lava; escaping');
    this._lavaUntil=this.now()+4; // a lava exit leaves you burning; the flag may not arrive (Via)
    this.root=movementTask(ctx,'EscapeFromLavaTask',()=>new EscapeFromLavaTask());
    return 100;
   }
   // Fire escape
   if(this._isInFire(bot)){
+   this._bandLog(bot,ctx,'fire','on fire; putting it out');
    this.root=movementTask(ctx,'PutOutFireTask',()=>new PutOutFireTask());
    return 100;
   }
@@ -49,6 +51,7 @@ export class WorldSurvivalChain extends SingleTaskChain{
   if(EscapeSuffocationTask.inWall(bot)){
    if(this._wallSince==null)this._wallSince=this.now();
    if(this.now()-this._wallSince>=0.3||this.root?.name==='EscapeSuffocationTask'){
+    this._bandLog(bot,ctx,'wall','head in a wall; digging out');
     this.root=movementTask(ctx,'EscapeSuffocationTask',()=>new EscapeSuffocationTask());
     return 100;
    }
@@ -129,7 +132,12 @@ export class WorldSurvivalChain extends SingleTaskChain{
   // has not changed for HEAD_WET_MS while the head stayed under.
   if(air!==this._lastAir){this._lastAir=air;this._airChanged=now;}
   const stale=now-(this._airChanged||0)>=HEAD_WET_MS;
-  const longUnder=!!this._headWetSince&&now-this._headWetSince>=HEAD_WET_MS&&stale;
+  // Round 49 (round-48 confirmation normal2: 556 swim-ups in 17.5 min at one water cell, hp and
+  // food 20 - the air sat at a full 20 and the backstop kept firing): drowning costs health within
+  // ~15 s of the air running out, so 30 s under with full health is breathing - the backstop
+  // (for an air reading that never comes, round 21) stands down.
+  const fullUnder=!!this._headWetSince&&now-this._headWetSince>=BREATHING_MS&&typeof bot.health==='number'&&bot.health>=20;
+  const longUnder=!!this._headWetSince&&now-this._headWetSince>=HEAD_WET_MS&&stale&&!fullUnder;
   // Round 38 (round-37 normal1 drowned at 59,51,37 with no `drowning` line for its last 56 s -
   // the client saw no water at head or feet): health falling with nothing else to explain it
   // (no hostile within 6, no fire or lava, not starving) and the air below full is drowning too.
@@ -170,6 +178,15 @@ export class WorldSurvivalChain extends SingleTaskChain{
   if(onFire(bot)||blockInLava(bot))return false;
   return true;
  }
+ // Round 49 (round-48 confirmation hard1: World Survival engaged every 2 s for minutes at one
+ // block with no line saying which band): each band says what it saw, at most every 10 s.
+ _bandLog(bot,ctx,key,what){
+  const now=this.now();this._bandLogged=this._bandLogged||{};
+  if(now-(this._bandLogged[key]??-1e9)<10)return;
+  this._bandLogged[key]=now;
+  const w=ctx&&ctx.worker;if(!w||!w.log)return;
+  try{const p=bot.entity.position,at=dy=>bot.blockAt?.(p.offset(0,dy,0))?.name||'?';w.log('WorldSurvival: '+what+' at '+p.floored()+' (head '+at(1.6)+', feet '+at(0.1)+')');}catch{}
+ }
  _isInLavaOhShit(bot){
   // Block-aware check only: ViaVersion's isInLava sticks true after exiting, which kept
   // this band (and the escape task under it) alive through the whole post-exit burn. The
@@ -197,7 +214,7 @@ export class WorldSurvivalChain extends SingleTaskChain{
   return !!b&&b.name==='nether_portal';
  }
 }
-const WET=/^(water|bubble_column|seagrass|tall_seagrass|kelp|kelp_plant)$/,HEAD_WET_MS=8000,DROWN_AIR=8,DRY_HOLD_MS=1500,SILENT_HURT_MS=4000,SILENT_HOSTILE=24,SILENT_FALL_MS=2000;
+const WET=/^(water|bubble_column|seagrass|tall_seagrass|kelp|kelp_plant)$/,HEAD_WET_MS=8000,DROWN_AIR=8,DRY_HOLD_MS=1500,SILENT_HURT_MS=4000,SILENT_HOSTILE=24,SILENT_FALL_MS=2000,BREATHING_MS=30000;
 // Round 24: a reading above 20 is the raw air supply in ticks (0-300; the round-23 report saw
 // 10-400): scaled to the 0-20 bubbles every threshold here uses.
 const airOf=bot=>{const a=typeof bot.oxygenLevel==='number'?bot.oxygenLevel:(typeof bot.oxygen==='number'?bot.oxygen:20);return a>20?Math.min(20,a/15):a;};
