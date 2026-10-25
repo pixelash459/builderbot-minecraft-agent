@@ -6526,3 +6526,126 @@ Night seals, the long hard sits: hard1 `(144, 130, 33)` from t=632 to t=1234 aft
 ### Uncaught
 
 `logs/dashboard-uncaught.log` gained no bytes during the soak (size stayed 2576174). There is no new line from this confirmation window.
+
+## 2026-10-25 16:26 IST – 2026-10-25 19:35 IST — round 50 soak (bot code `af2e562`)
+
+The round 49 soak on `6e8cbbf` was stopped on request during normal1 and is not a result. This section is the round 50 soak only.
+
+Units first, then one model-off restart, then one six-run soak. No combat and no integration. `git pull --rebase` stashed local `data/` dumps, origin was already at `af2e562`, and the stash was popped. HEAD is `af2e562` (`Round 50: hold a non-wearing item when no tool beats the hand, treat replaced wooden tools as junk, and let the wood step accept any tier`).
+
+Unit tests, every `tests/*.test.js` except `resources.test.js`, `--max-old-space-size=2048 --test-timeout=60000 --test-skip-pattern resources`: **626 pass, 0 fail**, 0 skipped, 41325 ms. The live fail count is 0, so this is a pass. `resources.test.js` was not run.
+
+`AGENT_MODEL=off`. Supervisor log first line after the fresh restart, and again after the flat-world restore, is `model server disabled (config.model.enabled=false): skipping llama-server, saving ~6.5 GB commit`. Port 8081 is closed. One soak, exit 0, 11339 s (16:26:22–19:35:20 IST 25 Oct, 10:56:22Z–14:05:20Z). `SOAK DONE (clean)`, promoted to `data/soak-results.json` (`clean triple promoted`). Harness interventions 4, resumes 2, deaths 2. Six valid runs, each on the first attempt (`normal1a1` through `hard3a3`). `invalid_attempts` is empty. `tod_end` is `day` on all six. The stored result objects have `timeOfDay` null. Every run header was dawn, clear weather, empty inventory, full vitals. Dashboard window is the bytes after offset 65593298 (3414 dated lines in the soak window). `Autopilot started` / `Autopilot stopped`: normal1 11:00:23Z–11:40:31Z, normal2 11:40:43Z–12:20:51Z, normal3 12:21:03Z–13:01:12Z (a second start at 12:59:42Z after the death), hard1 13:01:27Z–13:22:31Z, hard2 13:22:43Z–13:43:47Z (a second start at 13:28:14Z after the death), hard3 13:43:59Z–14:05:03Z. Server log size at soak start was 16253182. The soak was not stopped early.
+
+The world seed is **8675309**, logged as `soak seed 8675309 (anchors scouted from spawn)`, and `server.properties` during the soak had `level-seed=8675309`, `level-name=agent-soak-world`. Round 48's two soaks were seed 12345, a dark forest, with measured anchors. These rungs are from a new world the scout found from the spawn, so they are not directly comparable with those dark-forest numbers.
+
+### Scout
+
+Spawn `[14, 64, 89]`. Both anchors were found. The log lines:
+
+`scout: HARD anchor confirmed (gather completed, canopy light 15) at [15, 64, 87]`
+
+`scout: NORMAL anchor confirmed (open sky 14, gather completed) at [78, 65, 87]`
+
+The hard line's "canopy light" wording is the old label. The number is 15, the same open-sky band as the normal anchor's 14, at y=64–65. The dashboard window names `oak_log` (10) and `pink_petals` (15), plus birch in inventory lists (`birch_sapling`), and later sheep 46, cow 21, pig 11, chicken 7. `water` appears 8 times. `sand`, `snow`, `dark_oak`, `spruce_log`, and `cherry` are 0. No biome name is printed. The surface is bright, with oak, birch, pink petals, and animals.
+
+### Rungs
+
+Seconds from the run start. Wood / stone / furnace are the first sample that held them. Iron pick is the first sample with an iron pick. Ore and ingots are peaks. The harness end-state `wood=` flag is false on the three normal runs because the final inventory did not hold both a wooden pick and a table; the wood times below are the first wooden pick.
+
+| run | wood | stone | furnace | iron pick | ore | ingots | diamonds | diamond pick | bed | deaths |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| normal1 | 211 | 301 | 391 | 873 | 3 | 8 | 0 | no | 1896, held | 0 |
+| normal2 | 150 | 211 | 301 | 542 | 5 | 6 | 1 | no | no | 0 |
+| normal3 | 120 | 181 | 301 | 662 | 6 | 11 | 0 | no | no | 1 |
+| hard1 | 60 | 241 | 391 | no | 3 | 0 | 0 | no | no | 0 |
+| hard2 | 90 | 181 | 271 | no | 2 | 0 | 0 | no | no | 1 |
+| hard3 | 151 | 241 | 331 | 452 | 4 | 3 | 0 | no | no | 0 |
+
+Food mins 15/15/15 and 20/20/20. Eaten 2/5/2 and 0/0/0. The hard bars stayed at 20, so the food verdict is "not hungry enough".
+
+Round 48 first soak (seed 12345), iron picks 633/362/572 and 361/542/482, ore 5/4/6 and 7/3/3, ingots 7/8/9 and 7/3/3, diamonds 0/3/0 with a diamond pick on normal2 at 1656 s, bed on normal1 at 1206 s never placed, 0 deaths. Wood/stone/furnace 90/211/301, 90/181/241, 120/211/271, 90/150/241, 271/331/421, 120/271/361.
+
+Round 48 confirmation (same seed), iron picks 392/542/512 and 482/452/422, ore 11/5/5 and 6/5/3, ingots 5/6/7 and 3/3/3, diamonds 0, no pick, no bed, 1 warden death. Wood/stone/furnace 90/211/271, 60/150/241, 90/150/241, 90/151/241, 120/271/331, 90/241/331.
+
+This seed reached an iron pick on 4 of 6 (normal 873/542/662, hard3 452; hard1 and hard2 none). One diamond was mined, on normal2, and no diamond pick was crafted. A bed was held on normal1 and never placed. Deaths are 2, a fall and a spider, and neither is a warden.
+
+### Full bag and wooden tools
+
+`Job: Inventory nearly full` is 3 on normal1, 1 on normal2, and 6 on normal3. None of those runs reached 10. The lists still name wooden tools beside stone and iron ones. normal1 at 11:22:19Z: `cobblestone:2 stone_pickaxe:2 wooden_axe:1 stone_sword:1 oak_sapling:1 wooden_pickaxe:1 wooden_sword:1 chest:1 shield:1 oak_log:1`. normal2 at 12:03:18Z includes `wooden_axe:1` and `wooden_sword:1`. normal3 at 12:41:41Z includes `wooden_pickaxe:1`, `wooden_sword:1`, and `wooden_axe:1` next to `iron_sword:1`. The bag did not freeze the run the way round 49's normal1 did: normal1 went on to an iron pick at 873 s and a bed at 1896 s.
+
+Drops of a wooden or golden tool: two, both normal3, and no golden tool.
+
+`12:55:34.841Z Dropped 1 wooden_pickaxe (toward 0,1, open 4)`
+
+`12:55:38.911Z Dropped 1 wooden_sword (toward 0,-1, open 4)`
+
+No craft submit for either item follows. The next sample (t=2078) still shows `wood_pick` 1. At the death four minutes later the inventory still contained `wooden_pickaxe` (56 uses left), `wooden_sword` (59 uses left), and `wooden_axe` (58 uses left). The axe was never dropped. After the death the kit was gone and the wood step started over; that is a respawn, and the run ended before a new wooden pick.
+
+No dashboard line records the item held while digging dirt, grass, or sand. There is no axe or pickaxe swing on soil in the log. The lines that mention dirt and an axe together are the inventory-full slot lists above.
+
+### Warden
+
+No line contains `warden`. There is no `a warden ... climbing out` line, and no warden death. The confirmation soak's warden kill did not recur.
+
+### World Survival
+
+Two lines, the same second, on normal2:
+
+`12:04:43.086Z WorldSurvival: losing health with no attacker (air 19, head air, feet air); treating it as drowning`
+
+`12:04:43.086Z WorldSurvival: drowning (air 19), swimming up`
+
+Air 19, head air, feet air. No second drowning line, no drown death, and no spot with 20 engagements. The confirmation soak's 17.5 min stand at one water cell did not return. There was no 30 s underwater stretch at full health for the backstop to stand down from.
+
+### Deaths
+
+Two. Samples are every 30 s, so the minute before each death is two samples, both hp 20.
+
+normal3, `12:59:32.723Z Bot died at 35, -21, -228`. Server: `BuilderBot fell from a high place` (18:29:32 IST). The fall line is `12:59:31.508Z Fall: dropping from (35, 15, -228) (job explore, pathing true, sprint false)`. The 10 s before that fall line are empty in the dashboard. Minute-before samples: t=2259 `(26, 26, -195)` hp 20 food 20, t=2289 `(27, 22, -208)` hp 20 food 20. The next sample is the respawn at `(8, 64, 86)`, hp 20, empty inventory. The operator resumed the ladder.
+
+hard2, `13:28:12.339Z Bot died at 15, 40, 112 (killed by spider)`. Server: `BuilderBot was slain by Spider` (18:58:12 IST). The half minute before it is a crowd, not a quiet gap: `13:28:00.437Z Fight result: zombie tactic=melee hits=0 ... damage taken=0 result=stopped`, `13:28:01.134Z Reflex: fleeing skeleton,creeper,...`, `13:28:05.485Z Reflex: night crowd (6 hostiles); pillaring up instead of fleeing`, `13:28:10.536Z Reflex: fleeing skeleton,creeper,...`, then the spider at 13:28:12Z. Minute-before samples: t=271 `(10, 64, 80)` hp 20, t=301 `(16, 53, 92)` hp 20. The t=331 sample is the respawn at `(6, 64, 81)`, hp 20, empty inventory. The operator resumed the ladder.
+
+### Repeated errors
+
+normal2, 11 times each, the same miss on deepslate diamond ore: `Gather: attempt N on deepslate_diamond_ore at (P) failed: Cannot reach or harvest this block (walk: No path to the goal!` and the matching `Gather: skipping deepslate_diamond_ore`. The bot was around y=2 and y=1 (`(-8, 2, 74)`, then `(-10, 1, 80)`), with the ore at y=-20 to y=-22. Two more unreachable `diamond_ore` tries at y=14 and y=13. No other job text repeats 10 times in a run.
+
+### Sprint
+
+`Movement: sprinting` mean, then the mean weighted by the seconds in each line. normal1 55.2 / 42.5 (644 s). normal2 42.1 / 38.2 (1120 s). normal3 40.9 / 37.9 (890 s, all before the death). hard1 39.3 / 37.9 (206 s). hard2 42.7 / 46.8 (148 s across the death). hard3 35.7 / 40.5 (129 s).
+
+### Stranded
+
+No `stranded at` line and no `still stranded` line. Nothing to leave.
+
+### Hard iron, sunset, the pick
+
+hard1 first ore at t=452, `(8, 59, 94)`, 2 ore, ingots stayed 0, no iron pick. It then stood in `working: shelter` at `(15, 54, 95)` from t=933 to t=1234 and left on the last sample.
+
+hard2 first ore at t=301, `(16, 53, 92)`, 2 ore, ingots 0. The spider killed it before a pick. After the respawn it stood in `working: shelter` at `(-14, 63, 78)` from t=602 to the end (t=1264).
+
+hard3 iron step at t=331, 3 ore and 3 ingots at t=421, iron pick at 452 s. There is no `Autopilot: sunset - finishing the stone kit` line. The dusk lines are `13:52:31Z Autopilot: dusk: no hunting (0 hostiles within 16)` and four more like it, plus one `dusk-dirt` grass gather at 13:31:10Z during hard2. The hard3 pick was already held before those dusk lines.
+
+### Falls
+
+One fall, the normal3 death above. Sprint false, explore, from y=15 to the death at y=-21. hp 20 on both samples in the minute before.
+
+### Diamond and bed
+
+normal2's diamond count peaked at 1. No diamond pick. The trip did not hit deep dark or sculk: it failed the 11 deepslate reaches above, then `12:16:35.190Z Autopilot [pickup] gather diamond_ore count 1`. normal3 did submit `12:47:21.932Z Autopilot [diamond-rung] gather diamond_ore count 3 targetY -53 strip` and died on the explore before any diamond. normal1's descent was cut by the harness: `operator: returned the bot from y=1` while the step had flipped to wood and the iron pick was gone (t=2287, iron pick 0). Diamonds stayed 0.
+
+normal1 held a bed from t=1896. No place line and no sleep line. `bed_at` is null on the other five.
+
+### Disconnects
+
+In the server bytes after offset 16253182: `kicked` 0, `moved too quickly` 0, `moved wrongly` 4 (`16:59:02`, `17:41:27`, `18:28:22`, `18:28:24` IST, all BuilderBot). `lost connection` is 2: `17:58:51 SG-1 lost connection: Disconnected`, and `19:35:06 BuilderBot lost connection: Disconnected` at the restore stop. No kick during a run.
+
+### Other
+
+Harness interventions: normal1 returned from y=1; normal3 and hard2 resumed after death; hard1 `operator: unstuck the bot at [10, 64, 92]`. The new loop is hard2's shelter: one cell, `(-14, 63, 78)`, for the last 11 minutes after the spider. hard1's shelter hold was about 5 minutes and then it left. `SOAK DONE (clean)`.
+
+### Uncaught
+
+`logs/dashboard-uncaught.log` gained no bytes during the soak (size stayed 2576174). There is no new line from this round 50 window.
+
+After the stop, the flat world was restored (`level-name=agent-test-world`, `level-type=minecraft\:flat`, `level-seed` empty, `server-ip=0.0.0.0`, `difficulty=peaceful`). The model was still disabled. End of this soak is `2026-10-25T14:05:20.630Z`.
