@@ -6265,3 +6265,264 @@ Harness intervention, not a tester interrupt: normal1 `operator: returned the bo
 ### Uncaught
 
 `logs/dashboard-uncaught.log` gained no bytes during the soak (size stayed 2576174). There is no new line from this round 48 window. Deaths are 0.
+
+## 2026-10-25 11:51 IST – 2026-10-25 14:59 IST — round 48 confirmation soak (bot code `f2fbdab`, second soak)
+
+Same bot commit as the first round 48 soak (`37f819d` above). No bot code change. Units first, then one model-off restart, then one fresh six-run soak. The first soak was not resumed. No combat and no integration. `git pull --rebase` stashed local `data/` dumps, origin was already at `37f819d` (report on top of `f2fbdab`), and the stash was popped. `git diff f2fbdab HEAD` excluding `docs/` is empty. HEAD at test time is `37f819d`.
+
+Unit tests, every `tests/*.test.js` except `resources.test.js`, `--max-old-space-size=2048 --test-timeout=60000 --test-skip-pattern resources`: **620 pass, 0 fail**, 0 skipped, 41294 ms. The first round 48 soak was also 620 pass, 0 fail. The live fail count is 0, so this is a pass. `resources.test.js` was not run.
+
+`AGENT_MODEL=off`. Supervisor log first line after the fresh restart, again after the soak switched worlds, and again after the flat-world restore, is `model server disabled (config.model.enabled=false): skipping llama-server, saving ~6.5 GB commit`. Port 8081 is closed. One soak, exit 0, 11291 s (11:51:24–14:59:34 IST 25 Oct, 06:21:24Z–09:29:34Z). `SOAK DONE (clean)`, promoted to `data/soak-results.json` (`clean triple promoted`). The harness `errors` list is empty on every run. Deaths are 1 (below). Anchors on this regenerated seed: hard [142, 131, 31] (canopy light 10), normal [310, 131, 30] (open sky 15). Same anchors as the first round 48 soak. Harness interventions 2, resumes 1. Six valid runs, each on the first attempt (`normal1a1` through `hard3a3`). `invalid_attempts` is empty. `tod_end` is `day` on all six. The stored result objects have no `timeOfDay` value. Every run header was dawn, clear weather, empty inventory, full vitals. Dashboard window is the bytes after offset 64172009 (16474 dated lines in the soak window). `Autopilot stopped` marks the run ends: normal1 07:04:45Z, normal2 07:45:05Z, normal3 08:25:26Z, hard1 08:46:45Z, hard2 09:08:01Z, hard3 09:29:17Z. After the stop, the flat world was restored (`level-name=agent-test-world`, `level-type=minecraft\:flat`, `server-ip=0.0.0.0`, `difficulty=peaceful`). The soak was not stopped early.
+
+### Rungs, side by side with the first round 48 soak
+
+First soak (`37f819d`) is the left-hand number in each pair in the comparison lines under the table. This confirmation is the table.
+
+```
+run       | wood | stone pick | furnace | iron pick | torches | armour worn | bed | diamonds | diamond pick | food                            | deaths
+normal1a1 | 90   | 211        | 271     | 392       | 16      | 2 at 663    | -   | 0        | -            | ate 2                           | 1
+normal2a2 | 60   | 150        | 241     | 542       | 16      | 1 at 903    | -   | 0        | -            | ate 1                           | 0
+normal3a3 | 90   | 150        | 241     | 512       | 19      | 3 at 1355   | -   | 0        | -            | ate 3                           | 0
+hard1a1   | 90   | 151        | 241     | 482       | 0       | 0           | -   | 0        | -            | not hungry enough (food min 20) | 0
+hard2a2   | 120  | 271        | 331     | 452       | 0       | 0           | -   | 0        | -            | not hungry enough (food min 20) | 0
+hard3a3   | 90   | 241        | 331     | 422       | 0       | 0           | -   | 0        | -            | not hungry enough (food min 20) | 0
+```
+
+First soak rungs, for the pair:
+
+```
+run       | wood | stone pick | furnace | iron pick | bed  | diamonds | diamond pick | deaths
+normal1a1 | 90   | 211        | 301     | 633       | 1206 | 0        | -            | 0
+normal2a2 | 90   | 181        | 241     | 362       | -    | 3        | 1656         | 0
+normal3a3 | 120  | 211        | 271     | 572       | -    | 0        | -            | 0
+hard1a1   | 90   | 150        | 241     | 361       | -    | 0        | -            | 0
+hard2a2   | 271  | 331        | 421     | 542       | -    | 0        | -            | 0
+hard3a3   | 120  | 271        | 361     | 482       | -    | 0        | -            | 0
+```
+
+Iron-pick seconds this soak: normal 392/542/512, hard 482/452/422. All six crafted one. The first soak was normal 633/362/572, hard 361/542/482. normal1's pick is earlier (392 vs 633) and was then lost in the warden death: the end inventory has `iron_pickaxe` 0. The 392 s time is the first sample that held the pick. normal2's 542 is later than the first soak's 362. normal3's 512 is earlier than 572. hard1's 482 is later than 361. hard2's 452 is earlier than 542. hard3's 422 is earlier than 482.
+
+Ore peaks this soak: normal 11/5/5, hard 6/5/3. The first soak was normal 5/4/6, hard 7/3/3. Ingot peaks this soak: normal 5/6/7, hard 3/3/3. The first soak was normal 7/8/9, hard 7/3/3. Diamonds mined and diamond pick: 0/no on all six. The first soak was normal 0/no, 3/yes at 1656 s, 0/no, and hard 0. Bed: none crafted. The first soak crafted one on normal1 at 1206 s and never placed it. Deaths: 1 vs 0.
+
+hard1's end-of-run `wood` flag is false (crafting table 0, wooden pick still 1). The rung time above is the first sample with a wooden pick. The other five wood flags are true.
+
+### Deaths
+
+1. normal1, cause `System chat: BuilderBot was slain by Warden`. Dashboard:
+
+`06:59:53.772Z BuilderBot was slain by Warden`
+
+`06:59:53.772Z Bot died at 364, 3, -111 (killed by warden)`
+
+`death_causes` on that run is that system-chat line. The other five runs have an empty `death_causes`. No drown death.
+
+The 30 s before 06:59:53.772Z (from 06:59:23) contains no dashboard line. The last lines before that gap, at 06:59:10 (43 s before the death):
+
+`06:59:10.203Z Reflex: fleeing warden (universally dangerous)`
+
+`06:59:10.203Z Reflex: Mob Defense engaging`
+
+`06:59:10.205Z Pause trace: ascend -> Reflex: preempted by Mob Defense`
+
+`06:59:10.374Z Autopilot [inventory] {"type":"drop","item":"cobblestone","count":128}`
+
+The deep-dark leave is 88 s before the death: `06:58:25.251Z Job: Deep dark: sculk_sensor at (401, -9, -85); leaving (warden)`, then `06:58:26.259Z Autopilot [escape] {"type":"ascend","y":131}`.
+
+Run clock: the death is about t=2118 (stop at t=2409 is 07:04:45.275Z, 291 s after 06:59:53.772Z). hp on the samples in the minute before it:
+
+t=2077 `(364, 3, -111)` hp 20, food 20, step inventory, `queued: drop`, deaths 0, iron pick 1. About 41 s before.
+
+t=2107 `(364, 3, -111)` hp 20, food 20, step inventory, `queued: drop`, deaths 0, iron pick 1. About 11 s before.
+
+t=2047 is about 71 s before, outside the minute, also hp 20, at `(390, -3, -96)`, step escape. No sample in the minute shows hp under 20. The next sample, t=2137, is after the harness resume: `(93, 131, -25)`, hp 20, deaths 1, empty inventory, `paused: died - resume to continue`.
+
+The harness printed `operator: resumed the ladder after death 1` and did not teleport the bot back to the anchor. The rest of normal1 is at the spawn cliff: t=2168 through t=2409 stay around `(98, 136, -28)` rebuilding wood and stone. The run still ends with deaths=1.
+
+normal3's hp dip is not a death. t=993 `(96, 119, -154)` hp 15.0, then hp 17.1 on t=1023 through t=1114, then back to 20. The fall line is below.
+
+### Sprinting
+
+31 `Movement: sprinting` lines. The first soak had 33. The mean is the average of the logged percentages. The weighted figure weights those percentages by the walking seconds on the same line. Food on the line is in parentheses. Sample food mins are normal 15/15/15 and hard 20/20/20, the same mins as the first soak.
+
+normal1, mean 58.9%, weighted 53.5% of 483 s (8 lines). The first soak was 56.2 / 53.3 of 567 s.
+
+`06:28:16.653Z Movement: sprinting 49% of 37 s of pathfinder walking (food 20)`
+`06:33:16.688Z Movement: sprinting 45% of 72 s of pathfinder walking (food 20)`
+`06:38:16.737Z Movement: sprinting 31% of 111 s of pathfinder walking (food 20)`
+`06:43:16.790Z Movement: sprinting 72% of 82 s of pathfinder walking (food 15)`
+`06:48:16.813Z Movement: sprinting 100% of 19 s of pathfinder walking (food 20)`
+`06:53:16.841Z Movement: sprinting 67% of 59 s of pathfinder walking (food 20)`
+`06:58:16.863Z Movement: sprinting 66% of 54 s of pathfinder walking (food 20)`
+`07:03:16.863Z Movement: sprinting 41% of 49 s of pathfinder walking (food 20)`
+
+normal2, mean 56.8%, weighted 57.6% of 309 s (5 lines). The first soak was 50.4 / 43.4 of 386 s. The water stall below starts at 07:27, so the later five-minute buckets have no sprint line.
+
+`07:08:16.897Z Movement: sprinting 50% of 44 s of pathfinder walking (food 20)`
+`07:13:16.897Z Movement: sprinting 77% of 67 s of pathfinder walking (food 20)`
+`07:18:16.931Z Movement: sprinting 55% of 61 s of pathfinder walking (food 20)`
+`07:23:16.952Z Movement: sprinting 54% of 86 s of pathfinder walking (food 17)`
+`07:28:16.962Z Movement: sprinting 48% of 51 s of pathfinder walking (food 20)`
+
+normal3, mean 62.5%, weighted 58.2% of 560 s (8 lines). The first soak was 65.4 / 63.1 of 499 s.
+
+`07:48:17.111Z Movement: sprinting 42% of 31 s of pathfinder walking (food 20)`
+`07:53:17.133Z Movement: sprinting 56% of 82 s of pathfinder walking (food 20)`
+`07:58:17.180Z Movement: sprinting 85% of 68 s of pathfinder walking (food 16)`
+`08:03:17.183Z Movement: sprinting 68% of 96 s of pathfinder walking (food 15)`
+`08:08:17.222Z Movement: sprinting 28% of 126 s of pathfinder walking (food 20)`
+`08:13:17.269Z Movement: sprinting 60% of 26 s of pathfinder walking (food 18)`
+`08:18:17.305Z Movement: sprinting 100% of 33 s of pathfinder walking (food 20)`
+`08:23:17.347Z Movement: sprinting 61% of 98 s of pathfinder walking (food 18)`
+
+hard1, mean 37.7%, weighted 30.4% of 107 s (3 lines). The first soak was 43.7 / 42.9 of 203 s.
+
+`08:28:17.404Z Movement: sprinting 59% of 27 s of pathfinder walking (food 20)`
+`08:33:17.413Z Movement: sprinting 19% of 71 s of pathfinder walking (food 20)`
+`08:38:17.426Z Movement: sprinting 35% of 9 s of pathfinder walking (food 20)`
+
+hard2, mean 42.3%, weighted 31.3% of 237 s (3 lines). The first soak was 38.3 / 37.5 of 145 s.
+
+`08:48:17.475Z Movement: sprinting 60% of 13 s of pathfinder walking (food 20)`
+`08:53:17.489Z Movement: sprinting 46% of 77 s of pathfinder walking (food 20)`
+`08:58:17.544Z Movement: sprinting 21% of 147 s of pathfinder walking (food 20)`
+
+hard3, mean 57.2%, weighted 42.0% of 114 s (4 lines). The first soak was 64.2 / 49.7 of 102 s. The mean includes a 1 s line at 100%. The three lines with more than a second of walking average 43.0%.
+
+`09:08:17.590Z Movement: sprinting 100% of 1 s of pathfinder walking (food 20)`
+`09:13:17.614Z Movement: sprinting 41% of 51 s of pathfinder walking (food 20)`
+`09:18:17.641Z Movement: sprinting 41% of 53 s of pathfinder walking (food 20)`
+`09:23:17.658Z Movement: sprinting 47% of 9 s of pathfinder walking (food 20)`
+
+### Stranded dig
+
+The dig line fired. Five lines, four spots. `(313, 112, 51)` is 0 lines. `no blocks held` is 0. `pillaring up 3` is 1, not 500. The first soak's four digs each left. These four spots also left, on the evidence below. None of them is the first soak's ledge.
+
+normal1, one line, then a completed goto 9 s later. Samples move off the block:
+
+`06:26:50.410Z Boxed in at (331, 131, 29): no way to stair out`
+
+`06:26:50.411Z Navigation: stranded at (331, 131, 29) (drops on every side); allowing drops of up to 6 and digging`
+
+`06:26:59.862Z Completed goto`
+
+There is no `dug N steps` line. t=121 is `(331, 134, 29)` and t=151 is `(319, 122, 31)`. It left. The run later reaches an iron pick at 392 s.
+
+normal2, one spot, the pillar line, and no dug-steps line:
+
+`07:19:21.378Z Navigation: stranded at (276, 69, 60) (drops on every side); allowing drops of up to 6 and digging`
+
+`07:19:21.440Z Navigation: still stranded at (276, 69, 60); pillaring up 3`
+
+No `Pillar: stopped` on this try. By t=1204 the position is `(270, 54, 19)`. It left `(276, 69, 60)`. The later water stall is a different block.
+
+normal3, one line at the start of the run, then a fall off the adjacent block 1 s later:
+
+`07:46:57.311Z Boxed in at (288, 150, 39): no way to stair out`
+
+`07:46:57.311Z Navigation: stranded at (288, 150, 39) (drops on every side); allowing drops of up to 6 and digging`
+
+`07:46:58.102Z Fall: dropping from (288, 149, 40) (job craft, pathing true, sprint true)`
+
+No dug-steps line. It left by the fall. hp stays 20 on the following samples.
+
+hard1, one line at the end of the sealed night, then a dug path on the adjacent shelter block 1 s later. The run stops 18 s after the stranded line:
+
+`08:46:26.529Z Navigation: stranded at (145, 131, 33) (drops on every side); allowing drops of up to 6 and digging`
+
+`08:46:27.800Z Boxed in at (144, 130, 33): dug 2 steps up east to (146, 132, 33)`
+
+`Autopilot stopped` is 08:46:45Z. This is the night box ending, not a multi-minute stranded stand.
+
+### Repeated 10+ times
+
+`Navigation: no path with mob avoidance at (x, y, z); trying without it`: normal1 96 (top spots 43 at `(98, 136, -28)` and 24 at `(98, 135, -25)`, both after the warden death, on the spawn cliff), normal2 32, normal3 87 (top spot 21 at `(230, 166, 42)`), hard1 38, hard2 107 (40 at `(170, 148, 24)`, 21 at `(134, 133, 34)`, 18 at `(135, 135, 31)`), hard3 115 (53 at `(135, 130, 32)`). The first soak was 63/78/33/63/182/207.
+
+normal2's repeated text is the water chain, from `07:27:22.991Z Reflex: Misc World Survival Chain engaging` through the run end at 07:45:05Z:
+
+`Reflex: Misc World Survival Chain engaging` 558
+
+`Job: Reflex: preempted by Misc World Survival Chain` 556
+
+`Server set position to (x, y, z) (teleport #N)` 517
+
+`Reflex: the gather job led into a hazard; cancelled, not resumed` 106
+
+Samples from t=1354 to t=2408 (about 17.5 min) are all `(272, 54, 20)`, hp 20, food 20, iron pick 1, step iron. The engaging line is during `Autopilot [escape] {"type":"ascend","y":146}`. Resume text includes `stepping out of the water first`. `07:38:01.643Z Gather: tunnel to the iron_ore at (270, 53, 13) stopped (Tunnel stopped: water beside (272, 54, 19); no safe way on)`. The last sample is still `(272, 54, 20)`, `working: ascend`. It did not leave. The first soak's normal2 stall was the quiet fire-douse at `(266, -44, 203)` for the last 9.5 min, with a diamond pick already in hand. This stall is in water, the dashboard is not silent, and there is no diamond pick.
+
+normal3 repeats `Job: Missing ingredients or a nearby crafting table` 30 times, against `Autopilot [iron] {"type":"craft","item":"shield","count":1}` (31 lines in that run). `Gather: column N,N has nothing that can be dug without taking the floor` is 10 on normal3, 8 on normal2, 6 on normal1.
+
+### Hard iron at sunset
+
+Night samples start at t=602 on every hard run. Picks are 482/452/422, all before that sample. Night-sample ingots are 0/0/1, the same pattern as the first soak (0/0/1).
+
+hard1 iron step starts at t=331, pos `(143, 128, 30)`, ore 0, ingots 0, pick 0. The first soak started at t=271. t=542 already holds the pick (ore 6, ingots 0). The t=602 night sample holds the pick, ore 6, ingots 0.
+
+hard2 iron step starts at t=361, pos `(150, 127, 29)`, ore 1, ingots 0, pick 0. The first soak started at t=451. The pick is in at 452 s. The t=602 night sample holds the pick, ore 5, ingots 0.
+
+hard3 iron step starts at t=361, pos `(137, 122, 38)`, ore 3, ingots 0, pick 0, furnace 0. The first soak also started at t=361. The pick is in at 422 s. The t=602 night sample holds the pick and ingots 1. Later night samples stay at ingots 1.
+
+### Bed
+
+No run held a bed. `bed_at` is null on all six. No craft line for a bed. No place line. No sleep line. normal1 set the bed aside twice, before the diamond trip and the death:
+
+`06:40:32.944Z Autopilot: no sheep after 3 search legs; bed set aside for 10 min`
+
+`06:53:29.394Z Autopilot: no sheep after 3 search legs; bed set aside for 10 min`
+
+The first soak crafted one bed on normal1 at 1206 s (`black_bed`) and never placed it and never slept. This soak never got as far as the craft.
+
+### Diamond trips
+
+No diamonds on any sample. No diamond pick. The gather target on the lines that fired is `targetY: -53`.
+
+normal1, two gather lines. Samples go down to y=-33 (`t=1595` `(365, -33, 74)`, diamonds 0, iron pick 1), then back up. The trip stops on the deep dark: `06:58:25.251Z Job: Deep dark: sculk_sensor at (401, -9, -85); leaving (warden)`. The flee and the warden death are the lines in the death section. Lowest sample y is -33. Diamonds held 0. The first soak's normal2 mined 3, crafted a pick at 1656 s, and then sat at y=-44.
+
+normal2 has no diamond-rung line and no sample below y=0. The water chain holds it at y=54 from t=1354 to the end. Diamonds 0.
+
+normal3, one gather line at `08:10:33.591Z`, target y=-53. Samples go down to y=8 (`t=1927` `(114, 8, -124)`, diamonds 0, iron pick 1), then escape. The stop is `08:17:46.998Z Job: Tunnel stopped: deep dark (sculk_catalyst at (119, -5, -131))`. Diamonds held 0. No diamond pick. The run continues (hp 20) and later the harness returns it during a wood step (below).
+
+### Disconnects and kicks
+
+Server log size at soak start was 16179191. In the bytes after that: `kicked` 0, `moved too quickly` 0, `moved wrongly` 1, `was slain` 1, `lost connection` 1.
+
+`[12:06:02 WARN]: BuilderBot moved wrongly!` (12:06 IST, during normal1, 06:36 UTC)
+
+`[12:29:53 INFO]: System chat: BuilderBot was slain by Warden` (the death above)
+
+`[14:59:20 INFO]: BuilderBot lost connection: Disconnected` (the restore stop)
+
+Dashboard disconnects in the window are the soak's own restart (`06:21:37.194Z Disconnected by user`, `06:23:12.651Z Disconnected by user`) and the restore (`09:29:20.476Z Disconnected. Connect again to retry.`). No kick during a run. The first soak was `moved wrongly` 3 and `moved too quickly` 0.
+
+### Other
+
+Harness interventions, not a tester interrupt: the death resume above, and normal3 `operator: returned the bot from y=80`. That return is the wood-step check (logs 0 and y under the anchor). The t=2258 sample is `(111, 80, -100)`, step wood, logs 0, hp 20. The t=2288 sample is `(332, 139, 24)`, back at the anchor. Resumes 1 (the death). The first soak's single intervention was a wood-step return on normal1, and its resumes were 0.
+
+The new loop is normal2's water survival chain: 556 preemptions and 517 teleports while the sample position stays `(272, 54, 20)` for the last 17.5 min. The first soak's quiet y=-44 fire-douse stall did not return, and neither did the round 47 ledge. `pillaring up 3` is 1. `no blocks held` is 0.
+
+Tool left: 285 lines. 9 say broke (normal1 3, normal2 1, normal3 4, hard2 1). The first soak was 275 lines, 13 broke.
+
+Deep dark: 2. normal1's sculk sensor, which the warden death follows, and normal3's sculk catalyst, which stops the diamond tunnel with hp 20. Warden lines lead to the one death. The first soak was 1 deep dark and 0 warden.
+
+Falls: 2, both normal3, no death. `07:46:58.102Z Fall: dropping from (288, 149, 40) (job craft, pathing true, sprint true)` and `08:01:45.798Z Fall: dropping from (104, 129, -152) (job explore, pathing true, sprint false)`. The second is the hp 15 sample. The first soak had one fall, sprint false.
+
+Drowning: 6 lines, all normal2, no drown death. Five are `drowning (air 8), swimming up`. One is `07:31:31.166Z WorldSurvival: drowning (air -1), swimming up`. hp on normal2 samples stays 20. The first soak was 3 drowning lines around air 7.5, no drown death.
+
+Kiln lines: 29. By run, 8/4/11/2/2/2. Furnace swap lines are 0. `Not enough fuel` is 0. The first soak was kiln on all 6, swaps 0, fuel 0.
+
+`Fight timed out` is 3. hard1 pig (`08:30:59.628Z`) and hard1 chicken (`08:35:18.979Z`). hard2 pig (`08:55:58.313Z`). The first soak was 2 (hard1 pig, hard3 cow).
+
+`a creeper has followed` is 0. hard2 has 17 `Reflex: fleeing creeper (never melee a creeper)` lines around 08:50. The first soak had 0 followed-creeper lines and one unarmed flee at the hard2 start.
+
+`Navigation made no progress`: 1. `08:08:16.961Z Smelt: walk back to the furnace at 28,98,-125 failed (Navigation made no progress at (27, 88, -122) (last path: pa); trying the explore moves`. The logged last-path text ends at `pa`. The first soak was 1.
+
+`last path: none`: 0. The first soak was 0.
+
+`Took to long to decide path to goal!` is 2 Job lines on normal3 (`08:10:32.723Z`, `08:22:03.658Z`) and 1 night-mine on hard3 (`09:19:56.506Z Night mine: could not climb back into (166, 132, 60)`), which then says it opened onto a cave and resealed at `(167, 132, 60)`. The first soak was 1 Job line plus 1 furnace leave plus 1 night-mine.
+
+Night seals, the long hard sits: hard1 `(144, 130, 33)` from t=632 to t=1234 after `08:36:07.894Z Shelter: sealed at (144, 130, 33) (1 blocks placed)` (an earlier seal at `(144, 131, 33)` placed 18). hard2 `(177, 144, 38)` from t=663 to t=1264 after `08:58:05.887Z Shelter: sealed at (177, 144, 38) (9 blocks placed)`. hard3 `(167, 132, 60)` from t=723 to t=1234 after `09:19:58.733Z Shelter: sealed at (167, 132, 60) (5 blocks placed)`.
+
+`SOAK DONE (clean)`. The zero-death, diamond-pick, bed-craft result from the first soak did not hold. On these numbers the first soak was the better seed: deaths 0 vs 1, diamonds 0/3/0 with a diamond pick vs 0/0/0 and no diamond pick, bed crafted once vs never. Iron picks still landed on all six.
+
+### Uncaught
+
+`logs/dashboard-uncaught.log` gained no bytes during the soak (size stayed 2576174). There is no new line from this confirmation window.
