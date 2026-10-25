@@ -441,7 +441,7 @@ export function sheepSearchJob(job,{underSky,standY,lastSurfaceY}={}){
 // Round 52: a crowd of MOB_CAVE_CROWD+ hostiles within 16 with no sky overhead, below the
 // surface anchor: a mob cave - its ores are set aside and the bot climbs out.
 export const MOB_CAVE_CROWD=6;
-export const mobCave=({crowd,underSky,standY,lastSurfaceY})=>crowd>=MOB_CAVE_CROWD&&!underSky&&Number.isFinite(standY)&&standY<escapeY(lastSurfaceY)-8;
+export const mobCave=({crowd,underSky,standY,lastSurfaceY})=>crowd>=MOB_CAVE_CROWD&&!underSky&&Number.isFinite(standY)&&standY<escapeY(lastSurfaceY)-8; // worker.mobCaveHere: the live check (crowd within 24)
 export function underSky(b){
  try{const p=b?.entity?.position;if(!p)return false;const h=b.blockAt(p.offset(0,1.6,0));return !!h&&Number.isFinite(h.skyLight)&&h.skyLight>=12;}catch{return false;}
 }
@@ -1128,6 +1128,8 @@ export class Autopilot{
    // 148,-44,45 walked it back down, and a warden killed it there 42 s later): the deep dark is
    // marked, and a furnace batch near it is given up.
    if(/[Dd]eep dark/.test(String(job.message))){try{this.worker.markDeepDark?.();}catch{}}
+   // Round 53: a job that left a mob cave climbs out next (the cave is already marked).
+   if(/Mob cave:/.test(String(job.message))){this.escapeDark=true;this.log('Autopilot: a mob cave ('+String(job.message).replace(/^.*Mob cave: /,'').slice(0,90)+'); its ores set aside for '+MOB_CAVE_MS/60000+' min, climbing out');}
    if(/[Dd]eep dark/.test(String(job.message))){this.escapeDark=true;const was=Date.now()<(this.diamondOffUntil||0);this.diamondOffUntil=Date.now()+DIAMOND_OFF_MS;if(!was)this.log('Autopilot: deep dark - climbing out; diamond trips set aside for '+DIAMOND_OFF_MS/60000+' min');}
    // Round 14 (round-13 normal2/normal3: `No room for crafting result` 167 times, a torch craft
    // every 8 s for 16 min in a full bag): no crafts for NO_ROOM_MS, and the inventory step is
@@ -1403,10 +1405,10 @@ export class Autopilot{
   // killed by a zombie 23 s before sunset): from DUSK_PREP no food trip leaves for the hunting
   // grounds unless it is an emergency - food waits for morning, the dusk prep and shelter run.
   const crowd=this.crowdNear(b);
-  if(mobCave({crowd,underSky:underSky(b),standY,lastSurfaceY:this.lastSurfaceY})&&this.worker.markMobCave?.()){
-   this.log('Autopilot: a mob cave ('+crowd+' hostiles within 16, no sky, y '+standY+'); its ores set aside for '+MOB_CAVE_MS/60000+' min, climbing out');
+  {const cave=this.worker.mobCaveHere?.();if(cave){
+   this.log('Autopilot: a mob cave ('+cave+'); its ores set aside for '+MOB_CAVE_MS/60000+' min, climbing out');
    this.submit('escape',{type:'ascend',y:escapeY(this.lastSurfaceY)});return;
-  }
+  }}
   if(duskHuntOff(dayTicks(b),choice,c=>counts[c]||0,{...ctx,crowd})){const st=crowd>=CROWD_NEAR?'crowd: no hunting':'dusk: no hunting';if(this.state!==st)this.log('Autopilot: '+st+' ('+crowd+' hostiles within 16)');this.state=st;choice=plan(counts,{...ctx,kitSkip:this.kitSkip||null,blocked:'food'});}
   if(!choice.step){this.state='all steps satisfied';return;}
   // A batch for the furnace: load it and move on (efficiency 1).

@@ -209,3 +209,15 @@ test('boxed in by stone: no placement cell, no soft block, but a wall block besi
  assert.equal(HARD_BREAK.test('iron_ore'),false);assert.equal(HARD_BREAK.test('crafting_table'),false);assert.equal(HARD_BREAK.test('furnace'),false);
  assert.equal(HARD_BREAK.test('stone'),true);assert.equal(HARD_BREAK.test('deepslate'),true);
 });
+
+test('round 52: flowers and petals are not placement cells; grass is',()=>{
+ const w=world();flatFloor(w);
+ w.put(1,10,0,{name:'pink_petals',boundingBox:'empty',position:{x:1,y:10,z:0}});
+ w.put(-1,10,0,{name:'poppy',boundingBox:'empty',position:{x:-1,y:10,z:0}});
+ w.put(0,10,1,{name:'short_grass',boundingBox:'empty',position:{x:0,y:10,z:1}});
+ const list=placementCells(w.blockAt,FEET);
+ assert.equal(cellOf(list,1,10,0),undefined,'pink petals refuse the click');
+ assert.equal(cellOf(list,-1,10,0),undefined);
+ assert.ok(cellOf(list,0,10,1),'short grass is replaced');
+ assert.ok(SOFT_BREAK.test('pink_petals'),'the petals can be cleared by hand instead');
+});

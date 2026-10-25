@@ -14,7 +14,7 @@ import {yawToward} from './heading.js';
 import {craftConfirmedRetry as craftConfirmed} from './crafting.js';
 import {survey} from './observe.js';
 import {dayTicks,isNight} from './daytime.js';
-import {Autopilot} from './autopilot.js';
+import {Autopilot,escapeY} from './autopilot.js';
 import {SMELTING} from './smelting.js';
 import {buildChain,BREED_FOOD} from './howto.js';
 import * as combat from './combat.js';
@@ -153,10 +153,16 @@ export const STRANDED_DROP=6,STRANDED_HEALTH=12,STRAND_PILLAR=3;
 export const HAZARD_NEAR=8,HAZARD_MS=5*60000,DEEP_DARK_AVOID=32,DEEP_DARK_MS=30*60000;
 // Round 52: a mob cave - a crowd met underground (round 50 hard2 and round 51's first run died
 // in the same cave under the spawn, y 38-40, 20+ hostiles): its ores are set aside for a while.
-export const MOB_CAVE_AVOID=24,MOB_CAVE_MS=20*60000;
+export const MOB_CAVE_AVOID=24,MOB_CAVE_MS=20*60000,MOB_CAVE_NEAR=24,MOB_CAVE_CROWD=6;
 // Round 52: a store job that put nothing away stands the store down this long (the old
 // drop/deposit path runs meanwhile).
 export const STORE_RETRY_MS=5*60000;
+// Round 53 (round-52 hard run: sealed overnight in the mob cave under the spawn at y=39, opened at
+// tod 455 with the nearest hostile 16.3 away, killed by a zombie 26 s later): morning does not
+// clear a cave. A box with no sky over it and CAVE_EXIT_CROWD+ hostiles within CAVE_EXIT_NEAR is
+// left through the roof (an ascend from inside the box), not opened.
+export const CAVE_EXIT_NEAR=24,CAVE_EXIT_CROWD=3;
+export const caveMorning=({sky,crowd})=>sky<SKY_OPEN&&crowd>=CAVE_EXIT_CROWD;
 // Round 36: the farthest ore (from the eye) the gather tunnels to when no walk reaches it.
 export const ORE_TUNNEL=10;
 // Round 51: storage chests belong to the base within this range.
@@ -1018,6 +1024,7 @@ export class Worker extends EventEmitter {
    }
    // Neutral mobs (endermen trail the bot for minutes) must not abort every search; the
    // reflexes answer them when they actually attack or crowd the bot.
+   {const cave=this.mobCaveHere?.();if(cave){clearInterval(watch);reject(new Error('Mob cave: '+cave+'; leaving'));return;}}
    const threat=Object.values(b.entities).find(e=>e&&e.type==='hostile'&&e.position&&e.position.distanceTo(b.entity.position)<6&&!NEUTRAL.has(e.name)&&canSeeTarget(b,e));
    if(threat){clearInterval(watch);reject(new Error('Hostile '+(threat.name||'mob')+' is close; explore stopped early'));}
   },250);});
@@ -1653,6 +1660,17 @@ export class Worker extends EventEmitter {
    this.shelterSpot=null;this.save();
    return this.shelter(job,token);
   }
+  {
+   const sky=headSky(b,here()),crowd=this.hostilesWithin(CAVE_EXIT_NEAR);
+   if(caveMorning({sky,crowd})){
+    this.log('Shelter: morning in a cave ('+crowd+' hostiles within '+CAVE_EXIT_NEAR+', sky '+sky+'); climbing out through the roof');
+    this.markMobCave?.();this.shelterSpot=null;this.save();
+    const top=escapeY(this.autopilot?.lastSurfaceY),y0=b.entity.position.y;
+    try{await this.ascend({spec:{type:'ascend',y:top}},token);}catch(e){this.check(token);this.log('Shelter: the climb out stopped ('+String(e.message).slice(0,60)+')');}
+    if(b.entity.position.y>=y0+3)return;
+    this.log('Shelter: could not climb out of the cave; opening up');
+   }
+  }
   this.log('Shelter: morning (tod '+dayTicks(b)+', nearest hostile '+(Number.isFinite(this.nearestHostile())?this.nearestHostile().toFixed(1):'none')+'); opening up');
   this.shelterSpot=null;
   await this.removeShelter(job,token);
@@ -1821,6 +1839,10 @@ export class Worker extends EventEmitter {
  shelterExitSafe(){
   if(Number.isFinite(this.deadline)&&this.deadline-Date.now()<SHELTER_EXIT_MARGIN_MS)return true;
   return leaveRefuge(dayTicks(this.bot),this.nearestHostile());
+ }
+ hostilesWithin(r){
+  const b=this.bot,me=b.entity&&b.entity.position;if(!me)return 0;
+  return Object.values(b.entities||{}).filter(e=>e&&e!==b.entity&&e.type==='hostile'&&e.position&&e.isValid!==false&&e.position.distanceTo(me)<=r).length;
  }
  nearestHostile(){
   const b=this.bot,me=b.entity&&b.entity.position;
@@ -2557,6 +2579,7 @@ export class Worker extends EventEmitter {
    while(count_()-job.startDrop<s.count){
     this.check(token);if(b.inventory.emptySlotCount()<2)throw Error('Inventory nearly full; deposit items first ('+slotUse(b)+')');
     const dark=deepDarkNear(b);if(dark)throw Error('Deep dark: '+dark.name+' at '+dark.position.floored()+'; leaving (warden)');
+    {const cave=this.mobCaveHere?.();if(cave)throw Error('Mob cave: '+cave+'; leaving');}
     if(s.smeltAt)await this.kilnTick(job,token);
     // One rescan per second at most while nothing is being collected.
     const have=count_();
@@ -3570,8 +3593,15 @@ export class Worker extends EventEmitter {
    if(planksOf()<8){
     // Round 52 (round-51 normal1/normal2: no chest, under 8 planks, 'no chest for' every second
     // for 28 min): planks from held logs first.
-    const log=b.inventory.items().find(i=>/_log$|_stem$/.test(i.name));
+    let log=b.inventory.items().find(i=>/_log$|_stem$/.test(i.name));
     const need=Math.ceil((8-planksOf())/4);
+    // Round 53 (round-52 soak: 3 stores, each `no chest held, 1-2 planks, no logs for more`): with
+    // room in the bag, chop the logs for the first chest (a short surface gather near the base).
+    if((!log||this.count(log.name)<need)&&b.inventory.emptySlotCount()>=3){
+     this.log('Store: no chest and '+planksOf()+' planks; chopping '+need+' logs for one');
+     try{await this.gather({spec:{type:'gather',block:'log',count:need,radius:32,surface:true,belowFoots:true}},token);}catch(e){this.check(token);this.log('Store: log gather stopped ('+String(e.message).slice(0,60)+')');}
+     log=b.inventory.items().filter(i=>/_log$|_stem$/.test(i.name)).sort((x,y)=>y.count-x.count)[0];
+    }
     if(!log||this.count(log.name)<need){this.noChestWhy='no chest held, '+planksOf()+' planks, no logs for more';return null;}
     const plank=log.name.replace(/_log$|_stem$/,'_planks');
     try{await this.craft({spec:{type:'craft',item:plank,count:need*4}},token);}catch(e){this.check(token);this.noChestWhy='could not craft '+plank+' ('+String(e.message).slice(0,60)+')';return null;}
@@ -3705,6 +3735,19 @@ export class Worker extends EventEmitter {
  markHazard(){
   const p=this.bot?.entity?.position;if(!p)return;
   const now=Date.now();this.hazards=(this.hazards||[]).filter(h=>h.until>now).concat([{x:p.x,y:p.y,z:p.z,until:now+HAZARD_MS}]).slice(-8);
+ }
+ // Round 53 (round-52 soak: two more deaths in the cave under the spawn and no `a mob cave` line -
+ // the round-52 check ran only on autopilot ticks, between jobs, while each gather walked the bot
+ // down into the cave for 50+ s): checked where the bot is, from the gather loop and the explore
+ // watcher. A crowd of MOB_CAVE_CROWD+ hostiles within MOB_CAVE_NEAR, no sky over the head, and
+ // the bot 8+ below the surface anchor: the cave is marked and its description returned.
+ mobCaveHere(){
+  const b=this.bot,p=b?.entity?.position;if(!p)return null;
+  const crowd=this.hostilesWithin(MOB_CAVE_NEAR);if(crowd<MOB_CAVE_CROWD)return null;
+  const sky=headSky(b,p.floored());if(sky>=SKY_OPEN)return null;
+  const top=escapeY(this.autopilot?.lastSurfaceY);if(!(p.y<top-8))return null;
+  this.markMobCave();
+  return crowd+' hostiles within '+MOB_CAVE_NEAR+' at '+p.floored()+' (sky '+sky+', surface '+top+')';
  }
  // Round 52: true when this is a new mob cave (not within MOB_CAVE_AVOID of a marked one).
  markMobCave(){

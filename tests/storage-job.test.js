@@ -9,7 +9,7 @@ function setup(bag,earned){
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'storejob-'));fs.mkdirSync(path.join(root,'data'));
  const chests=new Map(),key=p=>p.x+','+p.y+','+p.z;
  const inv=bag.map(([name,count],i)=>({name,count,type:i+1,metadata:0,slot:9+i}));
- const bot={entity:{position:new Vec3(0.5,64,0.5)},inventory:{items:()=>inv.filter(s=>s.count>0)},
+ const bot={entity:{position:new Vec3(0.5,64,0.5)},inventory:{items:()=>inv.filter(s=>s.count>0),emptySlotCount:()=>bot._free??1},
   blockAt:p=>chests.has(key(p))?{name:'chest',position:p}:(p.y<64?{name:'stone',boundingBox:'block'}:{name:'air',boundingBox:'empty'}),
   openContainer:async block=>{const c=chests.get(key(block.position));return {
    inventoryStart:27,
@@ -75,4 +75,15 @@ test('store: the ledger follows the bag (a clear or a death empties it)',()=>{
  inv.find(s=>s.name==='cobblestone').count=0; // /clear
  inv.push({name:'dirt',count:4,type:50,metadata:0,slot:20});w.earn('dirt',4);
  assert.equal(w.ledger.of('cobblestone'),0);assert.equal(w.ledger.of('dirt'),4);
+});
+test('store: with room in the bag, logs are chopped for the first chest',async()=>{
+ const {w,inv}=setup([['cobblestone',100],['oak_planks',2]],{cobblestone:100});
+ w.bot._free=6;const did=[];
+ w.gather=async job=>{did.push(job.spec.block+' x'+job.spec.count);inv.push({name:'oak_log',count:2,type:92,metadata:0,slot:32});};
+ w.craft=async job=>{did.push(job.spec.item+' x'+job.spec.count);
+  if(job.spec.item==='oak_planks'){inv.find(s=>s.name==='oak_log').count-=2;inv.find(s=>s.name==='oak_planks').count+=8;}
+  if(job.spec.item==='chest'){inv.find(s=>s.name==='oak_planks').count-=8;inv.push({name:'chest',count:1,type:91,metadata:0,slot:31});}};
+ await w.store({spec:{type:'store'}},1);
+ assert.deepEqual(did,['log x2','oak_planks x8','chest x1']);
+ assert.equal(w.storage.find('cobblestone')[0].count,68);
 });

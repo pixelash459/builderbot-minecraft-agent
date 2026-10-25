@@ -9,7 +9,12 @@ export function solidSupport(block){
 }
 // Natural soft blocks a player clears by hand to make room. _leaves first so
 // longer suffix branches can never shadow it.
-export const SOFT_BREAK=/^(.*_leaves|short_grass|tall_grass|fern|large_fern|dead_bush|dirt|grass_block|snow|powder_snow|.*_sapling|.*_mushroom)$/;
+export const SOFT_BREAK=/^(.*_leaves|short_grass|tall_grass|fern|large_fern|dead_bush|dirt|grass_block|snow|powder_snow|.*_sapling|.*_mushroom|pink_petals|wildflowers|leaf_litter|dandelion|poppy|blue_orchid|allium|azure_bluet|.*_tulip|oxeye_daisy|cornflower|lily_of_the_valley)$/;
+// Round 52 (round-52 soak: `place crafting_table failed ... cell is pink_petals` on every try,
+// the shield craft re-submitted for minutes): plants and fixtures that are not a support yet
+// are NOT replaced by a placement - the server refuses the click. Only grass, ferns, dead bushes,
+// vines, snow layers, seagrass and fire are replaceable.
+export const PLACE_BLOCKER=/^(.*_sapling|.*_mushroom|.*_fungus|.*flower|dandelion|poppy|blue_orchid|allium|azure_bluet|.*tulip|oxeye_daisy|cornflower|lily_of_the_valley|wither_rose|torchflower|pink_petals|wildflowers|leaf_litter|sweet_berry_bush|sugar_cane|bamboo.*|cactus|.*_pressure_plate|.*_button|.*_sign|.*_banner|torch|.*_torch|wall_torch|rail|.*_rail|redstone_wire|tripwire|kelp|kelp_plant|cave_vines|cave_vines_plant|.*_carpet|carpet)$/;
 const AIR_NAME=/^(air|cave_air|void_air)$/;
 const CRAFTING_TABLE=/crafting_table$/;
 // Support face preference: below, then +x,-x,+z,-z, then above.
@@ -19,6 +24,7 @@ const SUPPORT_DIRS=[[0,-1,0],[1,0,0],[-1,0,0],[0,0,1],[0,0,-1],[0,1,0]];
 function placeableInto(block){
  if(!block)return false; // null = unknown chunk, never a candidate
  if(AIR_NAME.test(block.name||''))return true;
+ if(PLACE_BLOCKER.test(block.name||''))return false;
  if(block.replaceable)return true;
  if(REPLACEABLE.test(block.name||''))return true;
  return block.boundingBox==='empty';
