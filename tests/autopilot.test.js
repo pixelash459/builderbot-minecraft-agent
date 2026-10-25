@@ -611,3 +611,18 @@ test('round 49: with a warden near, climbing out is the only job and a paused as
  assert.deepEqual(subs,[],'the paused ascend is left to resume - no drop, no gather');
  assert.equal(ap.state,'warden near: climbing out');
 });
+import {inventoryJob,surplus,obsoleteTool} from '../src/autopilot.js';
+test('round 50: wooden tools beside better ones are junk, so a full bag of kit can drop them',()=>{
+ const counts={stone_pickaxe:2,iron_pickaxe:1,wooden_pickaxe:1,wooden_sword:1,stone_sword:1,wooden_axe:1,furnace:1,brown_wool:1,white_wool:1,flint:1};
+ assert.equal(obsoleteTool('wooden_axe',counts),false,'no better axe held');
+ assert.equal(obsoleteTool('wooden_pickaxe',counts),true);
+ const j=inventoryJob(counts,{slotsFull:35/36,planksTotal:0,noCraft:true});
+ assert.equal(j.type,'drop');assert.match(j.item,/^wooden_(pickaxe|sword)$/);
+ assert.ok(!surplus({wooden_pickaxe:1},true).some(s=>s.item==='wooden_pickaxe'),'the only pickaxe is kept');
+});
+test('round 50: the wood step stays done after its wooden tools are replaced and dropped',()=>{
+ const later={oak_log:16,oak_planks:8,stick:6,crafting_table:1,stone_pickaxe:1,stone_sword:1,stone_axe:1,cobblestone:20,furnace:1,stone_shovel:1};
+ const r=plan(counts(later));
+ assert.notEqual(r.step,'wood','no wooden tools held, stone ones are: the wood step is done');
+ assert.notEqual(r.job?.item,'wooden_pickaxe');
+});

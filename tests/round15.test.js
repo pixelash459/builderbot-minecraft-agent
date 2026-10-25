@@ -616,3 +616,23 @@ test('round 49: 30 s under water at full health stands the stale-air backstop do
   assert.equal(w._drowning,true,'losing health: back on');
  }finally{Date.now=real;}
 });
+test('round 50: dirt with no shovel is dug holding a non-tool item, not the axe; a shovel still wins',async()=>{
+ const reg=(await import('prismarine-registry')).default('1.21.4');
+ const Block=(await import('prismarine-block')).default(reg);
+ const {installToolWear}=await import('../src/toolWear.js');
+ const dirt=Block.fromStateId(reg.blocksByName.dirt.defaultState,0);
+ const mk=names=>names.map((n,i)=>({name:n,type:reg.itemsByName[n].id,slot:36+i,count:1,durabilityUsed:0,maxDurability:reg.itemsByName[n].maxDurability}));
+ const make=(names,pick=0)=>{
+  const inv=mk(names);const equipped=[];
+  const bot={registry:reg,entity:{effects:{}},inventory:{items:()=>inv},heldItem:null,equip:async(it)=>{equipped.push(it.name);bot.heldItem=it;},unequip:async()=>{equipped.push('none');},
+   tool:{equipForBlock:async()=>{const t=inv.find(i=>/_axe$/.test(i.name));equipped.push(t.name);}},
+   pathfinder:{bestHarvestTool:()=>inv[pick]}};
+  installToolWear(bot);return {bot,equipped};
+ };
+ let {bot,equipped}=make(['stone_axe','stone_pickaxe','dirt']);
+ await bot.tool.equipForBlock(dirt);
+ assert.deepEqual(equipped,['dirt'],'held dirt, not the axe');
+ assert.equal(bot.pathfinder.bestHarvestTool(dirt).name,'dirt','the pathfinder too');
+ ({bot,equipped}=make(['stone_axe','stone_shovel','dirt'],1));
+ assert.equal(bot.pathfinder.bestHarvestTool(dirt).name,'stone_shovel','a shovel beats the hand: kept');
+});

@@ -512,18 +512,26 @@ const keepOf=name=>JUNK_KEEP[name]??(SAPLING.test(name)?2:FLOWER.test(name)?0:nu
 const LADDER_ITEM=/(_pickaxe|_axe|_shovel|_hoe|_sword|_helmet|_chestplate|_leggings|_boots|_log|_planks|_wool|_bed|_ore)$|^(stick|coal|charcoal|torch|crafting_table|furnace|chest|iron_ingot|raw_iron|iron_nugget|diamond|bucket|water_bucket|shield|bow|arrow|flint|feather|string|shears|wheat|wheat_seeds|hay_block|bone_meal|cobblestone|cobbled_deepslate|dirt|netherrack)$/;
 const FOOD_ITEM=/^(cooked_)?(beef|porkchop|chicken|mutton|rabbit|cod|salmon)$|^(bread|apple|golden_apple|carrot|potato|baked_potato|beetroot|melon_slice|sweet_berries|glow_berries|cookie|pumpkin_pie|mushroom_stew|rabbit_stew|beetroot_soup|dried_kelp|golden_carrot|tropical_fish)$/;
 // Surplus items, largest first: [{item, extra, keep}]. full: the rest of the bag too.
+// Round 50 (round-49 normal1: `Inventory nearly full` x15 with a bag of single kit items -
+// wooden_sword, wooden_axe, wooden_pickaxe beside stone and iron ones - nothing droppable and
+// crafting paused, so no chest): a wooden or golden tool is junk once a stone-or-better tool of
+// the same kind is held.
+const LOW_TOOL=/^(wooden|golden)_(sword|axe|pickaxe|shovel|hoe)$/;
+// A tool of this kind at any tier (the wood step is done once a better one replaced the wooden).
+export const anyTier=(c,kind)=>['wooden','stone','iron','golden','diamond','netherite'].some(t=>c(t+'_'+kind)>=1);
+export const obsoleteTool=(name,counts)=>{const m=LOW_TOOL.exec(name);return !!m&&['stone','iron','diamond','netherite'].some(t=>(counts?.[t+'_'+m[2]]||0)>=1);};
 export function surplus(counts,full=false){
  const out=[];
  for(const [name,n] of Object.entries(counts||{})){
   if(name.startsWith('_'))continue;
-  let keep=keepOf(name);
+  let keep=obsoleteTool(name,counts)?0:keepOf(name);
   if(keep==null&&full&&!LADDER_ITEM.test(name)&&!FOOD_ITEM.test(name))keep=0;
   if(keep==null||n<=keep)continue;
   out.push({item:name,extra:n-keep,keep});
  }
  return out.sort((a,b)=>b.extra-a.extra);
 }
-const droppable=s=>JUNK_DROP.has(s.item)||SAPLING.test(s.item)||FLOWER.test(s.item);
+const droppable=s=>JUNK_DROP.has(s.item)||SAPLING.test(s.item)||FLOWER.test(s.item)||LOW_TOOL.test(s.item);
 // ctx: {slotsFull, homeDistance, chestAt, chestDistance, chestSpot, worldTable, planksTotal}.
 // Round 11: no home chest yet, full: one goes beside home, or where the bot stands when home
 // is out of range or unset (ctx.chestSpotHere; it becomes home). A home chest that is far:
@@ -549,7 +557,7 @@ export function inventoryJob(counts,ctx){
 // next job spec (ctx: {slotsFull, animalsNearby, huntPhase, home, homeChest, chestSpot,
 // heldLog, logsTotal, planksTotal}). Any log species works for the wood step.
 export const STEPS=[
- {name:'wood',done:(c,ctx)=>c('wooden_pickaxe')>=1&&(c('crafting_table')>=1||!!ctx?.worldTable)&&c('wooden_sword')>=1&&c('wooden_axe')>=1,next(c,ctx){
+ {name:'wood',done:(c,ctx)=>anyTier(c,'pickaxe')&&(c('crafting_table')>=1||!!ctx?.worldTable)&&anyTier(c,'sword')&&anyTier(c,'axe'),next(c,ctx){
   // KIT-FIRST (review directive): the whole wood kit costs 11 planks (table 4 + sticks 2
   // + sword 2 + pickaxe 3) = 3 logs - gather all of it BEFORE crafting, because batches
   // that stop halfway feed the mobs and strand the run between steps. Then craft in
@@ -571,12 +579,12 @@ export const STEPS=[
   // Pickaxe before the sword when nothing is close: the pickaxe unlocks stone, and sword
   // retries are what burned the normal3 soak. A hostile within 16 blocks still takes the sword first.
   const threatened=(ctx.hostileDistance??Infinity)<=16;
-  if(threatened&&c('wooden_sword')<1)return {type:'craft',item:'wooden_sword',count:1,keepTable:true};
-  if(c('wooden_pickaxe')<1)return {type:'craft',item:'wooden_pickaxe',count:1,keepTable:true};
-  if(c('wooden_sword')<1)return {type:'craft',item:'wooden_sword',count:1,keepTable:true};
+  if(threatened&&!anyTier(c,'sword'))return {type:'craft',item:'wooden_sword',count:1,keepTable:true};
+  if(!anyTier(c,'pickaxe'))return {type:'craft',item:'wooden_pickaxe',count:1,keepTable:true};
+  if(!anyTier(c,'sword'))return {type:'craft',item:'wooden_sword',count:1,keepTable:true};
   // 5. 7a axe (3 planks + 2 sticks): swords AND axes in every tier it can reach. The axe is
   // the step's last craft, so it collects the table again (end-of-wood-step pickup).
-  if(c('wooden_axe')<1){
+  if(!anyTier(c,'axe')){
    if(c('stick')<2)return {type:'craft',item:'stick',count:2,keepTable:true};
    return {type:'craft',item:'wooden_axe',count:1,keepTable:true,collectTable:true};
   }

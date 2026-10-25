@@ -14,6 +14,19 @@ export function usesLeft(item,registry){
  const max=item.maxDurability??registry?.itemsByName?.[item.name]?.maxDurability;
  return max?max-(item.durabilityUsed||0):Infinity;
 }
+// Round 50 (the user saw the bot dig dirt with an axe): with no tool faster than a bare hand
+// for a block, mineflayer-tool and the pathfinder both take the FIRST item at the hand's speed -
+// often the axe, which then wears for nothing. handItem is an item with no durability to hold
+// instead (dirt, cobble, food...); null when the bag has only tools.
+export function handItem(bot){
+ const items=bot?.inventory?.items?.()||[];
+ return items.find(i=>!TOOL.test(i.name)&&!(usesLeft(i,bot.registry)<Infinity))||null;
+}
+// True when `tool` digs `block` faster than a bare hand.
+export function beatsHand(bot,block,tool){
+ if(!tool||!block)return false;
+ try{return block.digTime(tool.type,false,false,false,[],bot.entity?.effects||{})<block.digTime(null,false,false,false,[],bot.entity?.effects||{});}catch{return true;}
+}
 export function conserveTool(bot,block){
  if(!block||!bot?.inventory)return null;
  const items=bot.inventory.items();
@@ -37,7 +50,17 @@ export function installToolWear(bot){
   const equip=bot.tool.equipForBlock.bind(bot.tool);
   bot.tool.equipForBlock=async(block,options={},cb)=>{
    const keep=conserveTool(bot,block);
-   if(!keep)return equip(block,options,cb);
+   if(!keep){
+    // No tool beats the hand here: hold something that does not wear (round 50).
+    const tools=(bot.inventory.items()||[]).filter(i=>TOOL.test(i.name));
+    if(!tools.some(t=>beatsHand(bot,block,t))&&!(options&&options.requireHarvest)){
+     const plain=handItem(bot);
+     if(plain&&(bot.heldItem?.name!==plain.name))await bot.equip(plain,'hand');
+     else if(!plain&&bot.heldItem&&TOOL.test(bot.heldItem.name))try{await bot.unequip('hand');}catch{}
+     if(cb)cb();return;
+    }
+    return equip(block,options,cb);
+   }
    if(bot.heldItem?.slot!==keep.slot||bot.heldItem?.name!==keep.name)await bot.equip(keep,'hand');
    if(cb)cb();
   };
@@ -49,7 +72,8 @@ export function installToolWear(bot){
   // `digging` flag and THEN asks for the tool; a block in an unloaded chunk (null) threw here,
   // the flag stayed set forever and every later path was ignored (`made no progress`, last
   // path none) for 2.5 hours. No block: no tool, and the dig fails and resets the flag.
-  bot.pathfinder.bestHarvestTool=block=>{if(!block)return null;try{return conserveTool(bot,block)||best(block);}catch{return null;}};
+  // Round 50: a pick that does not beat the hand is swapped for an item that does not wear.
+  bot.pathfinder.bestHarvestTool=block=>{if(!block)return null;try{const t=conserveTool(bot,block)||best(block);if(t&&TOOL.test(t.name)&&!beatsHand(bot,block,t))return handItem(bot)||t;return t;}catch{return null;}};
   bot.pathfinder._conserve=true;
  }
 }

@@ -2074,3 +2074,11 @@ Round 48 confirmation soak (`f2fbdab`, same code): **iron pick on all six again*
 - **The stale-air backstop stands down at full health** (`BREATHING_MS`=30 s): after 30 s with the head in water and health still 20 it no longer fires (drowning would have cost health by then); losing health brings it back.
 - **Every World Survival band logs what it saw** (`_bandLog`, at most every 10 s): `WorldSurvival: in lava / on fire / head in a wall ... at (x, y, z) (head H, feet F)`.
 - **A new soak world** (`tests/soak.py`, `SOAK_SEED`, default `8675309`): the soaks through round 49 all ran on seed 12345 (a dark forest). The default is now a new seed in whatever biomes it generates. For any seed but 12345 the scout starts from the bot's spawn: the hard anchor is the first stand (the spawn, then explore legs) where a 3-log gather completes, at any light; the normal anchor is an open-sky stand found by explore legs. `SOAK_SEED=12345` brings back the measured dark-forest anchors.
+
+## Round 50 (2026-10-25)
+
+The round-49 soak on the new seed was stopped in normal1: from 16:15 the iron gather failed every few seconds with `Inventory nearly full; deposit items first (stone_pickaxe:2 furnace:1 wooden_sword:1 ... wooden_axe:1 brown_wool:1 ...)` - a bag of single kit items, nothing droppable, crafting paused for the full bag so no chest either. The user also saw the bot dig dirt with an axe.
+
+- **No tool better than a hand: hold something that does not wear** (`toolWear.js` `handItem`, `beatsHand`): with no shovel, the pathfinder's `bestHarvestTool` and mineflayer-tool's `equipForBlock` took the first item at the hand's speed (often the axe). Now, when no tool beats the bare hand for the block, an item without durability is held (dirt, cobble, food...); with none, the hand. A shovel on dirt (or any faster tool) is still used.
+- **Obsolete tools are junk** (`obsoleteTool`): a wooden or golden tool is surplus and droppable once a stone-or-better tool of the same kind is held, so a full bag of kit always has something to drop.
+- **The wood step accepts any tier** (`anyTier`): done with a pickaxe, sword and axe of any tier (and a table); it crafts a wooden one only when no tool of that kind is held - dropping the wooden tools no longer sends the ladder back to craft them.
