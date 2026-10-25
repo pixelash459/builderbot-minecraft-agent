@@ -1,4 +1,5 @@
-"""Autopilot soak on a normal-terrain world (agent-soak-world, seed 12345): 3 normal runs of
+"""Autopilot soak on a normal-terrain world (agent-soak-world, seed SOAK_SEED - default 8675309,
+mixed biomes; 12345 is the measured dark-forest world of rounds up to 49): 3 normal runs of
 40 minutes (NORMAL_SECONDS, frozen daylight) and 3 hard runs of ~21 minutes (HARD_SECONDS,
 natural time from dawn).
 Every run is made fair and reproducible by resetting the same five things at its start:
@@ -103,6 +104,13 @@ def wait_server():
 # plateau spots land the bot on TOP of the leaf canopy - the pathfinder cannot traverse
 # either inside the time window - so runs anchor to this measured clearing instead.)
 ANCHOR=[140,130,30]
+# The soak seed. 12345 (the dark-forest world every soak through round 49 ran on) keeps its
+# measured anchors; any other seed (SOAK_SEED, or the default below) is a new world in
+# whatever biomes it generates: the scout starts from the bot's spawn and finds both anchors
+# by gathering (no measured coordinates).
+import os
+SEED=os.environ.get('SOAK_SEED','8675309')
+MEASURED=SEED=='12345'
 def edit_props(changes):
     lines=PROPS.read_text(encoding='utf-8').splitlines(True)
     out=[]
@@ -657,15 +665,48 @@ def scout_anchors(base):
         found['hard']=[round(o['position']['x']),round(o['position']['y']),round(o['position']['z'])]
         found['hard_light']=base_light
         print('scout: HARD anchor confirmed (gather completed, canopy light '+str(base_light)+') at '+json.dumps(found['hard']),flush=True)
+    if 'hard' not in found and not MEASURED:
+        # A new seed's spawn may have no reachable wood (ocean, desert, a cliff): walk out with
+        # explore legs and take the first stand where a log gather completes, any light.
+        for dist,dirs in ((64,('east','south','west','north')),(112,('south','east','north','west'))):
+            for dirn in dirs:
+                try:
+                    reset_vitals(scratch);hold_day();next_day=time.time()+45
+                    command('effect give BuilderBot minecraft:resistance 300 2 true')
+                    created=api('jobs',{'type':'explore','direction':dirn,'distance':dist})
+                    t0=time.time()
+                    while time.time()-t0<240:
+                        if time.time()>next_day:hold_day();next_day=time.time()+45
+                        time.sleep(3)
+                        j=next((j for j in api('state')['jobs'] if j['id']==created['id']),None)
+                        if j and j['status'] in ('complete','failed'):break
+                    time.sleep(2);o=api('observe');leg_light=o.get('light')
+                    created=api('jobs',{'type':'gather','block':'log','count':3,'radius':48,'searchIfMissing':True,'belowFoots':True})
+                    t0=time.time();done=None
+                    while time.time()-t0<300 and not done:
+                        if time.time()>next_day:hold_day();next_day=time.time()+45
+                        time.sleep(3)
+                        done=next((j for j in api('state')['jobs'] if j['id']==created['id'] and j['status'] in ('complete','failed')),None)
+                    for leftover in api('state')['jobs']:
+                        if leftover['status'] in ('paused','queued','running'):api('cancel',{'id':leftover['id']})
+                    if done and done['status']=='complete':
+                        time.sleep(2);o=api('observe')
+                        found['hard']=[round(o['position']['x']),round(o['position']['y']),round(o['position']['z'])]
+                        found['hard_light']=leg_light
+                        print('scout: HARD anchor confirmed (explore leg '+dirn+' '+str(dist)+', gather completed, light '+str(leg_light)+') at '+json.dumps(found['hard']),flush=True)
+                        break
+                except Exception as e:
+                    print('scout hard leg '+dirn+' '+str(dist)+' failed: '+str(e)[:90],flush=True)
+            if 'hard' in found:break
     if 'hard' not in found:
         msg=(done or {}).get('message','timed out')
-        raise RuntimeError('anchor scout failed: the dark-canopy gather did not complete ('+str(msg)[:140]+') - refusing unmeasurable anchors')
+        raise RuntimeError('anchor scout failed: no hard-anchor gather completed ('+str(msg)[:140]+') - refusing unmeasurable anchors')
     # normal: seed 12345's dark forest stays shaded for hundreds of blocks, and explore
     # legs from the canopy fall into the ocean. These floor points were measured on this
     # seed (open sky, and a 1-log gather finished at the first). Still verified below:
     # light >= 12 and a completed gather, or the point is rejected. Count 1 / radius 24
     # is the gather that finished here; a radius-48 job locked onto a buried spruce.
-    for guess in ((310,132,30),(332,129,30)):
+    for guess in (((310,132,30),(332,129,30)) if MEASURED else ()):
         try:
             reset_vitals(scratch);hold_day()
             command('effect give BuilderBot minecraft:resistance 300 2 true')
@@ -806,7 +847,8 @@ def main():
     subprocess.run(['powershell','-NoProfile','-ExecutionPolicy','Bypass','-File',str(ROOT/'Stop-Agent.ps1')],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=300)
     stop_services()
     print('switching to agent-soak-world',flush=True)
-    edit_props({'level-name':'agent-soak-world','level-seed':'12345','level-type':'normal','difficulty':'normal'})
+    edit_props({'level-name':'agent-soak-world','level-seed':SEED,'level-type':'normal','difficulty':'normal'})
+    print('soak seed '+SEED+(' (measured anchors)' if MEASURED else ' (anchors scouted from spawn)'),flush=True)
     # Every soak starts from VIRGIN terrain: delete the soak world entirely and let the
     # server regenerate it from the pinned seed. Previous soaks dug out every reachable
     # trunk around the anchor, which would make later soaks - and later runs within one
@@ -835,7 +877,11 @@ def main():
     try:
         api('connect',{});wait(lambda:api('state').get('connected'),90)
         command('time set 0');command('weather clear 1000000');time.sleep(3)
-        normal_anchor,hard_anchor=scout_anchors(ANCHOR)
+        if MEASURED:base=ANCHOR
+        else:
+            o=api('observe');base=[round(o['position']['x']),round(o['position']['y']),round(o['position']['z'])]
+            print('scout base: the spawn at '+json.dumps(base),flush=True)
+        normal_anchor,hard_anchor=scout_anchors(base)
         runs=[]
         attempts={'normal':0,'hard':0}
         done={'normal':0,'hard':0}
