@@ -51,3 +51,28 @@ test('store: chests recorded for a far-away base are forgotten first',async()=>{
  assert.ok(!w.storage.chests.some(c=>c.x===900),'the far chest is gone from the index');
  assert.equal(w.storage.find('oak_log')[0].count,10);
 });
+test('store: no chest and nothing to make one - one reason, and the store stands down',async()=>{
+ const {w}=setup([['cobblestone',100],['oak_planks',3]],{cobblestone:100});
+ await w.store({spec:{type:'store'}},1);
+ const why=w.logs.filter(l=>/^Store: no chest for/.test(l));
+ assert.equal(why.length,1,JSON.stringify(w.logs));assert.match(why[0],/no chest held, 3 planks, no logs/);
+ assert.ok(w.storeIdleUntil>Date.now(),'the autopilot leaves the store for a while');
+});
+test('store: planks are crafted from a held log for the first chest',async()=>{
+ const {w,inv}=setup([['cobblestone',100],['oak_log',3]],{cobblestone:100});
+ const crafted=[];
+ w.craft=async job=>{crafted.push(job.spec.item+' x'+job.spec.count);
+  if(job.spec.item==='oak_planks'){inv.find(s=>s.name==='oak_log').count-=2;inv.push({name:'oak_planks',count:8,type:90,metadata:0,slot:30});}
+  if(job.spec.item==='chest'){inv.find(s=>s.name==='oak_planks').count-=8;inv.push({name:'chest',count:1,type:91,metadata:0,slot:31});}};
+ await w.store({spec:{type:'store'}},1);
+ assert.deepEqual(crafted,['oak_planks x8','chest x1']);
+ assert.equal(w.storage.chests.length,1);assert.equal(w.storage.find('cobblestone')[0].count,68);
+ assert.ok(!w.storeIdleUntil);
+});
+test('store: the ledger follows the bag (a clear or a death empties it)',()=>{
+ const {w,inv}=setup([['cobblestone',100]],{cobblestone:100});
+ assert.equal(w.ledger.of('cobblestone'),100);
+ inv.find(s=>s.name==='cobblestone').count=0; // /clear
+ inv.push({name:'dirt',count:4,type:50,metadata:0,slot:20});w.earn('dirt',4);
+ assert.equal(w.ledger.of('cobblestone'),0);assert.equal(w.ledger.of('dirt'),4);
+});

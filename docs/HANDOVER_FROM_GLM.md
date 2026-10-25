@@ -2095,3 +2095,14 @@ The round-50 soak (seed 8675309): iron picks on 4 of 6, 2 deaths - normal3 fell 
   - The autopilot submits `{type:'store'}` instead of a drop/deposit when the bag is full, the home is within `HOME_DEPOSIT_RANGE`, and the plan is not empty (`canStore`). Away from home the old drop/deposit path runs.
 - **A sheep search from deep underground climbs out first** (`sheepSearchJob`): with no sky overhead and 16+ below the surface anchor, the bed's search explore becomes an ascend to `escapeY(lastSurfaceY)`.
 - Not changed yet: the cave-crowd pillar failure (a burrow when a pillar fails underground with a pickaxe is the candidate), and the 11 unreachable deepslate-diamond tries 20 below the bot on normal2.
+
+## Round 52 (2026-10-25)
+
+The round-51 soak: iron picks on 3 of 6, 2 deaths. normal1 and normal2 lost about 28 minutes each to a store loop: the bag was full near home, no chest was held and the bag had 7 and 3 planks, so every `store` logged `no chest for <category>` for all six categories and was submitted again a second later (1600 and 1686 times). Both deaths (hard2 creeper, hard3 zombie) were in the same cave under the spawn, y 36-40, where round 50's hard2 also died: 20+ hostiles, crowd pillars knocked off.
+
+- **The store no longer loops.**
+  - With no chest held and under 8 planks, planks are crafted from a held log (or stem) first, then the chest.
+  - A store that put nothing away sets `storeIdleUntil` (`STORE_RETRY_MS`, 5 min); `canStore` is false until then and the old drop/deposit path runs.
+  - One `no chest for` line per store, with the exact reason (`no chest held, N planks, no logs for more`, `could not craft ...`, `no free spot on the storage row`); the other categories without a chest are skipped.
+- **The ledger follows the bag**: `earn` clamps it to the held counts before adding, so deaths and the soak's per-run clears empty it (round 51's file had cobblestone 1439).
+- **Mob caves** (`mobCave`, worker `markMobCave`): a crowd of `MOB_CAVE_CROWD` (6)+ hostiles within 16, no sky, and the bot 8+ below `escapeY(lastSurfaceY)` marks a mob cave for `MOB_CAVE_MS` (20 min). `nearHazard` covers `MOB_CAVE_AVOID` (24) around it, so the ore search skips its ores, and the autopilot climbs out (`escape` ascend) once per new cave.

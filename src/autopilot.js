@@ -9,6 +9,7 @@ import {shelterDue,nightJobFor,DUSK_PREP,SUNSET} from './night.js';
 import {EDIBLE_SKIP} from './observe.js';
 import {isExposed} from './digDown.js';
 import {storePlan} from './storage.js';
+const MOB_CAVE_MS=20*60000; // worker.js MOB_CAVE_MS
 
 const BED=/(_bed)$/;
 const WOOLS=['white_wool','light_gray_wool','gray_wool','black_wool','brown_wool','red_wool','orange_wool','yellow_wool','lime_wool','green_wool','cyan_wool','light_blue_wool','blue_wool','purple_wool','magenta_wool','pink_wool'];
@@ -437,6 +438,10 @@ export function sheepSearchJob(job,{underSky,standY,lastSurfaceY}={}){
  const top=escapeY(lastSurfaceY);
  return standY<top-ASCEND_BELOW?{type:'ascend',y:top}:job;
 }
+// Round 52: a crowd of MOB_CAVE_CROWD+ hostiles within 16 with no sky overhead, below the
+// surface anchor: a mob cave - its ores are set aside and the bot climbs out.
+export const MOB_CAVE_CROWD=6;
+export const mobCave=({crowd,underSky,standY,lastSurfaceY})=>crowd>=MOB_CAVE_CROWD&&!underSky&&Number.isFinite(standY)&&standY<escapeY(lastSurfaceY)-8;
 export function underSky(b){
  try{const p=b?.entity?.position;if(!p)return false;const h=b.blockAt(p.offset(0,1.6,0));return !!h&&Number.isFinite(h.skyLight)&&h.skyLight>=12;}catch{return false;}
 }
@@ -1398,6 +1403,10 @@ export class Autopilot{
   // killed by a zombie 23 s before sunset): from DUSK_PREP no food trip leaves for the hunting
   // grounds unless it is an emergency - food waits for morning, the dusk prep and shelter run.
   const crowd=this.crowdNear(b);
+  if(mobCave({crowd,underSky:underSky(b),standY,lastSurfaceY:this.lastSurfaceY})&&this.worker.markMobCave?.()){
+   this.log('Autopilot: a mob cave ('+crowd+' hostiles within 16, no sky, y '+standY+'); its ores set aside for '+MOB_CAVE_MS/60000+' min, climbing out');
+   this.submit('escape',{type:'ascend',y:escapeY(this.lastSurfaceY)});return;
+  }
   if(duskHuntOff(dayTicks(b),choice,c=>counts[c]||0,{...ctx,crowd})){const st=crowd>=CROWD_NEAR?'crowd: no hunting':'dusk: no hunting';if(this.state!==st)this.log('Autopilot: '+st+' ('+crowd+' hostiles within 16)');this.state=st;choice=plan(counts,{...ctx,kitSkip:this.kitSkip||null,blocked:'food'});}
   if(!choice.step){this.state='all steps satisfied';return;}
   // A batch for the furnace: load it and move on (efficiency 1).
@@ -1526,6 +1535,7 @@ export class Autopilot{
  // Round 51: home within HOME_DEPOSIT_RANGE and earned items above the working set to put away.
  canStore(hc){
   try{if(!this.home||!((hc?.homeDistance??Infinity)<=HOME_DEPOSIT_RANGE)||!this.worker.ledger)return false;
+   if(Date.now()<(this.worker.storeIdleUntil||0))return false; // round 52: the last store put nothing away
    const held={};for(const i of this.worker.bot.inventory.items())held[i.name]=(held[i.name]||0)+i.count;
    return storePlan(held,this.worker.ledger).length>0;}catch{return false;}
  }

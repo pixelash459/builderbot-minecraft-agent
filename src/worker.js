@@ -151,6 +151,12 @@ export function bedSpots(at,feet){
 export const DROWN_RECENT_MS=10000;
 export const STRANDED_DROP=6,STRANDED_HEALTH=12,STRAND_PILLAR=3;
 export const HAZARD_NEAR=8,HAZARD_MS=5*60000,DEEP_DARK_AVOID=32,DEEP_DARK_MS=30*60000;
+// Round 52: a mob cave - a crowd met underground (round 50 hard2 and round 51's first run died
+// in the same cave under the spawn, y 38-40, 20+ hostiles): its ores are set aside for a while.
+export const MOB_CAVE_AVOID=24,MOB_CAVE_MS=20*60000;
+// Round 52: a store job that put nothing away stands the store down this long (the old
+// drop/deposit path runs meanwhile).
+export const STORE_RETRY_MS=5*60000;
 // Round 36: the farthest ore (from the eye) the gather tunnels to when no walk reaches it.
 export const ORE_TUNNEL=10;
 // Round 51: storage chests belong to the base within this range.
@@ -3519,7 +3525,9 @@ export class Worker extends EventEmitter {
  // Round 51: the ledger of earned items and the storage index, created on first use.
  get ledger(){if(!this._ledger){let d=null;try{d=JSON.parse(fs.readFileSync(path.join(this.root,'data/ledger.json'),'utf8'));}catch{}this._ledger=new Ledger(d);}return this._ledger;}
  get storage(){if(!this._storage)this._storage=new StorageIndex(path.join(this.root,'data/storage.json'));return this._storage;}
- earn(name,n){if(!(n>0))return;this.ledger.add(name,n);try{fs.writeFileSync(path.join(this.root,'data/ledger.json'),JSON.stringify(this.ledger));}catch{}}
+ // Round 52 (round-51 ledger: cobblestone 1439 after deaths and per-run clears): clamped to the bag
+ // before each add, so the ledger is never more than the bag plus the newest pickup.
+ earn(name,n){if(!(n>0))return;try{this.ledger.clamp(this.held());}catch{}this.ledger.add(name,n);try{fs.writeFileSync(path.join(this.root,'data/ledger.json'),JSON.stringify(this.ledger));}catch{}}
  held(){const m={};for(const i of this.bot.inventory.items())m[i.name]=(m[i.name]||0)+i.count;return m;}
  // Round 51: put earned items away by category in the base's storage chests (storage.js). A
  // category with no chest (or only full ones) gets a new chest on the next free storage spot,
@@ -3533,15 +3541,16 @@ export class Worker extends EventEmitter {
   const plan=storePlan(this.held(),this.ledger);
   if(!plan.length){this.log('Store: nothing earned to put away');return;}
   const byCat={};for(const p of plan)(byCat[p.category]||(byCat[p.category]=[])).push(p);
-  const done={};
+  const done={};let noChest=false;
   for(const [cat,items] of Object.entries(byCat)){
    this.check(token);
+   if(noChest&&!this.storage.chestFor(cat))continue; // one 'no chest' reason per store
    const left=items.map(p=>({...p}));
    for(let tries=0;tries<3&&left.some(p=>p.count>0);tries++){
     let entry=this.storage.chestFor(cat);
     if(entry){const bl=b.blockAt(pos(entry));if(bl&&bl.name!=='chest'){this.storage.forget(entry);entry=null;}}
     let at=entry?pos(entry):null;
-    if(!at){at=await this.newStorageChest(base,token);if(!at){this.log('Store: no chest for '+cat+' (no free spot or no planks)');break;}}
+    if(!at){at=await this.newStorageChest(base,token);if(!at){this.log('Store: no chest for '+cat+' ('+(this.noChestWhy||'unknown')+')');noChest=true;break;}}
     const full=await this.fillChest(at,cat,left,token);
     if(!full)break;
    }
@@ -3549,6 +3558,7 @@ export class Worker extends EventEmitter {
   }
   for(const [item,n] of Object.entries(done))this.ledger.take(item,n);
   try{fs.writeFileSync(path.join(this.root,'data/ledger.json'),JSON.stringify(this.ledger));}catch{}
+  this.storeIdleUntil=Object.keys(done).length?0:Date.now()+STORE_RETRY_MS;
   const summary=Object.entries(done).map(([k,v])=>k+' x'+v).join(', ');
   this.log('Store: put away '+(summary||'nothing')+' ('+this.storage.chests.length+' storage chests)');
  }
@@ -3556,10 +3566,20 @@ export class Worker extends EventEmitter {
  async newStorageChest(base,token){
   const b=this.bot,used=new Set(this.storage.chests.map(c=>c.x+','+c.y+','+c.z));
   if(!this.count('chest')){
-   const planks=b.inventory.items().filter(i=>/_planks$/.test(i.name)).reduce((a,i)=>a+i.count,0);
-   if(planks<8)return null;
+   const planksOf=()=>b.inventory.items().filter(i=>/_planks$/.test(i.name)).reduce((a,i)=>a+i.count,0);
+   if(planksOf()<8){
+    // Round 52 (round-51 normal1/normal2: no chest, under 8 planks, 'no chest for' every second
+    // for 28 min): planks from held logs first.
+    const log=b.inventory.items().find(i=>/_log$|_stem$/.test(i.name));
+    const need=Math.ceil((8-planksOf())/4);
+    if(!log||this.count(log.name)<need){this.noChestWhy='no chest held, '+planksOf()+' planks, no logs for more';return null;}
+    const plank=log.name.replace(/_log$|_stem$/,'_planks');
+    try{await this.craft({spec:{type:'craft',item:plank,count:need*4}},token);}catch(e){this.check(token);this.noChestWhy='could not craft '+plank+' ('+String(e.message).slice(0,60)+')';return null;}
+    if(planksOf()<8){this.noChestWhy='still '+planksOf()+' planks after crafting '+plank;return null;}
+   }
    try{await this.craft({spec:{type:'craft',item:'chest',count:1,keepTable:true,collectTable:true}},token);}catch(e){this.check(token);this.log('Store: could not craft a chest ('+String(e.message).slice(0,60)+')');return null;}
   }
+  this.noChestWhy='no free spot on the storage row';
   for(const spot of storageSpots(base,12)){
    if(used.has(spot.x+','+spot.y+','+spot.z))continue;
    const at=pos(spot),here=b.blockAt(at),below=b.blockAt(at.offset(0,-1,0)),above=b.blockAt(at.offset(0,1,0));
@@ -3686,8 +3706,17 @@ export class Worker extends EventEmitter {
   const p=this.bot?.entity?.position;if(!p)return;
   const now=Date.now();this.hazards=(this.hazards||[]).filter(h=>h.until>now).concat([{x:p.x,y:p.y,z:p.z,until:now+HAZARD_MS}]).slice(-8);
  }
+ // Round 52: true when this is a new mob cave (not within MOB_CAVE_AVOID of a marked one).
+ markMobCave(){
+  const p=this.bot?.entity?.position;if(!p)return false;
+  const now=Date.now();this.mobCaves=(this.mobCaves||[]).filter(h=>h.until>now);
+  if(this.mobCaves.some(h=>Math.hypot(h.x-p.x,h.y-p.y,h.z-p.z)<=MOB_CAVE_AVOID))return false;
+  this.mobCaves=this.mobCaves.concat([{x:p.x,y:p.y,z:p.z,until:now+MOB_CAVE_MS}]).slice(-6);
+  return true;
+ }
  nearHazard(pos){
   const now=Date.now();
+  if((this.mobCaves||[]).some(h=>h.until>now&&Math.hypot(h.x-pos.x,h.y-pos.y,h.z-pos.z)<=MOB_CAVE_AVOID))return true;
   if((this.deepDarks||[]).some(h=>h.until>now&&Math.hypot(h.x-pos.x,h.y-pos.y,h.z-pos.z)<=DEEP_DARK_AVOID))return true;
   return (this.hazards||[]).some(h=>h.until>now&&Math.hypot(h.x-pos.x,h.y-pos.y,h.z-pos.z)<=HAZARD_NEAR);
  }
