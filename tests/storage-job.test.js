@@ -7,21 +7,22 @@ import {Worker} from '../src/worker.js';
 // A fake world: chests are cells holding {name: count}; the bag is a list of stacks.
 function setup(bag,earned){
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'storejob-'));fs.mkdirSync(path.join(root,'data'));
- const chests=new Map(),key=p=>p.x+','+p.y+','+p.z;
+ const chests=new Map(),plants=new Map(),key=p=>p.x+','+p.y+','+p.z;
  const inv=bag.map(([name,count],i)=>({name,count,type:i+1,metadata:0,slot:9+i}));
  const bot={entity:{position:new Vec3(0.5,64,0.5)},inventory:{items:()=>inv.filter(s=>s.count>0),emptySlotCount:()=>bot._free??1},
-  blockAt:p=>chests.has(key(p))?{name:'chest',position:p}:(p.y<64?{name:'stone',boundingBox:'block'}:{name:'air',boundingBox:'empty'}),
+  blockAt:p=>chests.has(key(p))?{name:'chest',position:p}:plants.has(key(p))?{name:plants.get(key(p)),boundingBox:'empty',position:p}:(p.y<64?{name:'stone',boundingBox:'block'}:{name:'air',boundingBox:'empty'}),
   openContainer:async block=>{const c=chests.get(key(block.position));return {
    inventoryStart:27,
    deposit:async(type,meta,n)=>{const s=inv.find(i=>i.type===type);if(!s||s.count<n)throw Error('missing');s.count-=n;c[s.name]=(c[s.name]||0)+n;},
    containerItems:()=>Object.entries(c).map(([name,count])=>({name,count})),
    close:async()=>{}};},
+  findBlock:()=>bot._noTable?null:{name:'crafting_table'},dig:async bl=>{bot._dug=(bot._dug||[]).concat(bl.name);plants.delete(key(bl.position));},
   _syncWindow:async()=>{}};
  const w=Object.create(Worker.prototype);
  Object.assign(w,{bot,root,logs:[],log(m){this.logs.push(m);},check(){},walk:async()=>{},autopilot:{home:{x:0,y:64,z:0}},
   place:async job=>{chests.set(key(job.spec.position),{});},count:n=>inv.filter(s=>s.name===n).reduce((a,s)=>a+s.count,0)});
  for(const [n,k] of Object.entries(earned))w.earn(n,k);
- return {w,chests,inv};
+ return {w,chests,inv,plants};
 }
 test('store: earned items go into one chest per category, the rest stays',async()=>{
  const {w,chests,inv}=setup([['oak_log',20],['cobblestone',100],['raw_iron',6],['cooked_beef',6],['iron_pickaxe',1],['chest',3]],{oak_log:20,cobblestone:100,raw_iron:6});
@@ -98,4 +99,20 @@ test('store: a full bag tosses spare wooden tools to make room for the log chop'
  assert.deepEqual(tossed.sort(),['wooden_pickaxe','wooden_sword']);
  assert.equal(inv.find(s=>s.name==='stone_pickaxe').count,1,'the better tool stays');
  assert.equal(w.storage.chests.length,1);
+});
+test('store: with no table near, the first chest needs 12 planks (the table first)',async()=>{
+ const {w,inv}=setup([['cobblestone',100],['oak_planks',8],['oak_log',1]],{cobblestone:100});
+ w.bot._noTable=true;const did=[];
+ w.craft=async job=>{did.push(job.spec.item+' x'+job.spec.count);
+  if(job.spec.item==='oak_planks'){inv.find(s=>s.name==='oak_log').count-=1;inv.find(s=>s.name==='oak_planks').count+=4;}
+  if(job.spec.item==='chest'){inv.find(s=>s.name==='oak_planks').count-=12;inv.push({name:'chest',count:1,type:91,metadata:0,slot:31});}};
+ await w.store({spec:{type:'store'}},1);
+ assert.deepEqual(did,['oak_planks x4','chest x1']);
+});
+test('store: petals on the storage row are broken by hand, then the chest goes there',async()=>{
+ const {w,plants}=setup([['cobblestone',100],['chest',1]],{cobblestone:100});
+ plants.set('0,64,2','pink_petals');
+ await w.store({spec:{type:'store'}},1);
+ assert.deepEqual(w.bot._dug,['pink_petals']);
+ assert.deepEqual(w.storage.chests.map(c=>[c.x,c.y,c.z]),[[0,64,2]]);
 });

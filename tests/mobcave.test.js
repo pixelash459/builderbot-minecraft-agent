@@ -42,3 +42,10 @@ test('mob cave: the live check - a crowd within 24, no sky, deep - marks the cav
  mobs[5]={type:'hostile',position:new Vec3(1,39,0)};w.bot.entity.position=new Vec3(0,60,0);
  assert.equal(w.mobCaveHere(),null,'just under the surface');
 });
+import {deepBox} from '../src/worker.js';
+test('night mine: never from a box deep underground',()=>{
+ assert.equal(deepBox(41,0,64),true,'round-54 box at y=41 over the cave');
+ assert.equal(deepBox(63,0,64),false,'a surface box under its own roof');
+ assert.equal(deepBox(41,15,64),false,'a ravine floor under the open sky');
+ assert.equal(deepBox(-60,0,undefined),false,'no surface anchor yet');
+});

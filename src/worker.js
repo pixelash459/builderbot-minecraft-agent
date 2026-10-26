@@ -26,7 +26,7 @@ import {createMoveApi,setDefaultMoveContext} from './tasks/movement/move.js';
 import {forceFieldTick} from './forcefield.js';
 import {avoidanceActive,pickOpenStand,stepCost,trackProgress,coverCell,SHOOTERS} from './move-safety.js';
 import {stonePlan,stoneBeside,isExposed,STONE_DIG_DOWNS,STONE_DIG_MIN,NATURAL_DIG,isGravity,isFluid,stepFooting,turnOrder,wallOre} from './digDown.js';
-import {solidSupport,placementCells,softBreakCell,hitsBot,HARD_BREAK} from './place-support.js';
+import {solidSupport,placementCells,softBreakCell,hitsBot,HARD_BREAK,SOFT_BREAK,PLACE_BLOCKER} from './place-support.js';
 import {createMoveTasks} from './tasks/movement/factories.js';
 import {createLoopWatch} from './loop-watch.js';
 import {installToolWear,watchToolLoss} from './toolWear.js';
@@ -163,6 +163,8 @@ export const STORE_RETRY_MS=5*60000;
 // left through the roof (an ascend from inside the box), not opened.
 export const CAVE_EXIT_NEAR=24,CAVE_EXIT_CROWD=3;
 export const caveMorning=({sky,crowd})=>sky<SKY_OPEN&&crowd>=CAVE_EXIT_CROWD;
+// Round 55: a box with no sky over it, 8+ below the surface anchor.
+export const deepBox=(y,sky,surfaceY)=>Number.isFinite(surfaceY)&&sky<SKY_OPEN&&y<escapeY(surfaceY)-8; // no surface anchor yet: allowed
 // Round 36: the farthest ore (from the eye) the gather tunnels to when no walk reaches it.
 export const ORE_TUNNEL=10;
 // Round 51: storage chests belong to the base within this range.
@@ -1646,14 +1648,18 @@ export class Worker extends EventEmitter {
     const tod=dayTicks(b);
     // Habit 4: use the night - a staircase mine under the box, back before dawn.
     // Round 54: no night mine from a box in a marked hazard (a mob cave): it walked back down the cave.
-    if(!job.nightMined&&!this.nearHazard?.(b.entity.position)&&nightMineWanted({tod,pod:job.pod,pickaxe:b.inventory.items().some(i=>/^(stone|iron|diamond|netherite)_pickaxe$/.test(i.name)),blocks:this.shelterStock(true),enabled:this.config?.nightMine!==false,health:b.health})){
+    // Round 55 (round-54 soak: a dusk box at y=41 over the spawn cave; the night mine's sump opened
+    // onto the cave at y=39, the bot could not step back into the box, and died in the crowd): the
+    // night mine runs from a box near the surface only, never from one deep underground.
+    if(!job.nightMined&&!this.nearHazard?.(b.entity.position)&&!deepBox(b.entity.position.y,headSky(b,b.entity.position.floored()),this.autopilot?.lastSurfaceY)&&nightMineWanted({tod,pod:job.pod,pickaxe:b.inventory.items().some(i=>/^(stone|iron|diamond|netherite)_pickaxe$/.test(i.name)),blocks:this.shelterStock(true),enabled:this.config?.nightMine!==false,health:b.health})){
      job.nightMined=true;this.save();
      let r=null;
      try{r=await this.nightMine(job,token,origin);}catch(e){this.check(token);this.log('Night mine: '+e.message);}
      finally{this.shelterSealed=true;}
      if(r==='away'){away='the night mine could not climb home';break;}
     }
-    if(!darkNow(tod)&&!job.dawnLogged){job.dawnLogged=true;this.update(job,required.length,'Dawn: waiting for a safe morning (sealed)');this.log('Shelter: dawn (tod '+tod+'); staying sealed until the morning is light and clear');}
+    if(darkNow(tod))job.sawDark=true;
+    if(!darkNow(tod)&&job.sawDark&&!job.dawnLogged){job.dawnLogged=true;this.update(job,required.length,'Dawn: waiting for a safe morning (sealed)');this.log('Shelter: dawn (tod '+tod+'); staying sealed until the morning is light and clear');}
    }
   }finally{this.shelterSealed=false;}
   if(away){
@@ -3592,11 +3598,16 @@ export class Worker extends EventEmitter {
   const b=this.bot,used=new Set(this.storage.chests.map(c=>c.x+','+c.y+','+c.z));
   if(!this.count('chest')){
    const planksOf=()=>b.inventory.items().filter(i=>/_planks$/.test(i.name)).reduce((a,i)=>a+i.count,0);
-   if(planksOf()<8){
+   // Round 55 (round-54 normal1/normal3: 8 planks, no table anywhere, `could not craft a chest
+   // (Missing ingredients or a nearby crafting table)` x3): with no table held or within 6, the
+   // chest costs 12 planks - 4 for the table first.
+   const tableNear=this.count('crafting_table')>0||!!b.findBlock?.({matching:b.registry?.blocksByName?.crafting_table?.id,maxDistance:6});
+   const want=8+(tableNear?0:4);
+   if(planksOf()<want){
     // Round 52 (round-51 normal1/normal2: no chest, under 8 planks, 'no chest for' every second
     // for 28 min): planks from held logs first.
     let log=b.inventory.items().find(i=>/_log$|_stem$/.test(i.name));
-    const need=Math.ceil((8-planksOf())/4);
+    const need=Math.ceil((want-planksOf())/4);
     // Round 53 (round-52 soak: 3 stores, each `no chest held, 1-2 planks, no logs for more`): with
     // room in the bag, chop the logs for the first chest (a short surface gather near the base).
     // Round 54 (round-53 normal2: the store ran with 1 free slot, so no chop): spare wooden and
@@ -3616,16 +3627,22 @@ export class Worker extends EventEmitter {
     if(!log||this.count(log.name)<need){this.noChestWhy='no chest held, '+planksOf()+' planks, no logs for more';return null;}
     const plank=log.name.replace(/_log$|_stem$/,'_planks');
     try{await this.craft({spec:{type:'craft',item:plank,count:need*4}},token);}catch(e){this.check(token);this.noChestWhy='could not craft '+plank+' ('+String(e.message).slice(0,60)+')';return null;}
-    if(planksOf()<8){this.noChestWhy='still '+planksOf()+' planks after crafting '+plank;return null;}
+    if(planksOf()<want){this.noChestWhy='still '+planksOf()+' planks after crafting '+plank;return null;}
    }
-   try{await this.craft({spec:{type:'craft',item:'chest',count:1,keepTable:true,collectTable:true}},token);}catch(e){this.check(token);this.log('Store: could not craft a chest ('+String(e.message).slice(0,60)+')');return null;}
+   try{await this.craft({spec:{type:'craft',item:'chest',count:1,keepTable:true,collectTable:true}},token);}catch(e){this.check(token);this.noChestWhy='could not craft a chest ('+String(e.message).slice(0,60)+')';return null;}
   }
   this.noChestWhy='no free spot on the storage row';
-  for(const spot of storageSpots(base,12)){
+  // Round 55 (round-54 normal1: `no free spot on the storage row` and `Cannot place ... occupied by
+  // pink_petals`): a spot may sit one block up or down the slope, and grass, flowers or petals on
+  // it are broken by hand first.
+  for(const row of storageSpots(base,12))for(const dy of [0,-1,1]){
+   const spot={x:row.x,y:row.y+dy,z:row.z};
    if(used.has(spot.x+','+spot.y+','+spot.z))continue;
    const at=pos(spot),here=b.blockAt(at),below=b.blockAt(at.offset(0,-1,0)),above=b.blockAt(at.offset(0,1,0));
    if(here?.name==='chest'){this.log('Store: found a chest on the storage row at '+spot.x+','+spot.y+','+spot.z);return at;}
-   if(!here||!below||below.boundingBox!=='block'||!empty(here)||(above&&above.boundingBox==='block'))continue;
+   const plant=here&&here.boundingBox!=='block'&&(SOFT_BREAK.test(here.name)||PLACE_BLOCKER.test(here.name))&&!/torch|sign|rail|button|pressure_plate|banner|carpet/.test(here.name);
+   if(!here||!below||below.boundingBox!=='block'||!(empty(here)||plant)||(above&&above.boundingBox==='block'))continue;
+   if(plant){try{await b.dig(here,true);}catch(e){this.check(token);continue;}if(!empty(b.blockAt(at)))continue;}
    try{await this.place({spec:{type:'place',block:'chest',position:spot}},token);}catch(e){this.check(token);continue;}
    if(b.blockAt(at)?.name==='chest'){this.log('Store: placed a storage chest at '+spot.x+','+spot.y+','+spot.z);return at;}
   }
