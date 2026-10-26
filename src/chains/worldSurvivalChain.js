@@ -144,12 +144,17 @@ export class WorldSurvivalChain extends SingleTaskChain{
   const silent=this._silentHurt(bot,air,now);
   if(silent&&!this._drowning){const w=ctx&&ctx.worker;if(w&&w.log)try{w.log('WorldSurvival: losing health with no attacker (air '+air+', head '+(head?.name||'?')+', feet '+(feet?.name||'?')+'); treating it as drowning');}catch{}}
   const lowAir=air<=DROWN_AIR||longUnder||silent; // round 25: 8, was 6 (first line came at air 1) // surface at the old reflex's threshold: below it the test's <10 floor must be reachable
+  this._drowning=!!this._drowning;
   if((touchingWater||silent)&&lowAir){this._drowning=true;this._drySince=0;}
   // Round 19 (round-18 normal1 drowned: released with the air at 2 while the head bobbed at
   // the surface, then dragged under by the next job): air back to 18, or head and feet dry.
   // Round 33 (round-33 normal drowned after 90 s of 300 ms releases at air 8, 6, 5... - each
   // bob dry for a tick handed the bot back to a craft in the water): dry for DRY_HOLD_MS.
-  else if(air>=18)this._drowning=false;
+  // Round 57 (round-56 soak: the latch let go 7 s in on a stale air reading of 20 while the head
+  // was still under, the resumed ascend pillared in the water and the bot drowned 5 s later): air
+  // 18+ releases only with the head out of the water, or after BREATHING_MS under at full health
+  // (round 49's stale-20 stand, which really was breathing).
+  else if(air>=18&&(!wet(head)||fullUnder))this._drowning=false;
   else if(!touchingWater&&!silent){if(!this._drySince)this._drySince=now;if(now-this._drySince>=DRY_HOLD_MS)this._drowning=false;}
   else this._drySince=0;
   if(this._drowning){const w=ctx&&ctx.worker;if(w)w.lastDrownAt=now;}

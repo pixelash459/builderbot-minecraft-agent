@@ -162,7 +162,10 @@ export const STORE_RETRY_MS=5*60000;
 // clear a cave. A box with no sky over it and CAVE_EXIT_CROWD+ hostiles within CAVE_EXIT_NEAR is
 // left through the roof (an ascend from inside the box), not opened.
 export const CAVE_EXIT_NEAR=24,CAVE_EXIT_CROWD=3;
-export const caveMorning=({sky,crowd})=>sky<SKY_OPEN&&crowd>=CAVE_EXIT_CROWD;
+// Round 57 (round-56 hard2: `morning in a cave (3 hostiles within 24, sky 0)` from a box at y=71,
+// surface 64 - a sealed box reads sky 0 anywhere): only a box under the surface anchor is a cave.
+export const caveMorning=({sky,crowd,y,surfaceY})=>sky<SKY_OPEN&&crowd>=CAVE_EXIT_CROWD&&!(Number.isFinite(y)&&Number.isFinite(surfaceY)&&y>=surfaceY-2);
+const LOOSE_STONE=/^(granite|diorite|andesite|tuff|calcite|gravel)$/;
 // Round 55: a box with no sky over it, 8+ below the surface anchor.
 export const deepBox=(y,sky,surfaceY)=>Number.isFinite(surfaceY)&&sky<SKY_OPEN&&y<escapeY(surfaceY)-8; // no surface anchor yet: allowed
 // Round 36: the farthest ore (from the eye) the gather tunnels to when no walk reaches it.
@@ -1669,7 +1672,7 @@ export class Worker extends EventEmitter {
   }
   {
    const sky=headSky(b,here()),crowd=this.hostilesWithin(CAVE_EXIT_NEAR);
-   if(caveMorning({sky,crowd})){
+   if(caveMorning({sky,crowd,y:b.entity.position.y,surfaceY:this.autopilot?.lastSurfaceY})){
     this.log('Shelter: morning in a cave ('+crowd+' hostiles within '+CAVE_EXIT_NEAR+', sky '+sky+'); climbing out through the roof');
     this.markMobCave?.();this.shelterSpot=null;this.save();
     const top=escapeY(this.autopilot?.lastSurfaceY),y0=b.entity.position.y;
@@ -3336,6 +3339,19 @@ export class Worker extends EventEmitter {
    }
    if(job.startCount!=null)this.earn(s.item,this.count(s.item)-job.startCount); // round 51: crafted is earned
   }
+  await this.tossSpareTools(s.item,token);
+ }
+ // Round 57 (round-56: all six runs ended with a wooden pick, axe and sword beside the stone and
+ // iron ones, and normal1's full bag named all three): once a stone-or-better tool is crafted, the
+ // wooden or golden one of the same kind is dropped (and not picked back up).
+ async tossSpareTools(made,token){
+  const b=this.bot,m=/^(stone|iron|diamond|netherite)_(sword|axe|pickaxe|shovel|hoe)$/.exec(made||'');
+  if(!m||!this.count(made))return;
+  const held={};for(const i of b.inventory.items())held[i.name]=(held[i.name]||0)+i.count;
+  for(const it of b.inventory.items().filter(i=>i.name.endsWith('_'+m[2])&&spareTool(i.name,held))){
+   this.check(token);
+   try{await b.tossStack(it);(this.droppedJunk||(this.droppedJunk=new Map())).set(it.name,Date.now());this.log('Craft: dropped the '+it.name+' ('+made+' held)');}catch{}
+  }
  }
  async placeBlocks(support,face,target,name,token){
   const b=this.bot;
@@ -3581,18 +3597,26 @@ export class Worker extends EventEmitter {
   const plan=storePlan(this.held(),this.ledger);
   if(!plan.length){this.log('Store: nothing earned to put away');return;}
   const byCat={};for(const p of plan)(byCat[p.category]||(byCat[p.category]=[])).push(p);
-  const done={};let noChest=false;
+  // Round 57 (round-56 normal3: one stone chest, then `no chest for misc` and `no chest for wood`
+  // on three stores): a category with no chest, when no new one can be made, goes into any storage
+  // chest with room (the chest keeps its own category). One 'no chest' reason per store.
+  const done={};let noNew=false;
   for(const [cat,items] of Object.entries(byCat)){
    this.check(token);
-   if(noChest&&!this.storage.chestFor(cat))continue; // one 'no chest' reason per store
    const now=this.held(),left=items.filter(p=>(now[p.item]||0)>0).map(p=>({...p,count:Math.min(p.count,now[p.item]),orig:Math.min(p.count,now[p.item])})); // round 54: tossed or used since the plan
    if(!left.length)continue;
    for(let tries=0;tries<3&&left.some(p=>p.count>0);tries++){
     let entry=this.storage.chestFor(cat);
     if(entry){const bl=b.blockAt(pos(entry));if(bl&&bl.name!=='chest'){this.storage.forget(entry);entry=null;}}
-    let at=entry?pos(entry):null;
-    if(!at){at=await this.newStorageChest(base,token);if(!at){this.log('Store: no chest for '+cat+' ('+(this.noChestWhy||'unknown')+')');noChest=true;break;}}
-    const full=await this.fillChest(at,cat,left,token);
+    let at=entry?pos(entry):null,into=cat;
+    if(!at&&!noNew){at=await this.newStorageChest(base,token);if(!at){this.log('Store: no chest for '+cat+' ('+(this.noChestWhy||'unknown')+')');noNew=true;}}
+    if(!at){
+     const spare=this.storage.chests.find(c=>!c.full&&b.blockAt(pos(c))?.name==='chest');
+     if(!spare)break;
+     at=pos(spare);into=spare.category;
+     this.log('Store: no '+cat+' chest; putting '+cat+' in the '+into+' chest at '+spare.x+','+spare.y+','+spare.z);
+    }
+    const full=await this.fillChest(at,into,left,token);
     if(!full)break;
    }
    for(const q of left){const moved=q.orig-q.count;if(moved>0)done[q.item]=(done[q.item]||0)+moved;}
@@ -3636,6 +3660,14 @@ export class Worker extends EventEmitter {
     }
     if(!log||this.count(log.name)<need){this.noChestWhy='no chest held, '+planksOf()+' planks, no logs for more';return null;}
     const plank=log.name.replace(/_log$|_stem$/,'_planks');
+    // Round 57 (round-56 normal2: `could not craft oak_planks (No room for crafting result)` with a
+    // full bag and no chest yet): with no free slot and no plank stack to grow, a spare tool goes,
+    // else the biggest stack of loose stone (granite, diorite, andesite, tuff, gravel).
+    if(b.inventory.emptySlotCount()<1&&!this.count(plank)){
+     const held=this.held();
+     const junk=b.inventory.items().filter(i=>spareTool(i.name,held)).concat(b.inventory.items().filter(i=>LOOSE_STONE.test(i.name)).sort((x,y)=>y.count-x.count));
+     if(junk[0]){this.check(token);try{await b.tossStack(junk[0]);this.log('Store: tossed '+junk[0].name+' x'+junk[0].count+' to make room for planks');}catch{}}
+    }
     try{await this.craft({spec:{type:'craft',item:plank,count:need*4}},token);}catch(e){this.check(token);this.noChestWhy='could not craft '+plank+' ('+String(e.message).slice(0,60)+')';return null;}
     if(planksOf()<want){this.noChestWhy='still '+planksOf()+' planks after crafting '+plank;return null;}
    }

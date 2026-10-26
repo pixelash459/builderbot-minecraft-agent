@@ -39,3 +39,13 @@ test('swim up: the air reading no longer gates it; a head above the water keeps 
  const t=new GetOutOfWaterTask({ctx:ctx(b)});t.onStart(b,ctx(b));t.onTick(b,ctx(b));
  assert.equal(t.upLogged,undefined);
 });
+import {WorldSurvivalChain} from '../src/chains/worldSurvivalChain.js';
+test('round 57: a stale air 20 does not release the drowning latch while the head is under',()=>{
+ const w=new WorldSurvivalChain();
+ const blocks={'0,-59,0':{name:'water'},'0,-60,0':{name:'water'}};
+ const bot={oxygenLevel:20,health:14,entity:{position:new Vec3(0.5,-60,0.5),isInWater:true},blockAt:p=>blocks[Math.floor(p.x)+','+Math.floor(p.y)+','+Math.floor(p.z)]||null,setControlState(){}};
+ w._drowning=true;w._headWetSince=Date.now()-7000;
+ w._handleDrowning(bot,{});assert.equal(w._drowning,true,'head under, hurt: keep swimming');
+ delete blocks['0,-59,0'];bot.entity.isInWater=false;delete blocks['0,-60,0'];
+ w._handleDrowning(bot,{});assert.equal(w._drowning,false,'head out, air 20: released');
+});

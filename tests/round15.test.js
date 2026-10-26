@@ -477,7 +477,7 @@ test('round 38: health falling with no attacker and air below full is treated as
  const air={name:'air',boundingBox:'empty'};
  const bot={health:20,food:18,oxygenLevel:12,entity:{position:new Vec3(59.5,51,37.5),isInWater:false},entities:{},blockAt:()=>air,setControlState:(k,v)=>{ctl[k]=v;}};
  const ctx={worker:{log:m=>logs.push(m)}};
- w._handleDrowning(bot,{},ctx);assert.equal(w._drowning,undefined);
+ w._handleDrowning(bot,{},ctx);assert.ok(!w._drowning,'not drowning yet');
  bot.health=18;w._handleDrowning(bot,{},ctx);assert.ok(!w._drowning,'one drop is not enough');
  bot.health=16;w._handleDrowning(bot,{},ctx);
  assert.equal(w._drowning,true,'two drops, no attacker, air 12: drowning');assert.equal(ctl.jump,true);

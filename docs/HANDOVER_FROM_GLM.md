@@ -2144,3 +2144,14 @@ The round-55 soak: iron picks on 3 of 6 (normal 602/542/602; no hard run smelted
 - **A pending mob-cave escape goes before the night shelter** (both night branches): `escapeDark` submits the ascend first.
 - **Storage keeps the progression materials** (`storage.js` `KEEP`): iron ingots and raw iron 40, diamonds 24, gold 8, coal and charcoal 16 stay on the bot.
 - Not changed yet: the hard runs mine 0-1 ore and never smelt before night; hard1's escape climbed straight back above the cave and its night box sealed 19 blocks from the mark at y=52.
+
+## Round 57 (2026-10-27)
+
+The round-56 soak: **iron picks on 6 of 6** for the first time (normal 784/542/542, hard 512/512/512), 1 death (normal1 drowned at (118, 13, 102)), shields crafted on every submit, hard1's mob-cave escape finished on the surface and its night box sealed 27.7 blocks from the mark. normal1's drowning: the bed-rung ascend pillared into water at y=14, the water chain dug the roof, then let go 7 s in on a stale `air 20` with the head still under; the resumed ascend pillared in the water and the bot drowned 5 s later. Every run ended with a wooden pick, axe and sword beside stone and iron ones. normal2's store could not craft planks (`No room for crafting result`); normal3 placed one stone chest, then `no chest for misc` / `no chest for wood` on three stores. hard2's sealed box at y=71 (surface 64) read as a `morning in a cave`.
+
+- **The drowning latch holds while the head is under** (`worldSurvivalChain.js`): air 18+ releases it only with the head out of the water, or after `BREATHING_MS` under at full health (round 49's stale-20 stand that really was breathing).
+- **Spare tools are dropped when the better one is crafted** (worker `tossSpareTools`, after every craft): a stone-or-better tool drops the wooden or golden one of the same kind, marked as dropped junk so it is not picked back up.
+- **A free slot for the chest's planks** (worker `newStorageChest`): a full bag with no plank stack tosses a spare tool, else the biggest stack of granite/diorite/andesite/tuff/calcite/gravel.
+- **Overflow storage** (worker `store`): a category with no chest, when no new chest can be made, goes into any storage chest with room; that chest keeps its own category.
+- **Cave mornings only under the surface** (`caveMorning`): a box at or above the surface anchor minus 2 is not a cave (a sealed box reads sky 0 anywhere).
+- Not changed yet: the stone shovel's 3-then-skip (`Missing ingredients`) on normal1 and normal3 with 6-8 planks and 4 sticks; no bed slept in; hard3 sealed on an expired mob-cave mark; no diamonds.

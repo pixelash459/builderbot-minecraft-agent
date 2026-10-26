@@ -117,3 +117,32 @@ test('store: petals on the storage row are broken by hand, then the chest goes t
  assert.deepEqual(w.bot._dug,['pink_petals']);
  assert.deepEqual(w.storage.chests.map(c=>[c.x,c.y,c.z]),[[0,64,2]]);
 });
+test('round 57: a full bag with no plank stack tosses loose stone so the planks have a slot',async()=>{
+ const {w,inv}=setup([['cobblestone',100],['granite',16],['diorite',5],['oak_log',3]],{cobblestone:100});
+ w.bot._free=0;const tossed=[];
+ w.bot.tossStack=async it=>{tossed.push(it.name);it.count=0;w.bot._free++;};
+ w.craft=async job=>{if(job.spec.item==='oak_planks'){if(!w.bot._free)throw Error('No room for crafting result');inv.find(s=>s.name==='oak_log').count-=2;inv.push({name:'oak_planks',count:8,type:93,metadata:0,slot:33});}
+  if(job.spec.item==='chest'){inv.find(s=>s.name==='oak_planks').count-=8;inv.push({name:'chest',count:1,type:91,metadata:0,slot:31});}};
+ await w.store({spec:{type:'store'}},1);
+ assert.deepEqual(tossed,['granite'],'the biggest loose-stone stack, once');
+ assert.equal(w.storage.chests.length,1,JSON.stringify(w.logs));
+});
+test('round 57: a category with no chest and no way to make one goes into a chest with room',async()=>{
+ const {w,chests}=setup([['cobblestone',100],['pink_petals',22],['oak_planks',1]],{cobblestone:100,pink_petals:22});
+ chests.set('0,64,2',{});w.storage.record({x:0,y:64,z:2},'stone',{},false);
+ await w.store({spec:{type:'store'}},1);
+ assert.equal(w.storage.find('pink_petals')[0]?.count,22,JSON.stringify(w.logs));
+ assert.equal(w.storage.chests.length,1);assert.equal(w.storage.chests[0].category,'stone','the chest keeps its category');
+ assert.equal(w.logs.filter(l=>/^Store: no chest for/.test(l)).length,1);
+ assert.ok(w.logs.some(l=>/no misc chest; putting misc in the stone chest/.test(l)),JSON.stringify(w.logs));
+});
+test('round 57: crafting a stone tool drops the wooden one of the same kind',async()=>{
+ const inv=[{name:'wooden_pickaxe',count:1},{name:'wooden_sword',count:1},{name:'stone_pickaxe',count:1}];
+ const w=Object.create(Worker.prototype),tossed=[];
+ Object.assign(w,{logs:[],log(m){this.logs.push(m);},check(){},count:n=>inv.filter(s=>s.name===n).reduce((a,s)=>a+s.count,0),
+  bot:{inventory:{items:()=>inv.filter(s=>s.count>0)},tossStack:async it=>{tossed.push(it.name);it.count=0;}}});
+ await w.tossSpareTools('stone_pickaxe',1);
+ assert.deepEqual(tossed,['wooden_pickaxe'],'the wooden sword stays until a better sword');
+ assert.ok(w.droppedJunk.has('wooden_pickaxe'),'not picked back up');
+ await w.tossSpareTools('oak_planks',1);assert.equal(tossed.length,1);
+});

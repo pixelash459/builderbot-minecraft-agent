@@ -23,6 +23,8 @@ test('cave morning: a box underground with a crowd is left through the roof',()=
  assert.equal(caveMorning({sky:0,crowd:5}),true);
  assert.equal(caveMorning({sky:0,crowd:2}),false,'a quiet cave: open up as before');
  assert.equal(caveMorning({sky:15,crowd:9}),false,'on the surface the morning burns them');
+ assert.equal(caveMorning({sky:0,crowd:3,y:71,surfaceY:64}),false,'round 57: a sealed box above the surface anchor is no cave');
+ assert.equal(caveMorning({sky:0,crowd:3,y:55,surfaceY:64}),true);
  const w=Object.create(Worker.prototype);
  const me=new Vec3(0,39,0);
  const mob=(x)=>({type:'hostile',position:new Vec3(x,39,0)});
