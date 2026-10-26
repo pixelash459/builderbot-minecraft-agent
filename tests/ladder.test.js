@@ -21,6 +21,7 @@ function craftFake({tableInWorld=null}={}){
    findBlock(){return standing?{position:standing,name:'crafting_table'}:null;},
    recipesFor(id,meta,n,table){return table?[{id}]:[];}},
   count(n){return inv[n]||0;},save(){},check(){},update(){},log(m){calls.push(['log',m]);},
+  recipeVariants:Worker.prototype.recipeVariants,
   usableRecipe(b,list){return list.length?{recipe:list[0],subst:{}}:null;},withSubstitutions:r=>r,
   async walk(){},
   async ensureTable(){calls.push(['place']);inv.crafting_table--;standing=tableAt;return {block:{position:tableAt,name:'crafting_table'},created:tableAt};},

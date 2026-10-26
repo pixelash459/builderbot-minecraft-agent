@@ -32,8 +32,10 @@ test('swim up: a stone roof right over the head is dug',async()=>{
  await new Promise(r=>setImmediate(r));
  assert.deepEqual(dug,[42]);
 });
-test('swim up: plenty of air keeps the old land search',()=>{
- const {b}=bot({top:50,air:18});
+test('swim up: the air reading no longer gates it; a head above the water keeps the land search',()=>{
+ const t0=bot({top:50,air:267});const t1=new GetOutOfWaterTask({ctx:ctx(t0.b)});t1.onStart(t0.b,ctx(t0.b));t1.onTick(t0.b,ctx(t0.b));
+ assert.equal(t1.upLogged,true,'ticks-scale 267 (17.8) under water: straight up');
+ const {b}=bot({top:42,air:20,y:40.5});
  const t=new GetOutOfWaterTask({ctx:ctx(b)});t.onStart(b,ctx(b));t.onTick(b,ctx(b));
  assert.equal(t.upLogged,undefined);
 });

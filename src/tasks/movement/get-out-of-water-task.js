@@ -33,7 +33,8 @@ export function findNearestLand(bot,from,radius=24){
 // on 'swimming up' while the land search pathed sideways under water): from the head cell up,
 // how far the water goes. {open: n} - air n cells above the head; {roof: block, dy} - a solid
 // block dy cells above the head; null - deeper than max.
-export const UP_FIRST_AIR=12;
+// The air on the 0-20 scale whether the server sends it in ticks (0-300) or bubbles (0-20).
+export const airOf=bot=>{const a=typeof bot.oxygenLevel==='number'?bot.oxygenLevel:(typeof bot.oxygen==='number'?bot.oxygen:20);return a>20?Math.min(20,a/15):a;};
 const AIRISH=n=>['air','cave_air','void_air'].includes(n);
 export function waterAbove(bot,max=24){
  const p=bot.entity?.position;if(!p||!bot.blockAt)return null;
@@ -62,12 +63,15 @@ export class GetOutOfWaterTask extends Task {
   ctx=move.pickCtx(this,ctx);
   if(!this.startedAt)this.startedAt=Date.now();
   // Swim up while our air runs low (the ported drowning reflex).
-  const air=bot.oxygenLevel??20;
-  if(air<(bot.oxygenMaximum??20))move.setControls(ctx,{jump:true});
+  const air=airOf(bot);
+  if(air<20)move.setControls(ctx,{jump:true});
   else move.releaseControls(ctx,['jump']);
-  // Round 55: low air with the head under water - straight up when the water above opens to
-  // air, no sideways leg; a solid roof right over the head is dug (not lava-capped).
-  if(air<=UP_FIRST_AIR&&headUnderWater(bot)){
+  // Round 55: the head under water - straight up when the water above opens to air, no sideways
+  // leg; a solid roof right over the head is dug (not lava-capped).
+  // Round 56 (round-55 soak: no straight-up line all soak - bot.oxygenLevel is in ticks (0-300) on
+  // this server, so 'air 8' read 120 here and the <=12 gate never opened; and normal1 drowned with
+  // the reading stale at 17.8): the air no longer gates it, it is only logged.
+  if(headUnderWater(bot)){
    if(!this.upAt||Date.now()-this.upAt>=250){this.up=waterAbove(bot,24);this.upAt=Date.now();} // 4 scans a second at most
    const up=this.up;
    if(up&&up.open!=null){

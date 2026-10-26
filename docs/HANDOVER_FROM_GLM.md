@@ -2134,3 +2134,13 @@ The round-54 soak: iron picks on 4 of 6 (normal 632/1144/663, hard1 602), 4 deat
 - **No night mine from a deep box** (`deepBox`): no sky over the box and 8+ below the surface anchor (with no anchor yet it is allowed). Surface boxes night-mine as before.
 - **The `Shelter: dawn` line** waits for a dark spell (`job.sawDark`); a dusk box no longer logs dawn at tod 10177.
 - **The first storage chest**: with no table held or within 6 it needs 12 planks (the table first), and the chop/plank craft aims for that. A failed chest craft is the logged reason. Storage spots may sit one block up or down the slope, and grass, flowers or petals on a spot are broken by hand before the chest is placed.
+
+## Round 56 (2026-10-27)
+
+The round-55 soak: iron picks on 3 of 6 (normal 602/542/602; no hard run smelted an ingot), 1 death (normal1 drowned at (105, 59, 77)), 3 diamonds on normal3. **Storage worked for the first time**: normal3 placed a stone and a metal chest and put away cobble, dirt, granite, diorite, gravel, flint - and 8 coal, 3 iron ingots and 1 raw iron the ladder still needed. No `open water N up` line all soak. hard2's mob cave was followed 38 ms later by the night shelter sealing on the mark; the escape was never submitted. normal1 re-submitted `craft shield` 18 times in 4 min (`Missing ingredients or a nearby crafting table`, a table in reach).
+
+- **Mixed planks craft** (worker `recipeVariants`): mineflayer's `recipesFor` only returns the variants the bag pays for as they are, and the shield (and table) have one variant per wood - so 3 oak + 4 birch planks got none and the round-35 mixed-plank fill never saw a recipe. With none, `recipesAll` goes to `usableRecipe`.
+- **Drowning straight up, whatever the air reads** (`get-out-of-water-task.js`): `bot.oxygenLevel` is in ticks (0-300) on this server, so the round-55 `air <= 12` gate never opened (`air 8` read 120), and normal1 drowned with a stale 17.8. The head under water with open water up to air is enough now; the air (normalised like the chain's `airOf`) is only logged.
+- **A pending mob-cave escape goes before the night shelter** (both night branches): `escapeDark` submits the ascend first.
+- **Storage keeps the progression materials** (`storage.js` `KEEP`): iron ingots and raw iron 40, diamonds 24, gold 8, coal and charcoal 16 stay on the bot.
+- Not changed yet: the hard runs mine 0-1 ore and never smelt before night; hard1's escape climbed straight back above the cave and its night box sealed 19 blocks from the mark at y=52.

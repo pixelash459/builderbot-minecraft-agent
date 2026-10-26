@@ -25,14 +25,15 @@ function setup(bag,earned){
  return {w,chests,inv,plants};
 }
 test('store: earned items go into one chest per category, the rest stays',async()=>{
- const {w,chests,inv}=setup([['oak_log',20],['cobblestone',100],['raw_iron',6],['cooked_beef',6],['iron_pickaxe',1],['chest',3]],{oak_log:20,cobblestone:100,raw_iron:6});
+ const {w,chests,inv}=setup([['oak_log',20],['cobblestone',100],['raw_copper',6],['raw_iron',6],['cooked_beef',6],['iron_pickaxe',1],['chest',3]],{oak_log:20,cobblestone:100,raw_copper:6,raw_iron:6});
  await w.store({spec:{type:'store'}},1);
  const cats=w.storage.chests.map(c=>c.category).sort();
  assert.deepEqual(cats,['metal','stone','wood']);
  const left=n=>inv.find(s=>s.name===n).count;
  assert.equal(left('oak_log'),0);assert.equal(left('cobblestone'),32,'the working set stays');
  assert.equal(left('cooked_beef'),6,'server-given food stays');assert.equal(left('iron_pickaxe'),1);
- assert.equal(w.storage.find('raw_iron')[0].count,6);
+ assert.equal(w.storage.find('raw_copper')[0].count,6);
+ assert.equal(left('raw_iron'),6,'iron stays for the iron kit (round 56)');
  assert.ok(w.logs.some(l=>/^Store: put away/.test(l)),JSON.stringify(w.logs));
  assert.equal(w.ledger.of('oak_log'),0,'stored items leave the ledger');
  // a second store reuses the same chests

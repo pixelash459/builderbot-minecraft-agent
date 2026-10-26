@@ -13,11 +13,11 @@ test('storage: items sort into categories',()=>{
 });
 test('storage: only earned items above the working set are stored; server-given ones never',()=>{
  const l=new Ledger();
- l.add('oak_log',20);l.add('cobblestone',100);l.add('raw_iron',6);
+ l.add('oak_log',20);l.add('cobblestone',100);l.add('raw_iron',6);l.add('raw_copper',6);
  // the harness gave 6 steak (never earned); the bot also holds tools
- const held={oak_log:20,cobblestone:100,raw_iron:6,cooked_beef:6,iron_pickaxe:1,coal:5};
+ const held={oak_log:20,cobblestone:100,raw_iron:6,raw_copper:6,cooked_beef:6,iron_pickaxe:1,coal:5};
  const m=Object.fromEntries(storePlan(held,l).map(p=>[p.item,p.count]));
- assert.equal(m.oak_log,20);assert.equal(m.cobblestone,68,'keeps 32 cobble');assert.equal(m.raw_iron,6);
+ assert.equal(m.oak_log,20);assert.equal(m.cobblestone,68,'keeps 32 cobble');assert.equal(m.raw_copper,6);assert.equal(m.raw_iron,undefined,'iron is kept for the kit (round 56)');
  assert.equal(m.cooked_beef,undefined,'given food is not stored (and food is kept anyway)');
  assert.equal(m.iron_pickaxe,undefined);assert.equal(m.coal,undefined,'coal kept and not earned');
  l.clamp({oak_log:5});assert.equal(l.of('oak_log'),5);assert.equal(l.of('cobblestone'),0,'a /clear empties the ledger');

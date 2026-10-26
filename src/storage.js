@@ -22,7 +22,10 @@ export function categoryOf(name){
 // Never stored: tools, weapons, armour, the shield, the bed, storage and work blocks the bot uses.
 export const NEVER_STORE=/(_pickaxe|_axe|_shovel|_hoe|_sword|_helmet|_chestplate|_leggings|_boots|_bed)$|^(shield|bow|crossbow|bucket|water_bucket|lava_bucket|shears|flint_and_steel|crafting_table|furnace|chest|torch)$/;
 // The working set kept on the bot whatever the ledger says (fuel, blocks for a shelter, planks).
-export const KEEP={cobblestone:32,dirt:16,coal:8,charcoal:8,stick:8,arrow:32};
+// Round 56 (round-55 normal3 put 3 iron ingots and 8 coal in the metal chest mid-ladder): the
+// progression materials stay on the bot up to the iron and diamond kits' needs (iron: pick 3,
+// sword 2, axe 3, shield 1, armour 24, bucket 3, shears 2 = 38).
+export const KEEP={cobblestone:32,dirt:16,coal:16,charcoal:16,stick:8,arrow:32,iron_ingot:40,raw_iron:40,diamond:24,gold_ingot:8,raw_gold:8};
 const PLANKS_KEEP=8,FOOD_KEEP=8;
 
 export class Ledger{

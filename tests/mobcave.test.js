@@ -49,3 +49,10 @@ test('night mine: never from a box deep underground',()=>{
  assert.equal(deepBox(41,15,64),false,'a ravine floor under the open sky');
  assert.equal(deepBox(-60,0,undefined),false,'no surface anchor yet');
 });
+test('recipes: with no variant the bag pays for as-is, every variant is tried (mixed planks)',()=>{
+ const w=Object.create(Worker.prototype);
+ const b={recipesFor:()=>[],recipesAll:(id)=>[{id,all:true}]};
+ assert.deepEqual(w.recipeVariants(b,5,null),[{id:5,all:true}]);
+ b.recipesFor=()=>[{id:5}];assert.deepEqual(w.recipeVariants(b,5,null),[{id:5}],'a fitting variant wins');
+ assert.deepEqual(w.recipeVariants({recipesFor:()=>[]},5,null),[],'no recipesAll: nothing');
+});

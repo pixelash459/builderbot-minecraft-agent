@@ -940,6 +940,9 @@ export class Autopilot{
     this.log('Autopilot: sunset - finishing the stone kit first ('+kit.item+')');this.submit('stone',kit);
     return;
    }
+   // Round 56 (round-55 hard2: a mob cave at y=47, then the night shelter 38 ms later sealed on
+   // the mark - the escape was never submitted): a pending escape climb goes before the shelter.
+   if(nightJob&&this.escapeDark){this.escapeDark=false;this.submit('escape',{type:'ascend',y:escapeY(this.lastSurfaceY)});return;}
    const night=nightJob&&this.nightKeyFree(b)&&nightJob;
    if(night){
     this.lastNightKey=String(b.time?.day); // once per day even if the submit loses the race
@@ -995,6 +998,7 @@ export class Autopilot{
    const kit=this.sunsetKit(b,todNow);
    if(kit){this.log('Autopilot: sunset - finishing the stone kit first ('+kit.item+')');this.submit('stone',kit);return;}
   }
+  if(nightJob&&this.escapeDark){this.escapeDark=false;this.submit('escape',{type:'ascend',y:escapeY(this.lastSurfaceY)});return;} // round 56
   const night=nightJob&&this.nightKeyFree(b)&&nightJob;
   if(night){
    this.lastNightKey=String(b.time.day);

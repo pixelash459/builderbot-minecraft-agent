@@ -3245,6 +3245,16 @@ export class Worker extends EventEmitter {
  // PER SPECIES (sticks: oak, dark_oak, birch, ...), recipesFor(...)[0] is just the first,
  // and craftConfirmed places ingredients by exact id - a dark-oak kit with an oak-first
  // variant threw 'Missing ingredient' forever (measured: soak sticks stayed 0 in all runs).
+ // Round 55 (round-55 soak: `craft shield` x18 in 4 min, `Missing ingredients or a nearby crafting
+ // table`, a table in reach): mineflayer's recipesFor only returns variants the bag pays for as
+ // they are - the shield has one variant per wood, so 3 oak + 4 birch planks got none and the
+ // round-35 mixed-plank fill never saw a recipe. With none, every variant (recipesAll) goes to
+ // usableRecipe, which fills the plank cells from the held species.
+ recipeVariants(b,id,table){
+  const fit=b.recipesFor(id,null,1,table)||[];
+  if(fit.length||typeof b.recipesAll!=='function')return fit;
+  try{return b.recipesAll(id,null,table)||[];}catch{return [];}
+ }
  usableRecipe(b,variants,table){
   const plankIds=new Set(Object.values(b.registry.itemsByName).filter(i=>/_planks$/.test(i.name)).map(i=>i.id));
   const count=id=>this.count(b.registry.items[id]?.name);
@@ -3297,11 +3307,11 @@ export class Worker extends EventEmitter {
      try{await this.walk(table.position,token,2,15);}catch(e){this.check(token);}
      table=b.findBlock({matching:b.registry.blocksByName.crafting_table.id,maxDistance:6});
     }
-    let picked=this.usableRecipe(b,b.recipesFor(item.id,null,1,table),table);
+    let picked=this.usableRecipe(b,this.recipeVariants(b,item.id,table),table);
     if(!picked&&!table){
      const provisioned=await this.ensureTable(token);
      table=provisioned.block;placedAt=provisioned.created||placedAt;
-     picked=this.usableRecipe(b,b.recipesFor(item.id,null,1,table),table);
+     picked=this.usableRecipe(b,this.recipeVariants(b,item.id,table),table);
     }
     if(table)usedTable=table;
     if(!picked)throw Error('Missing ingredients or a nearby crafting table');
@@ -3364,7 +3374,7 @@ export class Worker extends EventEmitter {
    this.leftTable=null;
   }
   if(!this.count('crafting_table')){
-   const picked=this.usableRecipe(b,b.recipesFor(b.registry.itemsByName.crafting_table.id,null,1,null),null);
+   const picked=this.usableRecipe(b,this.recipeVariants(b,b.registry.itemsByName.crafting_table.id,null),null);
    if(!picked)throw Error('Missing ingredients: need a crafting table, or 4 planks to make one');
    const before=this.count('crafting_table');
    await craftConfirmed(b,this.withSubstitutions(picked.recipe,picked.subst),null,()=>this.check(token));
