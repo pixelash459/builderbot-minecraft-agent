@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {EventEmitter} from 'node:events';
 import {jobSchema,validateBlueprint} from './schema.js';
-import {Ledger,StorageIndex,storePlan,storageSpots,categoryOf} from './storage.js';
+import {Ledger,StorageIndex,storePlan,storageSpots,categoryOf,spareTool} from './storage.js';
 import {installMovementFix,installWeatherFix} from './compat.js';
 import {eatMeal,guardEquip,afterInject} from './eating.js';
 import {creeperSwell} from './creeper.js';
@@ -1645,7 +1645,8 @@ export class Worker extends EventEmitter {
     await this.guardShelter(job,token,origin);
     const tod=dayTicks(b);
     // Habit 4: use the night - a staircase mine under the box, back before dawn.
-    if(!job.nightMined&&nightMineWanted({tod,pod:job.pod,pickaxe:b.inventory.items().some(i=>/^(stone|iron|diamond|netherite)_pickaxe$/.test(i.name)),blocks:this.shelterStock(true),enabled:this.config?.nightMine!==false,health:b.health})){
+    // Round 54: no night mine from a box in a marked hazard (a mob cave): it walked back down the cave.
+    if(!job.nightMined&&!this.nearHazard?.(b.entity.position)&&nightMineWanted({tod,pod:job.pod,pickaxe:b.inventory.items().some(i=>/^(stone|iron|diamond|netherite)_pickaxe$/.test(i.name)),blocks:this.shelterStock(true),enabled:this.config?.nightMine!==false,health:b.health})){
      job.nightMined=true;this.save();
      let r=null;
      try{r=await this.nightMine(job,token,origin);}catch(e){this.check(token);this.log('Night mine: '+e.message);}
@@ -3568,7 +3569,8 @@ export class Worker extends EventEmitter {
   for(const [cat,items] of Object.entries(byCat)){
    this.check(token);
    if(noChest&&!this.storage.chestFor(cat))continue; // one 'no chest' reason per store
-   const left=items.map(p=>({...p}));
+   const now=this.held(),left=items.filter(p=>(now[p.item]||0)>0).map(p=>({...p,count:Math.min(p.count,now[p.item]),orig:Math.min(p.count,now[p.item])})); // round 54: tossed or used since the plan
+   if(!left.length)continue;
    for(let tries=0;tries<3&&left.some(p=>p.count>0);tries++){
     let entry=this.storage.chestFor(cat);
     if(entry){const bl=b.blockAt(pos(entry));if(bl&&bl.name!=='chest'){this.storage.forget(entry);entry=null;}}
@@ -3577,7 +3579,7 @@ export class Worker extends EventEmitter {
     const full=await this.fillChest(at,cat,left,token);
     if(!full)break;
    }
-   for(const p of items){const moved=p.count-(left.find(q=>q.item===p.item)?.count||0);if(moved>0)done[p.item]=(done[p.item]||0)+moved;}
+   for(const q of left){const moved=q.orig-q.count;if(moved>0)done[q.item]=(done[q.item]||0)+moved;}
   }
   for(const [item,n] of Object.entries(done))this.ledger.take(item,n);
   try{fs.writeFileSync(path.join(this.root,'data/ledger.json'),JSON.stringify(this.ledger));}catch{}
@@ -3597,6 +3599,15 @@ export class Worker extends EventEmitter {
     const need=Math.ceil((8-planksOf())/4);
     // Round 53 (round-52 soak: 3 stores, each `no chest held, 1-2 planks, no logs for more`): with
     // room in the bag, chop the logs for the first chest (a short surface gather near the base).
+    // Round 54 (round-53 normal2: the store ran with 1 free slot, so no chop): spare wooden and
+    // golden tools (a better tier of the same tool held) are tossed first to make room.
+    if((!log||this.count(log.name)<need)&&b.inventory.emptySlotCount()<3){
+     const held=this.held();
+     for(const it of b.inventory.items().filter(i=>spareTool(i.name,held))){
+      if(b.inventory.emptySlotCount()>=3)break;
+      this.check(token);try{await b.tossStack(it);this.log('Store: tossed a spare '+it.name+' to make room');}catch{}
+     }
+    }
     if((!log||this.count(log.name)<need)&&b.inventory.emptySlotCount()>=3){
      this.log('Store: no chest and '+planksOf()+' planks; chopping '+need+' logs for one');
      try{await this.gather({spec:{type:'gather',block:'log',count:need,radius:32,surface:true,belowFoots:true}},token);}catch(e){this.check(token);this.log('Store: log gather stopped ('+String(e.message).slice(0,60)+')');}

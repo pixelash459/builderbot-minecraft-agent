@@ -87,3 +87,15 @@ test('store: with room in the bag, logs are chopped for the first chest',async()
  assert.deepEqual(did,['log x2','oak_planks x8','chest x1']);
  assert.equal(w.storage.find('cobblestone')[0].count,68);
 });
+test('store: a full bag tosses spare wooden tools to make room for the log chop',async()=>{
+ const {w,inv}=setup([['cobblestone',100],['wooden_pickaxe',1],['stone_pickaxe',1],['wooden_sword',1],['iron_sword',1]],{cobblestone:100});
+ w.bot._free=1;const tossed=[];
+ w.bot.tossStack=async it=>{tossed.push(it.name);it.count=0;w.bot._free++;};
+ w.gather=async()=>{inv.push({name:'oak_log',count:2,type:92,metadata:0,slot:32});};
+ w.craft=async job=>{if(job.spec.item==='oak_planks'){inv.find(s=>s.name==='oak_log').count-=2;inv.push({name:'oak_planks',count:8,type:93,metadata:0,slot:33});}
+  if(job.spec.item==='chest'){inv.find(s=>s.name==='oak_planks').count-=8;inv.push({name:'chest',count:1,type:91,metadata:0,slot:31});}};
+ await w.store({spec:{type:'store'}},1);
+ assert.deepEqual(tossed.sort(),['wooden_pickaxe','wooden_sword']);
+ assert.equal(inv.find(s=>s.name==='stone_pickaxe').count,1,'the better tool stays');
+ assert.equal(w.storage.chests.length,1);
+});

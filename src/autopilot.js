@@ -927,7 +927,10 @@ export class Autopilot{
    // A running craft takes seconds and is never cut (round 4: the kit stopped at sunset).
    // A queued craft is a kit craft about to start (seconds): the shelter waits for it too,
    // or the survival pump would run the shelter first and the kit never.
-   const busy=(active.status==='running'&&['fight','eat','sleep','shelter','craft'].includes(active.spec?.type))||(active.status==='queued'&&active.spec?.type==='craft');
+   // Round 54 (round-53 hard1: the mob-cave climb from y=52 was cancelled 39 s in for the night
+   // shelter, sealed at y=57 in the cave column, and the night mine walked back down): an ascend
+   // finishes first; the shelter follows on the next tick.
+   const busy=(active.status==='running'&&['fight','eat','sleep','shelter','craft','ascend'].includes(active.spec?.type))||(active.status==='queued'&&active.spec?.type==='craft');
    const nightJob=!busy&&nightJobFor(dayTicks(b),this.bedForNight(b),this.crowdNear(b));
    // Round 5 hard1: a bed-prep sheep hunt ran into sunset, this branch sent the shelter
    // straight away and the grace kit (idle branch only) never ran - no furnace, 19 cobble.

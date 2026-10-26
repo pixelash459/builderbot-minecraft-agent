@@ -2115,3 +2115,13 @@ The round-52 soak: iron picks on 4 of 6 (normal 633/633/602, hard1 391), the sto
 - **Morning in a cave shelter climbs out through the roof** (`caveMorning`): a sealed box with no sky over it and `CAVE_EXIT_CROWD` (3)+ hostiles within `CAVE_EXIT_NEAR` (24) is left with an ascend from inside, and the cave is marked; only when the climb gains under 3 blocks does it open up as before. (Round-52 hard2 opened up at tod 455 with the nearest hostile 16.3 away and died 26 s later.)
 - **Flowers and fixtures are not placement cells** (`place-support.js` `PLACE_BLOCKER`): saplings, mushrooms, flowers, pink petals, wildflowers, leaf litter, berry bushes, cane, torches, signs, buttons, rails, carpets... are refused by the server, so `placeableInto` skips them; only grass, ferns, dead bushes, vines, snow layers, seagrass and fire are replaced. Petals and the common flowers joined `SOFT_BREAK`, so a placement with no free cell clears one by hand.
 - **The first storage chest's logs are chopped** when the bag has 3+ free slots and the held logs and planks cannot make 8 planks (`Store: no chest and N planks; chopping K logs for one`).
+
+## Round 54 (2026-10-26)
+
+The round-53 soak: **0 deaths**, iron picks on 4 of 6 (normal 602/692/783, hard3 602). One mob cave was logged (hard1, `6 hostiles within 24 at (1, 52, 96)`), and the bot did not die there - but its climb out was cancelled 39 s in for the night shelter, which sealed at y=57 in the cave column, and the night mine walked back down it. The one store ran with 1 free slot, so the log chop never ran. All six runs ended with wooden tools beside better ones. One table placement failed on `lilac`.
+
+- **An ascend finishes before the night shelter** (`busy` in the night branch includes `ascend`): the shelter is submitted on the next tick after the climb.
+- **No night mine from a box in a marked hazard** (`nearHazard`, which covers mob caves and the deep dark).
+- **A full bag makes room for the storage chest**: with under 3 free slots and no logs or planks for a chest, spare wooden and golden tools (`spareTool`: a better tier of the same tool held) are tossed first (`Store: tossed a spare ...`). The store skips plan items that are no longer held, and only counts what it actually moved.
+- **Tall flowers** (lilac, rose bush, peony, pitcher plant) joined `PLACE_BLOCKER`.
+- Not changed yet: hard1/hard2 held 2-3 ore and never smelted before night; normal3 was boxed in under a ceiling at (-75, 59, 36) for its last minutes (`Pillar: ceiling`, `no way to stair out`); normal2's diamond trip lost the iron pick at y=-52.
