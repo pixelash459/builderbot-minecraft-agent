@@ -14,6 +14,7 @@ import {yawToward} from './heading.js';
 import {craftConfirmedRetry as craftConfirmed} from './crafting.js';
 import {survey} from './observe.js';
 import {dayTicks,isNight} from './daytime.js';
+import {installProvoked,provoked} from './provoked.js';
 import {Autopilot,escapeY} from './autopilot.js';
 import {SMELTING} from './smelting.js';
 import {buildChain,BREED_FOOD} from './howto.js';
@@ -744,7 +745,7 @@ export class Worker extends EventEmitter {
  connect(){
   if(this.bot)return;
   const bot=this.bot=mineflayer.createBot({...this.config.server,hideErrors:true});
-  installMovementFix(bot);installWeatherFix(bot);this.trackMeals(bot);guardEquip(bot);
+  installMovementFix(bot);installWeatherFix(bot);this.trackMeals(bot);guardEquip(bot);installProvoked(bot,m=>this.log(m));
   bot.loadPlugin(pathfinder);bot.loadPlugin(toolPackage.plugin);
   bot.once('spawn',()=>{this.ready=true;installToolWear(bot);if(!bot._earnHook){bot._earnHook=true;bot.on('playerCollect',(collector,collected)=>{try{if(collector!==bot.entity)return;const it=collected?.getDroppedItem?.();if(it)this.earn(it.name,it.count);}catch{}});}if(!bot.inventory._lossWatch){bot.inventory._lossWatch=true;watchToolLoss(bot,m=>this.log(m));}const movement=this.movements=this.normalMovements(bot);bot.pathfinder.setMovements(movement);bot.pathfinder.searchRadius=128;if(!bot._ledgeGuard){bot._ledgeGuard=true;let last=0;const fall={};const gait=newGait();bot.on('physicsTick',()=>{try{const g=gaitTick(bot,gait,Date.now());if(g)this.log(g);if(ledgeGuard(bot)&&Date.now()-last>5000){last=Date.now();this.log('Ledge guard: stopped at '+bot.entity.position.floored()+' (a '+LEDGE_DROP+'+ drop ahead)');}const f=fallWatch(bot,fall);if(f)this.log('Fall: dropping from '+new Vec3(f.from.x,f.from.y,f.from.z).floored()+' (job '+((this.jobs||[]).find(j=>j.status==='running')?.spec?.type||'none')+', pathing '+!!bot.pathfinder?.isMoving?.()+', sprint '+!!bot.getControlState?.('sprint')+')');}catch{}});}bot.pathfinder.LOSWhenPlacingBlocks=false;bot.pathfinder.thinkTimeout=10000;/* round 27: 5 s timed out every night-mine climb home (`Took to long to decide path to goal!`) *//* round 25: its returningPos is never cleared by a reset and wedged all pathing */// in blocks: bounds searches for unreachable goals; legit paths may still cost up to goal distance + 128
   if(!this.trackersTimer){ // tracker refresh + preemption resume + idle armour, port of the reflex cadence
@@ -1894,13 +1895,13 @@ export class Worker extends EventEmitter {
  }
  hostilesWithin(r){
   const b=this.bot,me=b.entity&&b.entity.position;if(!me)return 0;
-  return Object.values(b.entities||{}).filter(e=>e&&e!==b.entity&&e.type==='hostile'&&e.position&&e.isValid!==false&&e.position.distanceTo(me)<=r).length;
+  return Object.values(b.entities||{}).filter(e=>e&&e!==b.entity&&(e.type==='hostile'||provoked(b,e))&&e.position&&e.isValid!==false&&e.position.distanceTo(me)<=r).length;
  }
  nearestHostile(){
   const b=this.bot,me=b.entity&&b.entity.position;
   if(!me)return Infinity;
   let best=Infinity;
-  for(const e of Object.values(b.entities||{}))if(e&&e!==b.entity&&e.type==='hostile'&&e.position&&e.isValid!==false)best=Math.min(best,e.position.distanceTo(me));
+  for(const e of Object.values(b.entities||{}))if(e&&e!==b.entity&&(e.type==='hostile'||provoked(b,e))&&e.position&&e.isValid!==false)best=Math.min(best,e.position.distanceTo(me));
   return best;
  }
  // Shelter blocks held beyond the stone kit's cobble reserve (all of them with reserve=true).

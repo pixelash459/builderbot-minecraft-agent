@@ -27,3 +27,33 @@ test('round 61: a pillar that never rises logs what it stood on and held',async(
  assert.equal(ok,false);
  assert.ok(w.logs.some(m=>/^Pillar: no rise in 3 jump-places at y=12 \(held dirt, under deepslate/.test(m)),w.logs.join(' | '));
 });
+import {EventEmitter} from 'node:events';
+import {installProvoked,provoked,PROVOKED_MS} from '../src/provoked.js';
+import {getHostiles} from '../src/chains/combatPolicy.js';
+
+// Round 61 (round-60 soak: `slain by Polar Bear`, no Mob Defense line before it): a mob that
+// hurts the bot is a threat, and a polar bear mother near her cub is one on sight.
+test('round 61: a passive-filed mob that hits the bot becomes a hostile for Mob Defense',()=>{
+ const bot=new EventEmitter(),logs=[];
+ bot.entity={position:new Vec3(0,64,0)};
+ const bear={id:7,name:'polar_bear',type:'animal',position:new Vec3(2,64,0),metadata:[]};
+ bot.entities={1:bot.entity,7:bear};
+ installProvoked(bot,m=>logs.push(m));
+ assert.equal(getHostiles(bot,null).length,0,'a lone adult bear is left alone');
+ bot.emit('entityHurt',bot.entity,bear);
+ assert.deepEqual(getHostiles(bot,null),[bear]);
+ assert.ok(/^Threat: polar_bear .* hit the bot; treating it as hostile for 60 s$/.test(logs[0]),logs[0]);
+ assert.equal(provoked(bot,bear,Date.now()+PROVOKED_MS+1),false,'it calms down after a minute');
+ bot.emit('entityHurt',{id:9},bear);
+ assert.equal(logs.length,1,'another entity hurt is not the bot');
+});
+test('round 61: an adult polar bear with a cub close by is a threat on sight',()=>{
+ const bot={entity:{position:new Vec3(0,64,0)}};
+ const mum={id:7,name:'polar_bear',type:'animal',position:new Vec3(6,64,0),metadata:[]};
+ const cub={id:8,name:'polar_bear',type:'animal',position:new Vec3(9,64,0),metadata:{16:true}};
+ bot.entities={7:mum,8:cub};
+ assert.equal(provoked(bot,mum),true);
+ assert.equal(provoked(bot,cub),false,'the cub itself is no threat');
+ mum.position=new Vec3(20,64,0);
+ assert.equal(provoked(bot,mum),false,'a mother out of reach is left alone');
+});

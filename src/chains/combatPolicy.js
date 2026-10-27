@@ -6,6 +6,7 @@
 // Original AltoClef (https://github.com/gaucho-matrero/altoclef,
 // commit af22e3bc2f03dde45da703f5f7535baae18ea486), MIT License,
 // Copyright (c) 2020 Adris Jautakas. See third_party/ALTOCLEF_LICENSE.
+import {provoked} from '../provoked.js';
 import {dist} from './settings.js';
 import {dayTicks} from '../daytime.js';
 const WEAPON_RE=/^(wooden|golden|stone|iron|diamond|netherite)_(sword|axe|pickaxe)$/;
@@ -58,7 +59,7 @@ export const getHostiles=(bot,ctx)=>{
   try{return (ctx.trackers.getHostiles()||[]).filter(Boolean).filter(e=>!leaveAlone(e,bot));}catch{}
  }
  return Object.values((bot&&bot.entities)||{})
-  .filter(e=>e&&e!==bot.entity&&e.type==='hostile'&&e.position&&e.isValid!==false&&!leaveAlone(e,bot));
+  .filter(e=>e&&e!==bot.entity&&(e.type==='hostile'||provoked(bot,e))&&e.position&&e.isValid!==false&&!leaveAlone(e,bot));
 };
 export const nearestDistance=(hostiles,bot)=>hostiles.reduce((m,e)=>Math.min(m,distanceTo(e,bot)),Infinity);
 export const meleeCount=(hostiles,bot,range=8)=>hostiles.filter(e=>isMeleeMob(e.name)&&withinRange(e,bot,range)).length;
