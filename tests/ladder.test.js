@@ -134,3 +134,25 @@ test('autopilot: two trips that never reach the table forget it and craft on',()
   assert.equal(worker.leftTable,null);
  }finally{fs.rmSync(root,{recursive:true,force:true});}
 });
+test('round 58: a craft short only of sticks gets 4 sticks crafted first, once',async()=>{
+ const inv={oak_planks:8,stick:1,cobblestone:10,stone_shovel:0},logs=[],sub=[];
+ const w={
+  bot:{registry:{itemsByName:{stone_shovel:{id:20},stick:{id:7}},blocksByName:{crafting_table:{id:9}}},entity:{position:new Vec3(0.5,64,0.5)},
+   inventory:{items:()=>Object.entries(inv).map(([name,count])=>({name,count}))},
+   findBlock(){return {position:new Vec3(1,64,0),name:'crafting_table'};},
+   recipesFor(id){return inv.stick>=2?[{id}]:[];},
+   recipesAll(){return [{id:20,delta:[{id:7,count:-2},{id:4,count:-1},{id:20,count:1}]}];}},
+  count(n){return inv[n]||0;},save(){},check(){},update(){},log(m){logs.push(m);},earn(){},
+  recipeVariants:Worker.prototype.recipeVariants,
+  usableRecipe(b,list){return list.find(r=>!r.delta)?{recipe:list[0],subst:{}}:null;},withSubstitutions:r=>r,
+  async walk(){},async ensureTable(){return {};},async tossSpareTools(){},
+  async craft(job){sub.push(job.spec.item+' x'+job.spec.count);inv.stick+=4;inv.oak_planks-=2;}
+ };
+ await Worker.prototype.craft.call(w,{spec:{type:'craft',item:'stone_shovel',count:1,keepTable:true}},0).catch(()=>{});
+ assert.deepEqual(sub,['stick x4']);
+ assert.ok(logs.some(l=>/stone_shovel needs 2 sticks and 1 are held; crafting 4 first/.test(l)),JSON.stringify(logs));
+ // no planks: the old error, no stick craft
+ inv.stick=1;inv.oak_planks=0;sub.length=0;
+ await assert.rejects(Worker.prototype.craft.call(w,{spec:{type:'craft',item:'stone_shovel',count:1}},0),/Missing ingredients/);
+ assert.deepEqual(sub,[]);
+});

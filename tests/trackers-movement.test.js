@@ -402,3 +402,18 @@ test('bounded memory: blacklists prune, tracker caches stay capped, run RSS stay
  const growth=process.memoryUsage().rss-START_RSS;
  assert.ok(growth<512*1024*1024,'RSS grew by '+(growth>>20)+' MB during the run');
 });
+
+test('round 58: a lava target the bot gains no ground on in 1.5 s is skipped for the next one',()=>{
+ const {bot}=makeBot({pos:[0,64,0],blocks:{'0,64,0':'lava','0,63,0':'lava','4,63,0':'stone','4,64,0':'air','-6,63,0':'stone','-6,64,0':'air'}});
+ const ctx=makeCtx(bot),logs=[];ctx.worker={log:m=>logs.push(m)};
+ const task=new EscapeFromLavaTask();task.onStart(bot,ctx);
+ const real=Date.now;let t=1000;Date.now=()=>t;
+ try{
+  task.onTick(bot,ctx);
+  assert.ok(logs.some(l=>/^Lava: heading for 4,64,0/.test(l)),JSON.stringify(logs));
+  t+=1600;task.onTick(bot,ctx); // stuck in place
+  assert.ok(logs.some(l=>/no ground gained toward 4,64,0/.test(l)),JSON.stringify(logs));
+  t+=100;task.onTick(bot,ctx);
+  assert.ok(logs.some(l=>/^Lava: heading for -6,64,0/.test(l)),JSON.stringify(logs));
+ }finally{Date.now=real;}
+});

@@ -137,12 +137,25 @@ test('round 57: a category with no chest and no way to make one goes into a ches
  assert.ok(w.logs.some(l=>/no misc chest; putting misc in the stone chest/.test(l)),JSON.stringify(w.logs));
 });
 test('round 57: crafting a stone tool drops the wooden one of the same kind',async()=>{
- const inv=[{name:'wooden_pickaxe',count:1},{name:'wooden_sword',count:1},{name:'stone_pickaxe',count:1}];
+ const inv=[{name:'wooden_pickaxe',count:1},{name:'wooden_sword',count:1},{name:'stone_pickaxe',count:1},{name:'wooden_axe',count:1},{name:'stone_axe',count:1}];
  const w=Object.create(Worker.prototype),tossed=[];
  Object.assign(w,{logs:[],log(m){this.logs.push(m);},check(){},count:n=>inv.filter(s=>s.name===n).reduce((a,s)=>a+s.count,0),
   bot:{inventory:{items:()=>inv.filter(s=>s.count>0)},tossStack:async it=>{tossed.push(it.name);it.count=0;}}});
  await w.tossSpareTools('stone_pickaxe',1);
- assert.deepEqual(tossed,['wooden_pickaxe'],'the wooden sword stays until a better sword');
+ assert.deepEqual(tossed,['wooden_pickaxe','wooden_axe'],'round 58: every spare kind; the wooden sword stays until a better sword');
  assert.ok(w.droppedJunk.has('wooden_pickaxe'),'not picked back up');
- await w.tossSpareTools('oak_planks',1);assert.equal(tossed.length,1);
+ await w.tossSpareTools('oak_planks',1);assert.equal(tossed.length,2);
+});
+test('round 58: a place onto pink petals breaks them by hand first',async()=>{
+ const cells={'5,64,5':{name:'pink_petals',boundingBox:'empty'}},logs=[],dug=[];
+ const w=Object.create(Worker.prototype);
+ const bot={registry:{blocksByName:{chest:{}},itemsByName:{chest:{}}},
+  blockAt:p=>({position:p,...(cells[p.x+','+p.y+','+p.z]||(p.y<64?{name:'stone',boundingBox:'block'}:{name:'air',boundingBox:'empty'}))}),
+  dig:async bl=>{dug.push(bl.name);delete cells[bl.position.x+','+bl.position.y+','+bl.position.z];},
+  pathfinder:{setMovements(){}}};
+ Object.assign(w,{bot,logs,log(m){logs.push(m);},check(){},walk:async()=>{},movements:{exclusionAreasStep:[]}});
+ await w.place({spec:{type:'place',block:'chest',position:{x:5,y:64,z:5}}},1).catch(e=>logs.push('ERR '+e.message));
+ assert.deepEqual(dug,['pink_petals']);
+ assert.ok(logs.some(l=>/Place: broke the pink_petals/.test(l)),JSON.stringify(logs));
+ assert.ok(!logs.some(l=>/occupied by pink_petals/.test(l)),JSON.stringify(logs));
 });

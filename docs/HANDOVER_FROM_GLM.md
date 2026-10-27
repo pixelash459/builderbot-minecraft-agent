@@ -2155,3 +2155,13 @@ The round-56 soak: **iron picks on 6 of 6** for the first time (normal 784/542/5
 - **Overflow storage** (worker `store`): a category with no chest, when no new chest can be made, goes into any storage chest with room; that chest keeps its own category.
 - **Cave mornings only under the surface** (`caveMorning`): a box at or above the surface anchor minus 2 is not a cave (a sealed box reads sky 0 anywhere).
 - Not changed yet: the stone shovel's 3-then-skip (`Missing ingredients`) on normal1 and normal3 with 6-8 planks and 4 sticks; no bed slept in; hard3 sealed on an expired mob-cave mark; no diamonds.
+
+## Round 58 (2026-10-27)
+
+The round-57 soak: iron picks on 5 of 6 (normal 874/904/753, hard 482/none/602; hard2 sealed its night box before smelting), 2 diamonds on normal2, 1 death (normal2 burned in lava at (93, 67, 139), 10.5 s after `in lava; escaping`, nothing logged in between). The drowning latch was not exercised. Wooden tools were dropped on every stone and iron craft, but every run still ended with a wooden tool beside a better one (a later wood step made another, or the bot walked over the dropped one). `stone_shovel` failed 3 times and was skipped, three times on normal2: the sword and the axe just before it took 3 of the 4 sticks. normal3's home chest hit `Cannot place at (73, 78, 154): occupied by pink_petals` six times. Storage made a stone chest and a misc chest on normal2; nothing under the keep amounts went in.
+
+- **Lava escape that changes course** (`escape-from-lava-task.js`): the target is logged (`Lava: heading for x,y,z`), a target the bot gains no ground on in 1.5 s is skipped for the next one (`findSafeBlock` takes a skip set), and forward stays held even with no target (`no safe block within 16; scrambling forward`).
+- **Sticks before the craft** (worker `craft`): a recipe short only of sticks, with 2+ planks held, gets 4 sticks crafted first, once per job (`Craft: <item> needs N sticks and M are held; crafting 4 first`).
+- **Every spare tool goes** (worker `tossSpareTools`): a stone-or-better craft drops every wooden or golden tool that has a better one of its kind held, not only the kind just made.
+- **Place breaks a plant in the cell first** (worker `place`): flowers, petals, saplings (`PLACE_BLOCKER`, not torches, signs, rails, buttons, plates, banners, carpets or redstone) are broken by hand.
+- Not changed yet: the hard runs' night boxes seal back underground near the mob-cave marks after the escape reached the surface; a dropped tool can still be walked over and picked up; no bed slept in; no diamond pick.

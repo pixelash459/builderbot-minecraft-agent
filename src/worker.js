@@ -1087,7 +1087,14 @@ export class Worker extends EventEmitter {
   await this.walk(target,token,3);
   const existing=b.blockAt(target);
   if(existing?.name===s.block)return;
-  if(!empty(existing))throw Error('Cannot place at '+target+': occupied by '+(existing?.name||'unloaded block'));
+  // Round 58 (round-57 normal3: `Cannot place at (73, 78, 154): occupied by pink_petals` x6 for
+  // the home chest): a flower, petals or a sapling in the cell is broken by hand first.
+  if(existing&&existing.boundingBox!=='block'&&PLACE_BLOCKER.test(existing.name)&&!/torch|sign|rail|button|pressure_plate|banner|carpet|redstone|tripwire/.test(existing.name)){
+   try{await b.dig(existing,true);}catch(e){this.check(token);}
+   if(empty(b.blockAt(target)))this.log('Place: broke the '+existing.name+' at '+target+' first');
+  }
+  const cell=b.blockAt(target);
+  if(!empty(cell))throw Error('Cannot place at '+target+': occupied by '+(cell?.name||'unloaded block'));
   const avoid=block=>block.position.x===target.x&&block.position.z===target.z?100:0;
   this.movements.exclusionAreasStep.push(avoid);b.pathfinder.setMovements(this.movements);
   try{
@@ -3317,6 +3324,18 @@ export class Worker extends EventEmitter {
      picked=this.usableRecipe(b,this.recipeVariants(b,item.id,table),table);
     }
     if(table)usedTable=table;
+    // Round 58 (round-57 normal2: `stone_shovel` x3 then skipped, three times - the sword and the
+    // axe just before it took 3 of the 4 sticks): a recipe short only of sticks gets 4 crafted first.
+    if(!picked&&s.item!=='stick'&&!job.sticksCrafted){
+     const stick=b.registry.itemsByName.stick?.id,need=Math.max(0,...this.recipeVariants(b,item.id,table).map(r=>-((r.delta||[]).find(d=>d.id===stick)?.count||0)));
+     const planks=b.inventory.items().filter(i=>/_planks$/.test(i.name)).reduce((a,i)=>a+i.count,0);
+     if(need>this.count('stick')&&planks>=2){
+      job.sticksCrafted=true;
+      this.log('Craft: '+s.item+' needs '+need+' sticks and '+this.count('stick')+' are held; crafting 4 first');
+      try{await this.craft({spec:{type:'craft',item:'stick',count:4}},token);}catch(e){this.check(token);}
+      continue;
+     }
+    }
     if(!picked)throw Error('Missing ingredients or a nearby crafting table');
     const before=this.count(s.item);
     await craftConfirmed(b,this.withSubstitutions(picked.recipe,picked.subst),table,()=>this.check(token));this.check(token);
@@ -3348,7 +3367,9 @@ export class Worker extends EventEmitter {
   const b=this.bot,m=/^(stone|iron|diamond|netherite)_(sword|axe|pickaxe|shovel|hoe)$/.exec(made||'');
   if(!m||!this.count(made))return;
   const held={};for(const i of b.inventory.items())held[i.name]=(held[i.name]||0)+i.count;
-  for(const it of b.inventory.items().filter(i=>i.name.endsWith('_'+m[2])&&spareTool(i.name,held))){
+  // Round 58 (round-57: a wooden axe beside a stone axe at the end of every run - the stone axe
+  // was crafted before a later wood step made another): every spare kind goes, not only this one.
+  for(const it of b.inventory.items().filter(i=>spareTool(i.name,held))){
    this.check(token);
    try{await b.tossStack(it);(this.droppedJunk||(this.droppedJunk=new Map())).set(it.name,Date.now());this.log('Craft: dropped the '+it.name+' ('+made+' held)');}catch{}
   }

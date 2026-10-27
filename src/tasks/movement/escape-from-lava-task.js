@@ -31,7 +31,8 @@ export function inLava(bot){
 export function isOnFire(bot){
  try{return !!(bot.entity?.metadata?.[0]&0x01);}catch{return false;}
 }
-export function findSafeBlock(bot,from,radius=16){
+export function findSafeBlock(bot,from,radius=16,skip=null){
+ const skipped=p=>!!skip&&skip.has(p.x+','+p.y+','+p.z);
  const floor=(p)=>bot.blockAt(new Vec3(p.x,p.y-1,p.z));
  const lavaAdjacent=(p)=>{
   for(const d of [[1,0,0],[-1,0,0],[0,0,1],[0,0,-1]])if(isLava(bot.blockAt(new Vec3(p.x+d[0],p.y,p.z+d[1]))))return true;
@@ -44,7 +45,7 @@ export function findSafeBlock(bot,from,radius=16){
    for(let dy=2;dy>=-1;dy--){
     const p=new Vec3(Math.floor(from.x)+dx,Math.floor(from.y)+dy,Math.floor(from.z)+dz);
     const body=bot.blockAt(p);
-    if(!passable(body))continue;
+    if(skipped(p)||!passable(body))continue;
     if(!passable(bot.blockAt(new Vec3(p.x,p.y+1,p.z))))continue;
     const ground=floor(p);
     if(!ground||ground.boundingBox!=='block')continue;
@@ -64,7 +65,7 @@ export function findSafeBlock(bot,from,radius=16){
     const p=new Vec3(Math.floor(from.x)+dx,Math.floor(from.y)+dy,Math.floor(from.z)+dz);
     const ground=bot.blockAt(new Vec3(p.x,p.y-1,p.z));
     const body=bot.blockAt(p);
-    if(isLava(body)||isLava(ground))continue;
+    if(skipped(p)||isLava(body)||isLava(ground))continue;
     if(ground&&ground.boundingBox==='block'&&passable(body))return p;
    }
   }
@@ -77,7 +78,12 @@ export class EscapeFromLavaTask extends CustomBaritoneGoalTask {
   super('EscapeFromLavaTask',{wander:false,navSeconds:4,ctx});
   this.strength=strength;
  }
- onStart(bot,ctx){super.onStart(bot,ctx);this._bucketAttempts=0;this._pouring=null;}
+ onStart(bot,ctx){super.onStart(bot,ctx);this._bucketAttempts=0;this._pouring=null;this._skip=new Set();this._since=null;this._said=null;}
+ // Round 58 (round-57 normal1: `in lava; escaping` twice and dead 10 s later at (93, 67, 139),
+ // nothing logged in between): the target is logged, and a target the bot gains no ground on in
+ // 1.5 s is skipped for the next one. Forward stays held with no target (a hop in place never
+ // reaches the rim).
+ sayLava(ctx,m){if(this._said===m)return;this._said=m;const w=ctx&&ctx.worker;try{w&&w.log&&w.log('Lava: '+m);}catch{}}
  onTick(bot,ctx){
   ctx=move.pickCtx(this,ctx);
   // While IN lava the direct scramble OWNS movement - with NO pathfinder leg: a nav's
@@ -104,14 +110,20 @@ export class EscapeFromLavaTask extends CustomBaritoneGoalTask {
      return null;
     }
    }
-   move.setControls(ctx,{jump:true,sprint:true});
+   move.setControls(ctx,{jump:true,sprint:true,forward:true});
    try{
-    if(!this._safe||Date.now()-(this._safeAt||0)>1000){this._safe=findSafeBlock(bot,bot.entity.position.floored(),16);this._safeAt=Date.now();}
+    if(!this._skip)this._skip=new Set();
+    if(!this._safe||Date.now()-(this._safeAt||0)>1000){this._safe=findSafeBlock(bot,bot.entity.position.floored(),16,this._skip);this._safeAt=Date.now();}
     if(this._safe){
-     const dx=this._safe.x+0.5-bot.entity.position.x,dz=this._safe.z+0.5-bot.entity.position.z;
-     if(Math.hypot(dx,dz)>0.3)bot.look(Math.atan2(-dx,-dz),0,false).catch(()=>{});
-     move.setControls(ctx,{forward:true});
-    }
+     const dx=this._safe.x+0.5-bot.entity.position.x,dz=this._safe.z+0.5-bot.entity.position.z,d=Math.hypot(dx,dz);
+     const key=this._safe.x+','+this._safe.y+','+this._safe.z;
+     if(!this._since||this._since.key!==key){this._since={key,at:Date.now(),d};this.sayLava(ctx,'heading for '+key+' ('+d.toFixed(1)+' away)');}
+     else if(Date.now()-this._since.at>1500){
+      if(this._since.d-d<0.5){this._skip.add(key);this._safe=null;this._since=null;this.sayLava(ctx,'no ground gained toward '+key+'; trying another way out');}
+      else this._since={key,at:Date.now(),d};
+     }
+     if(d>0.3)bot.look(Math.atan2(-dx,-dz),0,false).catch(()=>{});
+    }else this.sayLava(ctx,'no safe block within 16; scrambling forward');
    }catch{}
    return null;
   }
