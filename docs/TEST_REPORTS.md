@@ -9302,3 +9302,447 @@ Interventions 12, resumes 0, deaths 0. All 12 interventions are the wood-step re
 hard3's harness end bag has no wooden, stone, or iron tool, no bed, and no diamond. The ledger file holds dirt 10.
 
 After the stop, the flat world was restored (`level-name=agent-test-world`, `level-type=minecraft\:flat`, `level-seed` empty, `server-ip=0.0.0.0`, `difficulty=peaceful`). The model was still disabled and port 8081 was closed. End of this soak is `2026-10-27T15:01:12.436Z`. Spawn this generation was `[712, 69, -431]`, hard anchor `[777, 71, -344]` light 15, normal anchor `[863, 69, -236]` sky 15. The seed line is `soak seed 6274947974391380586 (anchors scouted from spawn)`. No lava line and no lava death. Two stone-shovel crafts logged the sticks-first line and both completed. Dropped wooden tools came back at the same uses-left. normal1 still ended with a wooden pick, axe, and sword beside stone and iron; normal3 still ended with a wooden pick beside stone picks. Four storage chests on normal2, and nothing under the keep went in. Drowning was logged, one fight resumed with the head already in air, and there was no drowning death. No mob-cave line, no cave morning, and no night mine. Beds were held on normal2 and normal3 and not slept in. Deaths 0. One fall, no stranded line, one canopy pillar that stopped with no blocks held, no warden.
+
+## 2026-10-27 22:04 IST – 2026-10-28 01:14 IST — round 60 soak (bot code `a04c82b`)
+
+The round-59 soak never ran. This soak covers the round-59 and round-60 changes together, on bot code `a04c82b`.
+
+Units first, then one model-off restart, then one six-run soak. No combat and no integration. `git pull --rebase` stashed local `data/` dumps, origin was already at `a04c82b`, and the stash was popped. HEAD for the run is `a04c82b` (`Round 60: report how long the bot has been sealed and safe in its shelter, and let the soak harness skip to the next morning after 150 s safe`).
+
+Unit tests, every `tests/*.test.js` except `resources.test.js`, `--max-old-space-size=2048 --test-timeout=60000 --test-skip-pattern resources`: **665 pass, 0 fail**, 0 skipped, 41527 ms. The live fail count is 0, so this is a pass. The count is 5 higher than the 660 that were current at the round 58 report. The cloud expected count of 656 is lower than this live `node --test` count. `resources.test.js` was not run.
+
+`AGENT_MODEL=off` was in the soak process environment. `SOAK_SEED=20261027` was in that same environment. `SOAK_NIGHT_SKIP` was absent, so the harness default of 150 s applies. Supervisor log first line after the fresh restart, again after the soak's own restart, and again after the flat-world restore, is `model server disabled (config.model.enabled=false): skipping llama-server, saving ~6.5 GB commit`. Port 8081 has nothing listening. One soak, exit 0, 11410 s (22:04:17 IST 27 Oct – 01:14:27 IST 28 Oct, 16:34:17Z–19:44:27Z). `SOAK DONE (clean)`, promoted to `data/soak-results.json` (`clean triple promoted`). Harness interventions 5, resumes 1, deaths 1. Six valid runs, each on the first attempt (`normal1a1` through `hard3a3`). `invalid_attempts` is empty. `errors` is empty. `tod_end` is `day` on all six. The stored run objects have no `timeOfDay` field. Every run header was dawn, clear weather, empty inventory, full vitals. Dashboard window is the bytes after offset 70388254 (3755 dated lines, 16:34:28Z–19:44:12Z). `Autopilot started` / `Autopilot stopped`: normal1 16:39:16Z–17:19:24Z, normal2 17:19:36Z–17:59:47Z (a second start at 17:23:07Z after the death), normal3 17:59:59Z–18:40:12Z, hard1 18:40:26Z–19:01:34Z, hard2 19:01:46Z–19:22:52Z, hard3 19:23:04Z–19:44:09Z. Server log size at soak start was 16650710. The soak was not stopped early. `logs/dashboard-uncaught.log` stayed 2576174.
+
+The world seed is **20261027**, logged as `soak seed 20261027 (anchors scouted from spawn)`, and the soak switched `server.properties` to `level-seed=20261027`, `level-name=agent-soak-world` for the run. The old soak world was deleted and regenerated. Rounds 50–57 were seed 8675309. Round 58 was seed 6274947974391380586. This seed stays from here on. Spawn was not set by hand.
+
+### Scout
+
+`soak seed 20261027 (anchors scouted from spawn)`
+
+`scout base: the spawn at [-42, 66, 129]`
+
+`scout: HARD anchor confirmed (gather completed, canopy light 15) at [-49, 66, 106]`
+
+`scout: NORMAL anchor confirmed (open sky 15, gather completed) at [74, 77, 203]`
+
+The server login is the same stand: `BuilderBot logged in ... at ([minecraft:overworld]-41.5, 66.0, 129.5)`. No biome name is printed. The log names the trees, the water, and the drop by what was gathered and where the walks stopped.
+
+The spawn and the hard anchor are the same height, y=66. The hard anchor is 7 blocks west and 23 south of the spawn, about 24 blocks away, and its confirming light is canopy 15, so the stand is under trees. The wood the runs actually cut is spruce: `spruce_planks` are crafted from 16:39:46Z, and the later chest holds `spruce_log` and `spruce_sapling`. Canopy logs the gathers aimed at around the hard anchor sit at `(-72, 74, 151)`, `(-88, 68, 74)`, `(-122, 73–75, 156)`, `(-144, 75, 68)`, and `(-146, 79, 92)`.
+
+The normal anchor is open sky 15 at y=77, 11 above the spawn, about 116 east and 74 south (about 138 blocks from the spawn, about 157 from the hard anchor). The stand itself is the open-sky reading. The spruce next to it is taller: the first wood job pillars toward `(74, 82, 203)` and `(74, 83, 203)`, and another trunk is `(124, 85, 200)`. A pillar at that stand stops with `no solid block under the feet: snow` at `(71, 77, 203)`. Snow on the ground is the terrain the polar bear later comes from.
+
+Water is in the drowning lines. normal1 swims in open water 1–4 up around `(135, 58–62, 128–130)`, east of the normal anchor and about 16 below it, and does not step out there. A later normal2 swim steps out at `(69, 63, 349)`. A normal1 tunnel turns at water beside `(225, 17, 291)`. hard3's iron tunnel stops on water beside `(-163, 54, 69)`. No `cave_air` string. The underground work is the iron tunnels and one normal3 descent that reaches y=15 and logs `stone failed 3 times deep underground; no cave explore`. The height change is the y=66 spawn, the y=77 normal stand, and the y=85 canopy. The word `mountain` does not appear.
+
+### Rungs
+
+Seconds from the run start. Wood is the harness wooden-pick time. Stone is the harness stone-pick time. Furnace, iron pick, and bed are the harness first-sample times. Ore and ingots are sample peaks. End-state wood and stone flags are false on every run except normal1's wood and stone, and hard2 and hard3's stone. The times below are still the first samples. hard3's ingot peak is 0 because no sample caught an ingot; the iron pick was still crafted at 1054 s.
+
+| run | wood | stone | furnace | iron pick | ore | ingots | diamonds | diamond pick | bed | deaths |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| normal1 | 120 | 211 | 301 | 452 | 7 | 12 | 0 | no | no | 0 |
+| normal2 | 151 | 452 | 572 | 723 | 3 | 8 | 0 | no | no | 1 |
+| normal3 | 30 | 483 | 755 | 935 | 6 | 5 | 0 | no | no | 0 |
+| hard1 | 151 | 211 | 302 | 483 | 6 | 3 | 0 | no | no | 0 |
+| hard2 | 211 | 332 | 422 | 1176 | 8 | 5 | 0 | no | no | 0 |
+| hard3 | 211 | 392 | 512 | 1054 | 3 | 0 | 0 | no | no | 0 |
+
+Food mins 5/4/0 and 15/20/14. Eaten 1/12/0 and 0/0/0. Verdicts: normal "ate 1", "ate 19 (1 failed: Promise timed out. (2 tries))", "no food held (food min 0)"; hard "not hungry enough (food min 15)", "not hungry enough (food min 20)", "no food held (food min 14)". `food_failed` is 0/1/0 and 0/0/0. Sample health at the end of each run is 19, 20, 1, 20, 20, 16. normal3 is the run that ended under 6, at health 1, food 0, position `[147, 81, 400]`. It did not die.
+
+This soak is seed 20261027. Round 58 was seed 6274947974391380586. Rounds 50–57 were seed 8675309. Those were other worlds.
+
+Round 58 on 6274947974391380586 (bot `c980460`): iron picks on 3 of 6, all normal (543/603/813), hard none. Diamonds 0. Deaths 0.
+
+Round 50 on 8675309 (bot `af2e562`): iron picks on 4 of 6, normal 873/542/662, hard none/none/452. Deaths 2.
+
+Round 51 on 8675309 (bot `01ed10c`): iron picks on 3 of 6, normal none/662/602, hard 482/none/none. Deaths 2.
+
+Round 52 on 8675309 (bot `8d0e0f4`): iron picks on 4 of 6, normal 633/633/602, hard 391/none/none. Deaths 2.
+
+Round 53 on 8675309 (bot `d02d0e9`): iron picks on 4 of 6, normal 602/692/783, hard none/none/602. Deaths 0.
+
+Round 54 on 8675309 (bot `d6a2cd4`): iron picks on 4 of 6, normal 632/1144/663, hard 602/none/none. Deaths 4, three of them drowning.
+
+Round 55 on 8675309 (bot `c3648ec`): iron picks on 3 of 6, normal 602/542/602, hard none. Diamonds 3 on normal3. Deaths 1, a drowning.
+
+Round 56 on 8675309 (bot `9654197`): iron picks on 6 of 6, normal 784/542/542, hard 512/512/512. Diamonds 0. Deaths 1, a drowning.
+
+Round 57 on 8675309 (bot `65c6c86`): iron picks on 5 of 6, normal 874/904/753, hard 482/none/602. Diamonds 2 on normal2. Deaths 1, lava.
+
+This soak reached an iron pick on 6 of 6 (normal 452/723/935, hard 483/1176/1054). That is all six, on a new world. Round 58 on the previous seed was 3 of 6 and 0 deaths. Round 57 on 8675309 was 5 of 6 and 1 lava death. Diamonds are 0. No diamond pick. No bed was held. The window has no sleep line and no `Slept`. One `home set` line is a crafting table, quoted under beds. Deaths are 1, a polar bear, on normal2. Round 58 had 0. Round 57 had 1, lava.
+
+### Night skip
+
+`night_skips` per run is 0, 0, 0, 1, 1, 1. The three normal runs freeze the clock (`advance_time` false) and never seal a night box, so there is no night on them to skip. Each hard run sealed one box and the harness skipped that night. There is no second night on a hard run, and no night that reached the clock without a skip.
+
+`operator: night skipped (tod 15223, sealed safe 156 s)` on hard1, harness `at` 754 s.
+
+`operator: night skipped (tod 15238, sealed safe 158 s)` on hard2, harness `at` 754 s.
+
+`operator: night skipped (tod 15200, sealed safe 154 s)` on hard3, harness `at` 753 s.
+
+hard1. Sealed `18:50:24.355Z Shelter: sealed at (-133, 56, 52) (7 blocks placed)`. The skip is 754 s after the 18:40:26.800Z start, at 18:53:00.8Z. Then, the same second:
+
+`18:53:00.873Z Shelter: dawn (tod 1016); staying sealed until the morning is light and clear`
+
+`18:53:00.874Z Shelter: morning (tod 1016, nearest hostile 29.2); opening up`
+
+The box opened 0.07 s after the skip. The next 60 s have no damage line and no death.
+
+hard2. Sealed `19:11:41.844Z Shelter: sealed at (-96, 46, 137) (6 blocks placed)`. The skip is 754 s after the 19:01:46.013Z start, at 19:14:20.0Z. Then:
+
+`19:14:20.471Z Shelter: dawn (tod 1006); staying sealed until the morning is light and clear`
+
+`19:14:20.472Z Shelter: morning (tod 1006, nearest hostile 25.3); opening up`
+
+The box opened 0.5 s after the skip. The next 60 s have no damage line and no death.
+
+hard3. Sealed `19:33:02.656Z Shelter: sealed at (-161, 64, 70) (6 blocks placed)`. The skip is 753 s after the 19:23:04.833Z start, at 19:35:37.8Z. The dawn line is immediate and the open waits:
+
+`19:35:38.006Z Shelter: dawn (tod 1015); staying sealed until the morning is light and clear`
+
+`19:35:57.867Z Shelter: morning (tod 1400, nearest hostile 20.0); opening up`
+
+Nothing is logged between those two lines. The box opened 20.0 s after the dawn line, with the nearest hostile at 20. In the 60 s after the open, a creeper is fought from a pillar and the fight result is `damage taken=0`. No death. `19:36:15.983Z Job: Shelter block remained at -162,64,70` is the only shelter complaint after the open.
+
+No `Shelter: re-seal left` line. No `re-sealing` line. A night with open gaps was not left unskipped, because no such line exists and each sealed night was skipped.
+
+### Surface
+
+Ten `Navigation left the surface` lines. The rejection does not print the gather's start y. The bot's stand on the preceding gather line is quoted where the log has it. A rejected walk does not finish. The log has no line that a wood walk went below its start under open sky and then completed.
+
+`16:39:46.280Z Job: Navigation left the surface at (63, 72, 206)` — normal1 wood. Preceding stand `(73, 78, 203)`, search leg toward logs at `44,75,184`. Next line is a spruce-planks craft. The walk stopped.
+
+`17:22:33.233Z Job: Navigation left the surface at (69, 75, 203)` — normal2 wood. Preceding stand `(71, 77, 203)`, search toward `4,77,212`. The polar bear kill is 7 s later. The walk stopped.
+
+`17:24:28.345Z Job: Navigation left the surface at (-91, 64, 151)` — normal2 wood, after the respawn. Preceding stand `(-73, 70, 151)`, search toward `-122,70,156`. Next line is a spruce-planks craft. The walk stopped.
+
+`18:00:32.411Z Job: Navigation left the surface at (62, 71, 205)` — normal3 wood. Preceding stand `(73, 73, 203)`, search toward `4,73,212`. A new wood gather is submitted. The walk stopped.
+
+`18:04:29.551Z Job: Navigation left the surface at (62, 71, 205)` — normal3 wood, still searching toward `4,77,212` / `4,71,212`. The walk stopped.
+
+`18:20:08.501Z Job: Navigation left the surface at (-9, 35, 149)` — normal3, a log gather submitted by the stone step. Next job is an iron pickup that completes. This walk stopped.
+
+`18:20:25.900Z Job: Navigation left the surface at (-1, 24, 150)` — the same stone-step log gather, then `Fall: dropping from (-1, 24, 150)`.
+
+`18:20:28.607Z Job: Navigation left the surface at (3, 15, 149)` — same gather, then `Autopilot: stone failed 3 times deep underground; no cave explore, retrying in 20 s`.
+
+`18:27:53.451Z Job: Navigation left the surface at (79, 66, 286)` and `18:27:53.909Z Job: Navigation left the surface at (78, 66, 286)` — normal3 food explore whose job json says `surfaceFloor:67`. The walk stopped one block under that floor, and the food step was set aside.
+
+The harness printed no `returned the bot from y=` line and no `returned the bot from below the anchor` line. The wood-step return did not fire. The five interventions are the death resume, the hard3 unstuck, and the three night skips.
+
+### Trunks
+
+One `Gather: skipping <log>` line:
+
+`19:23:31.441Z Gather: skipping spruce_log at -101,71,52 (Cannot reach or harvest this block (walk: No path to the goal!; bot at (-91, 66, 53), 10.6 from the eye))`
+
+That is hard3, at the start of wood. Later search legs in that run aim at `-144,70,68` (19:23:32Z), `-173,75,93` (19:27:17Z), and iron at `-172,21,92` (19:32:17Z). None is x=-101, z=52. The skipped spruce trunk was not aimed at again.
+
+The other 48 `Gather: skipping` lines are not trunks: 2 are `iron_ore` "under the bot", 1 is `stone` under the bot, and 45 are `iron_ore` (no path, timeout, or fluid beside the block), mostly hard1 around 18:58–19:10Z and hard3 around 19:32Z. Some iron columns are skipped twice (`-124,62,152` at 18:56:26Z and again at 19:09:05Z). Those are ore, not the trunk blacklist.
+
+`Autopilot: wood failed 3 times; exploring before retry` is 7, all on normal3, 18:01:45Z through 18:04:15Z, one every 25 s. normal1, normal2, hard1, hard2, and hard3 have 0. Round 58 had 22. Through that same stretch the search leg keeps aiming at logs at `4,77,212` (and once `4,73,212`, once `4,71,212`). That column never gets a `Gather: skipping` line, so the trunk blacklist did not take it, and the next wood job aims at it again. normal1 separately logs `iron failed 3 times; exploring before retry` 8 times (16:48:44Z–16:51:55Z). That phrase is iron, not wood.
+
+### Shelter re-seal
+
+No `Shelter: re-seal left N open` line. No `re-sealing` line on any night. Each hard night's seal line is a single `Shelter: sealed`, and that night was skipped.
+
+### Food
+
+31 `food step set aside` lines. Per run: normal1 4, normal2 2, normal3 23, hard1 1, hard2 0, hard3 1.
+
+normal1:
+
+`16:44:43.756Z Autopilot: food step set aside for 8 min (6 explore legs without food)`
+
+`17:15:28.716Z`, `17:15:52.935Z`, `17:16:17.166Z` — each `failed 3 times`.
+
+normal2:
+
+`17:29:23.746Z` and `17:39:40.723Z` — each `6 explore legs without food`.
+
+normal3, 23 lines from `18:13:40.267Z` (`failed 3 times`) through `18:39:39.357Z`. Two of them are `6 explore legs without food` (`18:25:14.230Z`, `18:26:01.946Z`). The other 21 are `failed 3 times`, about every 37 s from `18:26:57.051Z` to `18:39:39.357Z`, which is the stretch where health is 1 and the job is `retreated from chicken`.
+
+hard1: `18:54:28.586Z` `6 explore legs without food`.
+
+hard3: `19:37:01.677Z` `failed 3 times`.
+
+Food mins 5/4/0 and 15/20/14. The run that ended under health 6 is normal3, health 1, food 0. The others ended at 19, 20, 20, 20, and 16.
+
+### Lava
+
+The window has no `WorldSurvival: in lava` line and no `Lava:` line. There is no lava episode and no lava death. Round 58 had none. Round 57 died in lava.
+
+### Sticks
+
+One `Craft: <item> needs N sticks` line.
+
+`17:57:46.193Z Autopilot [stone] {"type":"craft","item":"stone_shovel","count":1,"keepTable":true}`
+
+`17:57:46.810Z Craft: stone_shovel needs 2 sticks and 1 are held; crafting 4 first`
+
+`17:57:52.926Z Completed craft`
+
+The next job, 0.4 s later, is an iron smelt. normal2's end bag holds `stone_shovel: 1`. The shovel craft completed. No wooden tool was dropped on that craft.
+
+`Job: Missing ingredients or a nearby crafting table` is one line, `17:49:01.425Z`, on a `spruce_planks` craft (count 8) during normal2. The next stone craft is a furnace, a different item. Nothing was re-submitted 3 or more times with that message. No `craft failed 3 times` line.
+
+### Spare tools
+
+End bags from the harness. No golden tool is in any of them.
+
+normal1 ends with `wooden_pickaxe: 1` beside `stone_pickaxe: 1`. The iron pick is gone (`iron_pickaxe: 0`). Wooden axe and sword are 0.
+
+normal2 ends with every wooden tool at 0. Stone pick, axe, sword, and shovel are held, plus an iron pick and an iron sword.
+
+normal3 ends with every wooden tool at 0. Stone pick is 0. Stone axe, sword, and shovel are held, plus an iron pick and an iron sword.
+
+hard1 ends with every wooden tool at 0. Stone pick, axe, sword, and shovel are held, plus an iron pick and an iron sword.
+
+hard2 ends with every wooden tool at 0. Stone pick, axe, sword, and shovel are held, plus an iron pick and an iron sword.
+
+hard3 ends with `wooden_axe: 1` and `wooden_sword: 1` beside `stone_axe: 1`, `stone_sword: 1`, and `iron_sword: 1`. The iron pick and two stone picks are also held. The last drop in that run is `19:43:42.068Z Craft: dropped the wooden_sword (stone_pickaxe held)` and `dropped the wooden_axe (stone_pickaxe held)`. The end bag, 27 s later, holds both wooden tools again.
+
+### Placement
+
+No `Place: broke the` line. No `Cannot place at ...: occupied by` line.
+
+### Storage
+
+Ten `Store:` lines, all on the normal runs.
+
+normal1, both at 17:14:02Z:
+
+`Store: no chest for stone (no free spot on the storage row)`
+
+`Store: put away nothing (0 storage chests)`
+
+normal2:
+
+`17:43:31.205Z Store: no chest and 2 planks; chopping 2 logs for one`
+
+`17:45:03.389Z Store: placed a storage chest at 3,66,366`
+
+`17:45:28.102Z Store: placed a storage chest at 5,66,366`
+
+`17:45:28.725Z Store: no chest and 2 planks; chopping 2 logs for one`
+
+`17:45:49.745Z Store: log gather stopped (No matching blocks within the allowed radius)`
+
+`17:45:49.745Z Store: no chest for drops (no chest held, 2 planks, no logs for more)`
+
+`17:45:49.745Z Store: no drops chest; putting drops in the stone chest at 3,66,366`
+
+`17:46:00.567Z Store: put away cobblestone x78, dirt x28, granite x24, gravel x7, flint x2, spruce_log x1, spruce_sapling x1, leather x2, white_wool x2, light_gray_wool x1 (2 storage chests)`
+
+normal3, hard1, hard2, and hard3 have no `Store:` line.
+
+`data/storage.json` after the soak:
+
+```json
+{
+ "chests": [
+  {
+   "x": 3,
+   "y": 66,
+   "z": 366,
+   "category": "stone",
+   "contents": {
+    "cobblestone": 78,
+    "dirt": 28,
+    "granite": 24,
+    "gravel": 7,
+    "flint": 2,
+    "leather": 2,
+    "white_wool": 2,
+    "light_gray_wool": 1
+   },
+   "full": false,
+   "updated": 1793123160414
+  },
+  {
+   "x": 5,
+   "y": 66,
+   "z": 366,
+   "category": "wood",
+   "contents": {
+    "spruce_log": 1,
+    "spruce_sapling": 1
+   },
+   "full": false,
+   "updated": 1793123128570
+  }
+ ]
+}
+```
+
+Two chests, both on normal2: a stone chest and a wood chest. The log's one put-away line lists both. The json puts the spruce log and sapling in the wood chest and the rest, including the wool and leather, in the stone chest. No iron ingot, raw iron, diamond, gold, or coal is in either chest. The keep amounts 40/40/24/8/16 for those five were not crossed by a deposit. Coal in the end bag is 1, still held.
+
+`data/ledger.json` after the soak (hard3's end bag):
+
+```json
+{"spruce_sapling":2,"spruce_log":1,"dirt":69,"stone_pickaxe":2,"cobblestone":149,"diorite":2,"stone_sword":1,"stone_axe":1,"stone_shovel":1,"snowball":21,"coal":1,"andesite":27,"iron_pickaxe":1,"furnace":1,"iron_sword":1,"shield":1,"torch":16,"stick":3,"spruce_planks":2,"crafting_table":1,"wooden_sword":1,"wooden_axe":1}
+```
+
+### Drowning
+
+Ten `WorldSurvival: drowning` lines. Nine are normal1, 16:48:47Z–16:51:49Z, each `drowning (air 8), swimming up`, in open water 1–4 up around `(135, 61, 128)`. Between them: `Water: could not step out`, one `roof over the water at (135, 62, 130)`, and `Water: no dry stand within 6 of (135, 58, 130)`. No `Reflex: resumed` after those nine. No drowning death.
+
+The tenth is normal2:
+
+`17:50:59.216Z WorldSurvival: drowning (air 8), swimming up`
+
+`17:50:59.680Z Reflex: resumed the use job (stepping out of the water first)`
+
+`17:51:00.723Z Water: stepped out to (69, 63, 349)`
+
+No drowning death. There is no 60 s death quote because there is no drowning death.
+
+### Mob caves
+
+No `Autopilot: a mob cave` line. No escape, no mark, and no night box measured against a mark. The hard boxes relative to the hard anchor `[-49, 66, 106]` are below, under their own sections: hard1 about 100 blocks west-south at y=56, hard2 about 56 blocks west at y=46, hard3 about 118 blocks west at y=64.
+
+### Cave mornings and night mines
+
+No `Shelter: morning in a cave` line. No `Night mine:` line. No night mine below y=56, and no box that opened onto a cave. The three mornings are the ordinary `Shelter: morning` lines quoted under night skip.
+
+hard2's box sealed at y=46, which is below y=56, at `(-96, 46, 137)`. It was still reported safe and was skipped. It was not labeled a cave morning. It opened onto `nearest hostile 25.3`, not a cave line.
+
+The closest underground stop is normal3, not a cave morning: `18:20:34.889Z Autopilot: stone failed 3 times deep underground; no cave explore, retrying in 20 s`, after the surface-leave at y=15. In the two minutes after that line the stone step submits another surface log gather (`18:20:35.025Z`) and the next distinct event is the food explore that leaves the surface at y=66 (`18:27:53Z`). No cave climb is logged.
+
+### Beds
+
+No bed was held (`bed_at` is null on all six). No `Slept` line. One home line, and it is the crafting table:
+
+`17:22:08.608Z Autopilot: home set to the table at 124,81,200`
+
+normal1 set the bed rung aside: `17:04:30.277Z Autopilot: no sheep after 3 search legs; bed set aside for 10 min`. normal2 hunted a sheep and sheared (`17:40:04.403Z` hunt, `17:50:39.476Z` craft shears, `17:50:47.669Z` shear) and still held no bed at the end.
+
+### Deaths
+
+One bot death.
+
+normal2, `17:22:40.322Z`, `BuilderBot was slain by Polar Bear`, `Bot died at 72, 76, 202`. The job in progress was wood gather. `17:22:38.316Z Pause trace: gather -> Health or food is low`. The stand is the normal anchor. The harness sample just before it, t=181, is `[72, 76, 203]`, health 20, food 20, step wood. After the death the server sets position to `(-22, 65, 127)`, and the harness death record stores that respawn stand (`pos [-22, 65, 127]`, light 0, tod day) at t=211. The chat death position is `(72, 76, 202)`.
+
+The two minutes before it, from 17:20:45Z, are wood crafts at the spruce canopy, then the walk back to `(74, 83, 203)`:
+
+`17:20:45.288Z Completed craft` and a crafting table.
+
+`17:20:50.757Z` a log gather. Four `Navigation: no path with mob avoidance at (124, 80, 200)` lines from 17:20:58Z to 17:21:03Z.
+
+`17:21:07.863Z Gather: pillaring 3 up to the canopy log at (124, 85, 200)`
+
+`17:21:10.079Z Pillar: stopped at y=81 (no blocks held)`
+
+`17:21:10.609Z Gather: search leg 1 west toward logs at 74,83,203`
+
+`17:21:28.695Z Gather: pillaring 4 up to the canopy log at (74, 83, 203)`
+
+`17:21:29.781Z Pillar: stopped at y=78 (no blocks held)`
+
+`17:21:47.838Z Completed gather`, then spruce planks, sticks, a wooden pick, and a crafting table, all completed by 17:22:07Z.
+
+`17:22:08.608Z Autopilot: home set to the table at 124,81,200`
+
+`17:22:14.751Z Gather: search leg 1 west toward logs at 74,83,203`
+
+`17:22:26.915Z Navigation: no path with mob avoidance at (73, 78, 203); trying without it`
+
+`17:22:31.215Z Gather: pillaring 4 up to the canopy log at (74, 83, 203)`
+
+`17:22:32.348Z Pillar: stopped at y=77 (no solid block under the feet: snow)`
+
+`17:22:32.709Z Gather: search leg 2 west toward logs at 4,77,212`
+
+`17:22:33.233Z Job: Navigation left the surface at (69, 75, 203)`
+
+`17:22:38.316Z Pause trace: gather -> Health or food is low`
+
+`17:22:40.322Z BuilderBot was slain by Polar Bear`
+
+`17:22:40.322Z Bot died at 72, 76, 202`
+
+`17:22:41.833Z Server set position to (-22, 65, 127) (teleport #147)`
+
+`operator: resumed the ladder after death 1` follows, and autopilot starts again at 17:23:07Z.
+
+SG-1 was online from 16:52:11Z to 17:40:00Z and issued their own gamemode and give commands. The polar bear spawn egg they gave themselves is at 17:24:32Z, after this death. The death quote above is the bot's.
+
+A second chat death in the window is `17:26:13.119Z SG-1 was slain by Polar Bear`. That is the player, not the bot.
+
+### Falls, stranded, pillars, warden
+
+Two fall lines. Neither is a death.
+
+`18:04:16.234Z Fall: dropping from (76, 83, 203) (job none, pathing false, sprint false)` — normal3, one second after the last `wood failed 3 times`, off the canopy at the normal anchor.
+
+`18:20:26.316Z Fall: dropping from (-1, 24, 150) (job none, pathing false, sprint false)` — normal3, between the y=24 and y=15 surface-leave lines.
+
+Eleven stranded lines. Each is `Navigation: stranded at ... (drops on every side); allowing drops of up to 6 and digging`, except one pillar follow-up.
+
+normal1: `(225, 21, 292)` at 17:08:16Z, then `still stranded at (225, 21, 292); pillaring up 3` at 17:08:19Z. Then `(224, -23, 332)`, `(224, -22, 333)`, `(225, -21, 333)` from 17:14:04Z to 17:14:17Z.
+
+normal2: `(-18, 77, 357)` at 17:45:49Z.
+
+normal3: `(27, 40, 149)` at 18:23:46Z and `(27, 41, 148)` at 18:23:49Z.
+
+hard2: `(-121, 75, 155)` at 19:05:52Z.
+
+hard3: `(-143, 73, 69)` at 19:25:44Z and `(-172, 78, 93)` at 19:28:34Z.
+
+Canopy pillars that stopped:
+
+`16:39:43.379Z Pillar: stopped at y=78 (no blocks held)` toward `(74, 82, 203)`
+
+`17:19:52.323Z Pillar: stopped at y=78 (no blocks held)` toward `(74, 83, 203)`
+
+`17:21:10.079Z Pillar: stopped at y=81 (no blocks held)` toward `(124, 85, 200)`
+
+`17:21:29.781Z Pillar: stopped at y=78 (no blocks held)` toward `(74, 83, 203)`
+
+`17:22:32.348Z Pillar: stopped at y=77 (no solid block under the feet: snow)` toward `(74, 83, 203)`
+
+`17:24:23.602Z Pillar: stopped at y=70 (no blocks held)` toward `(-72, 74, 151)`
+
+`19:25:51.318Z Gather: no blocks to pillar up to the canopy log at (-144, 75, 68)`
+
+`19:27:16.775Z Pillar: stopped at y=75 (no blocks held)` toward `(-146, 79, 92)`
+
+Two more pillar lines are ceilings, not empty hands: `18:00:20.270Z Pillar: ceiling at (73, 75, 203)` and `18:23:44.181Z Pillar: ceiling at (27, 42, 149)`.
+
+One fight pillar, after hard3 opened the box: `19:36:38.480Z Reflex: a creeper has followed for 20 s; fighting it from a pillar`. Damage taken on that fight is 0. No `Night: caught outside in a crowd` line. No warden line.
+
+`Ascend: no path up from y=#; pillaring` is 17 lines across the window. normal1 accounts for 13 of the repeated form in the error tally below.
+
+### Repeated errors
+
+Lines with the same text, numbers stripped, 10 or more times in one run:
+
+normal1: `Navigation: no path with mob avoidance` 117, `Job: No path to the goal!` 26, `Ascend: path up stopped (No path to the goal!)` 14, `Ascend: no path up from y=#; pillaring` 13.
+
+normal2: `Navigation: no path with mob avoidance` 332.
+
+normal3: `Navigation: no path with mob avoidance` 165, `Job: Health below #; retreated from chicken` 47, `Job: No path to the goal!` 24, `food step set aside ... (failed # times)` 21.
+
+hard1: `Navigation: no path with mob avoidance` 109, `Gather: attempt # on iron_ore ... No path to the goal` 27, and the matching `Gather: skipping iron_ore` 27.
+
+hard2: `Navigation: no path with mob avoidance` 112.
+
+hard3: `Navigation: no path with mob avoidance` 165.
+
+The scout window before the first run also has `Navigation: no path with mob avoidance` 42 times.
+
+### Disconnects, interventions, uncaught
+
+The dashboard line at 16:34:28Z, `Disconnected by user`, is the soak stopping services before the new world. The bot joins the new world at 16:36:07Z. The server slice's bot loss is the restore: `[01:14:12 INFO]: BuilderBot lost connection: Disconnected` and `BuilderBot left the game`. No mid-soak bot disconnect. `BuilderBot moved wrongly` warnings are at 22:38 IST (normal1), 23:03 and 23:16 and 23:18 and 23:25 IST (normal2 and normal3). Those are movement warnings, not disconnects.
+
+SG-1 joined during normal1: `[22:22:11 INFO]: SG-1[/192.168.0.152:57034] logged in with entity id 1169 at ([minecraft:overworld]-29.5, 64.0, 138.5)`. They issued their own `/gamemode` and `/give` commands. They left at `[23:10:00 INFO]: SG-1 lost connection: Disconnected`. No kick command was sent, and no command targeted SG-1. The teleports in the server slice are the harness moving BuilderBot to the run anchor.
+
+Interventions 5, resumes 1, deaths 1. The resume is `operator: resumed the ladder after death 1`. The other four are the three `operator: night skipped` lines and `operator: unstuck the bot at [-145, 70, 67]` on hard3, between the t=90 and t=121 samples, while the wood step was standing on that block. The t=121 sample is still `[-145, 70, 67]`. The t=151 sample has moved to `[-143, 73, 69]`.
+
+`logs/dashboard-uncaught.log` gained no bytes (size stayed 2576174).
+
+### Ledger and the flat world
+
+`data/storage.json` and `data/ledger.json` are pasted above. They are not committed.
+
+After the stop, the flat world was restored (`level-name=agent-test-world`, `level-type=minecraft\:flat`, `level-seed` empty, `server-ip=0.0.0.0`, `difficulty=peaceful`). The model was still disabled and port 8081 was closed. End of this soak is `2026-10-27T19:44:26.948Z`. Spawn this generation was `[-42, 66, 129]`, hard anchor `[-49, 66, 106]` canopy light 15, normal anchor `[74, 77, 203]` sky 15. The seed line is `soak seed 20261027 (anchors scouted from spawn)`. Iron picks on 6 of 6. Diamonds 0. One death, a polar bear at `(72, 76, 202)` on normal2. No lava line. One sticks-first craft, a stone shovel, and it completed. normal1 ended with a wooden pick beside a stone pick. hard3 ended with a wooden axe and a wooden sword beside stone and iron swords. Two storage chests on normal2, and nothing under the iron, diamond, gold, or coal keep went in. Drowning was logged, one use job resumed and stepped out, and there was no drowning death. No mob-cave line, no cave morning, and no night mine. hard2's box sealed at y=46 and was still skipped. No bed was held. Night skips were 0/0/0/1/1/1. `wood failed 3 times` is 7, all normal3. No harness return from below the anchor.
