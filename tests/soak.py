@@ -444,7 +444,10 @@ def run_one(index,spawn,seconds=NORMAL_SECONDS):
             # and belowFoots then refuses every log. Put it back on the anchor. WOOD STEP ONLY:
             # logs are 0 again once they are spent, and soak 20261014-0218 teleported the bot
             # out of legitimate downhill explore legs of the food step three times.
-            if sample['step']=='wood' and sample['logs']==0 and sample['pos'][1]<spawn[1]-8 and run.get('returns',0)<3:
+            # Round 59: 14 below, not 8 - the bot's own surface floor now allows open-sky ground
+            # down to 12 under the gather's start (rolling seeds: 6274947974391380586's hard
+            # anchor sits at y=71 over ground at y=61-66, and 8 below teleported it 12 times).
+            if sample['step']=='wood' and sample['logs']==0 and sample['pos'][1]<spawn[1]-14 and run.get('returns',0)<3:
                 run['returns']=run.get('returns',0)+1
                 command(f'tp BuilderBot {spawn[0]} {spawn[1]} {spawn[2]}')
                 run['interventions'].append('operator: returned the bot from below the anchor at '+json.dumps(sample['pos']))

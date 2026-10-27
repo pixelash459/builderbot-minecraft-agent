@@ -269,6 +269,16 @@ export function burrowPlan(at3,feet,pickaxe=false){
 }
 // Round 31: the sky light at the head cell over feet `p` (0 when unknown).
 export const SKY_OPEN=12;
+// Round 59 (round-58 hard runs, seed 6274947974391380586: `Navigation left the surface` on every
+// wood gather from the y=71 hard anchor - the ground rolls down to y=61-66 there, and the wood
+// step never finished on any hard run): under open sky the bot is still on the surface, down to
+// SURFACE_SLACK below the floor. A ravine deeper than that still stops the walk.
+export const SURFACE_SLACK=8,RESEAL_BACKOFF_MS=15000;
+const SHELTER_BLOCKS_HELD=b=>{try{return b.inventory.items().filter(i=>/^(cobblestone|cobbled_deepslate|dirt|stone|deepslate|andesite|diorite|granite|tuff|netherrack|.*_planks|sand|gravel|coarse_dirt)$/.test(i.name)).reduce((a,i)=>a+i.count,0);}catch{return 0;}};
+export function openSurface(b,floor){
+ const p=b.entity.position.floored();
+ return p.y>=floor-SURFACE_SLACK&&headSky(b,p)>=SKY_OPEN;
+}
 export function headSky(b,p){
  try{const h=b.blockAt(new Vec3(p.x,p.y+1,p.z));return h&&Number.isFinite(h.skyLight)?h.skyLight:0;}catch{return 0;}
 }
@@ -869,7 +879,7 @@ export class Worker extends EventEmitter {
   try{await Promise.race([bot.pathfinder.goto(goal),new Promise((resolve,reject)=>{monitor=setInterval(()=>{
    if(reached()){resolve();return;}
    // A dig holds the bot still on purpose; a path that never moves and never digs is the silent hang.
-   if(this.surfaceFloor!=null&&bot.entity.position.y<this.surfaceFloor){reject(new Error('Navigation left the surface at '+bot.entity.position.floored()));return;}
+   if(this.surfaceFloor!=null&&bot.entity.position.y<this.surfaceFloor&&!openSurface(bot,this.surfaceFloor)){reject(new Error('Navigation left the surface at '+bot.entity.position.floored()));return;}
    if(this.surfaceCeil!=null&&bot.entity.position.y>this.surfaceCeil){reject(new Error('Navigation climbed above the graze cap at '+bot.entity.position.floored()));return;}
    if(bot.targetDigBlock){track=trackProgress(bot.entity.position,Date.now());return;}
    track=trackProgress(bot.entity.position,Date.now(),track);
@@ -2074,8 +2084,19 @@ export class Worker extends EventEmitter {
    return;
   }
   if(!gaps.length)return;
+  // Round 59 (round-58 hard2: `re-sealing 7 open cell(s)` 100 times in 11 min, the count never
+  // falling, nothing said about why): a re-seal that leaves the gaps open logs the reason and
+  // waits RESEAL_BACKOFF_MS before the next try.
+  if(Date.now()<(this.resealIdleUntil||0))return;
   if(Date.now()-(this.shelterGuardLog||0)>5000){this.shelterGuardLog=Date.now();this.log('Shelter: re-sealing '+gaps.length+' open cell(s)');}
-  try{await this.sealShelter(job,token,origin);}catch(e){this.check(token);}
+  let why=null;
+  try{await this.sealShelter(job,token,origin);}catch(e){this.check(token);why=String(e&&e.message||e).slice(0,80);}
+  const left=shellGaps(at,shelterShell(origin,job.pod).required);
+  if(left.length>=gaps.length){
+   this.resealIdleUntil=Date.now()+RESEAL_BACKOFF_MS;
+   const held=SHELTER_BLOCKS_HELD(b);
+   this.log('Shelter: re-seal left '+left.length+' open ('+(why||'no error')+'; '+held+' blocks held); next try in '+RESEAL_BACKOFF_MS/1000+' s');
+  }else this.resealIdleUntil=0;
  }
  async removeShelter(job,token){
   const b=this.bot;
@@ -2916,6 +2937,13 @@ export class Worker extends EventEmitter {
   if((UNREACHABLE_BLOCK.test(msg)||n>=2)&&!job.badBlocks.includes(bk)){
    job.badBlocks.push(bk);if(job.badBlocks.length>64)job.badBlocks.shift();
    try{this.blacklist&&this.blacklist.block&&this.blacklist.block(p,GATHER_BLACKLIST_SECONDS);}catch{}
+   // Round 59 (round-58: the oak column at (721, 70-74, -378) refused one block at a time, then
+   // aimed at again by the next job's search leg - 22 `wood failed 3 times`): a log that cannot
+   // be reached takes its trunk with it, for this job and the next.
+   if(UNREACHABLE_BLOCK.test(msg)&&/_(log|stem)$/.test(target.name||'')){
+    if(!job.badColumns.includes(ck))job.badColumns.push(ck);
+    for(let dy=-8;dy<=8;dy++)if(dy){try{this.blacklist&&this.blacklist.block&&this.blacklist.block(new Vec3(p.x,p.y+dy,p.z),GATHER_BLACKLIST_SECONDS);}catch{}}
+   }
    this.log('Gather: skipping '+target.name+' at '+bk+' ('+msg+')');
   }
   if(c>=3&&!job.badColumns.includes(ck))job.badColumns.push(ck);

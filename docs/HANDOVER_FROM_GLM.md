@@ -2165,3 +2165,14 @@ The round-57 soak: iron picks on 5 of 6 (normal 874/904/753, hard 482/none/602; 
 - **Every spare tool goes** (worker `tossSpareTools`): a stone-or-better craft drops every wooden or golden tool that has a better one of its kind held, not only the kind just made.
 - **Place breaks a plant in the cell first** (worker `place`): flowers, petals, saplings (`PLACE_BLOCKER`, not torches, signs, rails, buttons, plates, banners, carpets or redstone) are broken by hand.
 - Not changed yet: the hard runs' night boxes seal back underground near the mob-cave marks after the escape reached the surface; a dropped tool can still be walked over and picked up; no bed slept in; no diamond pick.
+
+## Round 59 (2026-10-27)
+
+The round-58 soak was the first on a new seed, **6274947974391380586** (the Nitrous world's seed; spawn [712, 69, -431], hard anchor [777, 71, -344], normal anchor [863, 69, -236]). Normal runs: iron picks on all three (543/603/813), beds held on normal2 and normal3, four storage chests on normal2 (stone, misc, wood, drops). **Hard runs: no stone pick on any of them.** Every wood gather from the y=71 hard anchor ended `Navigation left the surface` (the ground rolls down to y=61-66), the search legs aimed again and again at an oak trunk at (721, 70-74, -378) that has no path (22 `wood failed 3 times`), and the harness returned the bot 12 times for being 8 below the anchor. hard2's box at y=101 logged `re-sealing 7 open cell(s)` 100 times in 11 min. hard3 spent its last minutes at health 2.8 with no food. No deaths, no lava; both sticks-first crafts completed; dropped wooden tools were still walked back over and picked up.
+
+- **Rolling ground is still the surface** (worker `openSurface`, the navigate monitor): below the wood step's floor (start - 4), a bot under open sky (head sky light 12+) keeps going, down to `SURFACE_SLACK` (8) more. A ravine deeper than that still stops the walk.
+- **An unreachable log takes its trunk with it** (worker `gatherFailed`): the column (y-8..y+8) goes into the shared blacklist for `GATHER_BLACKLIST_SECONDS` and the job's bad columns, so the next job's search leg does not aim at it.
+- **A re-seal that closes nothing says why and backs off** (worker `guardShelter`): `Shelter: re-seal left N open (<error>; M blocks held); next try in 15 s`.
+- **Harness** (`tests/soak.py`): the wood-step return fires 14 below the anchor, not 8.
+- Soak seeds rotate from now on (a new world each round); round 59 runs on seed 20261027.
+- Not changed yet: food on hard runs with no animals in reach; dropped tools picked back up; no bed slept in; no diamond pick.

@@ -27,8 +27,11 @@ function canopyFake({blacklist=new Blacklist(),logs,reachable=()=>false}={}){
 test('an unreachable block is tried once, skipped, and the job moves on to the next block',async()=>{
  const f=canopyFake({logs:[[2,128,0],[2,127,0],[5,128,3]]});
  await assert.rejects(Worker.prototype.gather.call(f.w,f.job(),0),/No matching blocks/);
- assert.deepEqual([...f.tries].sort(),['2,127,0','2,128,0','5,128,3'],'each block exactly once');
- assert.equal(f.logLines.filter(l=>/skipping oak_log/.test(l)).length,3);
+ // Round 59: an unreachable log takes its trunk with it, so the second block of the 2,*,0 trunk
+ // is never tried.
+ assert.equal(f.tries.filter(k=>/^2,12[78],0$/.test(k)).length,1,f.tries.join(' '));
+ assert.ok(f.tries.includes('5,128,3'));assert.equal(new Set(f.tries).size,f.tries.length,'each block at most once');
+ assert.equal(f.logLines.filter(l=>/skipping oak_log/.test(l)).length,2);
 });
 test('the next gather job skips the blocks the last one could not reach (shared blacklist)',async()=>{
  const blacklist=new Blacklist();
