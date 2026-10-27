@@ -1850,14 +1850,14 @@ export class Worker extends EventEmitter {
  // the head must be open, or a block `clear` accepts, which is dug); three tries per level.
  async pillarUp(targetY,token,{clear=null,maxDigs=TRUNK_PILLAR}={}){
   const b=this.bot;
-  let digs=0;
-  for(let tries=0;b.entity.position.floored().y<targetY&&tries<3;){
+  let digs=0,tries=0;
+  for(;b.entity.position.floored().y<targetY&&tries<3;){
    this.check(token);
    const f=b.entity.position.floored(),y0=f.y;
    const roof=b.blockAt(f.offset(0,2,0));
    if(roof?.boundingBox==='block'){
     if(!clear||!clear(roof)||++digs>maxDigs){this.log('Pillar: ceiling at '+f.offset(0,2,0));return false;}
-    await b.dig(roof);this.check(token);continue;
+    await this.digWith(roof,token);continue;
    }
    const item=b.inventory.items().find(i=>SHELTER_ITEMS.includes(i.name));
    const ref=b.blockAt(f.offset(0,-1,0));
@@ -1872,7 +1872,19 @@ export class Worker extends EventEmitter {
    await sleep(400);
    if(b.entity.position.floored().y>y0)tries=0;else tries++;
   }
+  // Round 61: a pillar that never rose said nothing (round-60 soak: `no path up from y=12;
+  // pillaring` then `y=12 -> 12` 22 times, no Pillar line).
+  if(tries>=3){const f=b.entity.position.floored();this.log('Pillar: no rise in 3 jump-places at y='+f.y+' (held '+(b.heldItem?.name||'nothing')+', under '+(b.blockAt(f.offset(0,-1,0))?.name||'unloaded')+', head '+(b.blockAt(f.offset(0,1,0))?.name||'unloaded')+', above '+(b.blockAt(f.offset(0,2,0))?.name||'unloaded')+')');}
   return b.entity.position.floored().y>=targetY;
+ }
+ // Round 61 (user, 2026-10-27: the bot breaking blocks with dirt in hand): the pillar's ceiling,
+ // the burrow cap and the like were dug with whatever was held - the pillar's own dirt. Every
+ // solid block is dug with the best tool held.
+ async digWith(block,token,force=false){
+  const b=this.bot;
+  try{await b.tool.equipForBlock(block);}catch{}
+  this.check(token);
+  await b.dig(block,force);this.check(token);
  }
  // The sealed box opens once the morning is light and clear (night.js leaveRefuge), or when
  // the job's own deadline is SHELTER_EXIT_MARGIN_MS away (a timed-out job leaves the box up).
@@ -1983,7 +1995,7 @@ export class Worker extends EventEmitter {
   }finally{this.shelterSealed=false;}
   if(away){this.log('Burrow: out of the hole at '+b.entity.position.floored()+'; sheltering where it stands');return this.shelter(job,token);}
   this.log('Burrow: morning (tod '+dayTicks(b)+'); climbing out');
-  try{const c=b.blockAt(cap);if(c&&c.boundingBox==='block')await b.dig(c,true);await this.pillarUp(cap.y+1,token);}
+  try{const c=b.blockAt(cap);if(c&&c.boundingBox==='block')await this.digWith(c,token,true);await this.pillarUp(cap.y+1,token);}
   catch(e){this.check(token);this.log('Burrow: climb out stopped ('+String(e.message).slice(0,60)+'); the next walk digs out');}
  }
  shelterFallback(job,reason){

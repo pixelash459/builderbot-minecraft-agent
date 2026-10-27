@@ -36,7 +36,7 @@ export class CollectFlintTask extends ResourceTask {
     const block=b.blockAt(at);
     if(!block||block.name!=='gravel')throw Error('Placed gravel was not verified');
     const before=countOf(b,'flint'),gravelBefore=countOf(b,'gravel');
-    await b.dig(block);
+    await worker.digWith(block,tokenOf(c));
     await worker.sweepDrops(tokenOf(c));
     if(countOf(b,'flint')<=before&&countOf(b,'gravel')<=gravelBefore)throw Error('Breaking placed gravel produced no flint or gravel');
    });

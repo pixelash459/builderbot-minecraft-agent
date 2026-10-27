@@ -2187,3 +2187,11 @@ No soak between rounds 59 and 60 (the round-59 soak had not started). Two change
   - Harness side (`tests/soak.py`, `NIGHT_SKIP_SECONDS`, env `SOAK_NIGHT_SKIP`, default 150, 0 disables): at a sample where the shelter reports safe for 150+ s and tod is 12000-23499, the operator runs `time add` up to tick 1000 of the next day (the day counter advances like a slept night, so the next night's once-per-day plans still fire). The bot then sees the morning and opens up through its normal exit (`leaveRefuge`: waits for hostiles to clear). Each skip is an intervention line and a `night_skips` entry; the summary has `night_skips` per run.
   - The bot never changes the time itself; only the soak's console fixture on the private test server does.
 - Not changed yet: food on hard runs with no animals in reach; dropped tools picked back up; no bed slept in; no diamond pick.
+
+## Round 61 (2026-10-27)
+
+From the user, watching the round-60 soak: the bot was breaking blocks with dirt in hand. The pillar dug its ceiling with whatever was held, which was the pillar's own dirt. The burrow's climb-out cap, the water escape's roof and the flint gravel had the same gap. The live log also showed `no path up from y=12; pillaring` then `y=12 -> 12` 22 times in a row, with no Pillar line saying why.
+
+- **Dig with the best tool** (worker `digWith`): `equipForBlock` before the dig. Used for the pillar ceiling, the burrow cap, the flint gravel (`collectMining.js`) and the roof over water (`get-out-of-water-task.js`).
+- **A pillar that never rises says so** (worker `pillarUp`): `Pillar: no rise in 3 jump-places at y=N (held X, under Y, head Z, above W)`.
+- Not changed yet: why that pillar at y=12 never rose (the next soak's Pillar line will say); `Tool left the inventory` lines for tools still in use (stone_pickaxe 131 uses, stone_axe 116) during navigation - possibly an equip-swap false alarm in `watchToolLoss`.

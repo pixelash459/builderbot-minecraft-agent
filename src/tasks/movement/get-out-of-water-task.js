@@ -85,7 +85,8 @@ export class GetOutOfWaterTask extends Task {
     if(!lavaNear&&typeof bot.dig==='function'){
      if(this.navPromise){move.cancel(ctx);this.navPromise=null;}
      this.digging=true;const w=ctx?.worker;try{w?.log?.('WorldSurvival: roof over the water at '+up.roof.position+' (air '+air+'); digging it');}catch{}
-     Promise.resolve(bot.dig(up.roof,true)).catch(()=>{}).finally(()=>{this.digging=false;});
+     // Round 61: the roof is dug with the best tool held, not whatever is in hand.
+     Promise.resolve(bot.tool?.equipForBlock?.(up.roof)).catch(()=>{}).then(()=>bot.dig(up.roof,true)).catch(()=>{}).finally(()=>{this.digging=false;});
      return null;
     }
    }
