@@ -21,7 +21,7 @@ function canopyFake({blacklist=new Blacklist(),logs,reachable=()=>false}={}){
  const w={bot,blacklist,config:{limits:{radius:32}},count(){return cobble;},save(){},check(){},update(){},
   log(m){logLines.push(m);},exploreMovements(){return {};},
   async walk(){},async reachUp(){},async descendToReach(){},async canopyDrop(){},async sweepDrops(){},async mineColumnUnder(){},
-  gatherFailed:Worker.prototype.gatherFailed,gatherBlacklisted:Worker.prototype.gatherBlacklisted,takeStrandedTunnel:Worker.prototype.takeStrandedTunnel};
+  gatherFailed:Worker.prototype.gatherFailed,gatherBlacklisted:Worker.prototype.gatherBlacklisted,searchMiss:Worker.prototype.searchMiss,takeStrandedTunnel:Worker.prototype.takeStrandedTunnel};
  return {w,tries,logLines,job:()=>({spec:{type:'gather',block:'oak_log',count:2,radius:32}})};
 }
 test('an unreachable block is tried once, skipped, and the job moves on to the next block',async()=>{
@@ -138,7 +138,7 @@ test('pillarToLog: under the log, dirt in hand, leaves over the head dug, up unt
  const solid=n=>n&&!/air/.test(n);
  const nameAt=(x,y,z)=>cells.get(x+','+y+','+z)??(y<=130?'grass_block':'air');
  const blockAt=p=>{const x=Math.floor(p.x),y=Math.floor(p.y),z=Math.floor(p.z),name=nameAt(x,y,z);return {name,position:new Vec3(x,y,z),boundingBox:solid(name)?'block':'empty'};};
- const inv=[{name:'dirt',count:3}],logs=[];
+ const inv=[{name:'dirt',count:4}],logs=[]; // round 62: the rise (2) plus PILLAR_SPARE (2)
  const bot={entity:{position:new Vec3(0.5,131,0.5)},blockAt,inventory:{items:()=>inv.filter(i=>i.count>0)},
   async equip(){},async dig(bl){cells.set(bl.position.x+','+bl.position.y+','+bl.position.z,'air');},
   setControlState(c,v){if(c==='jump'&&v)bot.entity.position=bot.entity.position.offset(0,1.2,0);},

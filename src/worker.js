@@ -275,6 +275,7 @@ export const SKY_OPEN=12;
 // step never finished on any hard run): under open sky the bot is still on the surface, down to
 // SURFACE_SLACK below the floor. A ravine deeper than that still stops the walk.
 export const SURFACE_SLACK=8,RESEAL_BACKOFF_MS=15000;
+export const HARMLESS_PREY=new Set(['chicken','cow','pig','sheep','rabbit','mooshroom']),PREY_SAFE=10,PILLAR_SPARE=2,SEARCH_MISSES=2;
 const SHELTER_BLOCKS_HELD=b=>{try{return b.inventory.items().filter(i=>/^(cobblestone|cobbled_deepslate|dirt|stone|deepslate|andesite|diorite|granite|tuff|netherrack|.*_planks|sand|gravel|coarse_dirt)$/.test(i.name)).reduce((a,i)=>a+i.count,0);}catch{return 0;}};
 export function openSurface(b,floor){
  const p=b.entity.position.floored();
@@ -1479,6 +1480,13 @@ export class Worker extends EventEmitter {
  // reflex: a survival chain pauses the job through worker.stop, the runner stops the tree
  // (FightTask.onStop lowers the shield and clears the controls), and the cadence bridge
  // resumes the job when the chain yields.
+ // Round 62 (round-60 normal3: health 1, food 0, `Health below 8; retreated from chicken` 47
+ // times in 13 min - the hunt that would feed it was the thing it kept running from): prey that
+ // cannot hit back, with no hostile within PREY_SAFE, is no reason to retreat.
+ harmlessFight(task){
+  const t=task&&task.controller&&task.controller.target;
+  return !!t&&HARMLESS_PREY.has(t.name)&&!provoked(this.bot,t)&&!(this.nearestHostile()<=PREY_SAFE);
+ }
  async combatTask(job,token,mk,{timeoutMs=0,timeoutMessage='Fight timed out'}={}){
   const b=this.bot;
   const chain=this.userChain||((this.taskRunner&&this.taskRunner.chains||[]).find(c=>c.name==='User Tasks'));
@@ -1497,7 +1505,7 @@ export class Worker extends EventEmitter {
      if(deadline&&Date.now()>deadline){if(timer)clearInterval(timer);timer=null;const err=Error(timeoutMessage);err.code='COMBAT_TIMEOUT';reject(err);return;}
      this.check(token);
     }catch(e){if(timer){clearInterval(timer);timer=null;}reject(e);return;}
-    if(b.health<8){if(timer)clearInterval(timer);timer=null;const err=Error('low health');err.code='HEALTH_RETREAT';reject(err);}
+    if(b.health<8&&!this.harmlessFight(task)){if(timer)clearInterval(timer);timer=null;const err=Error('low health');err.code='HEALTH_RETREAT';reject(err);}
    },250);
   });
   if(timer&&timer.unref)timer.unref();
@@ -1837,10 +1845,12 @@ export class Worker extends EventEmitter {
   const rise=()=>log.y-3-b.entity.position.floored().y;
   if(rise()<=0)return true;
   if(rise()>TRUNK_PILLAR)return false;
-  if(this.shelterStock(true)<rise()){
-   const need=rise();
+  // Round 62 (round-60: 7 `Pillar: stopped at y=N (no blocks held)` on canopy climbs - a missed
+  // jump-place spends a block, and the dirt was dug to the exact rise): PILLAR_SPARE more.
+  if(this.shelterStock(true)<rise()+PILLAR_SPARE){
+   const need=rise()+PILLAR_SPARE;
    await this.digShelterDirt(job,token,()=>need,'Digging dirt to pillar up to the canopy');
-   if(this.shelterStock(true)<need){this.log('Gather: no blocks to pillar up to the canopy log at '+log);return false;}
+   if(this.shelterStock(true)<rise()){this.log('Gather: no blocks to pillar up to the canopy log at '+log);return false;}
    await goUnder();if(!under())return false;
   }
   this.log('Gather: pillaring '+rise()+' up to the canopy log at '+log);
@@ -2630,6 +2640,7 @@ export class Worker extends EventEmitter {
    // a 48+ block wander is how the bot lost the clearing in the baseline soaks. A new area
    // forgets the old one's refused columns and climbs.
    const searchLeg=async()=>{
+    let aim=null;
     job.searches++;this.update(job,Math.max(0,this.count(job.dropName)-job.startDrop),`Searching further afield (${job.searches}/3)`);
     let leg=s.belowFoots?24:Math.max(48,radius),direction=['east','north','west','south'][job.searches-1];
     // Round 10 (bug D, hard1 wood at 543 s): head for the nearest match the bot can see beyond
@@ -2638,9 +2649,10 @@ export class Worker extends EventEmitter {
      const me=b.entity.position,seen=b.findBlocks({matching:match,point:me,maxDistance:SEARCH_SCAN,count:256})
       .filter(p=>p.distanceTo(pos(job.anchor))>radius&&!this.gatherBlacklisted(job,p)&&(!s.belowFoots||Math.abs(p.y-me.y)<=8));
      const head=searchHeading(me,seen);
-     if(head){direction=head.direction;leg=Math.max(leg,Math.min(64,head.distance-8));this.log('Gather: search leg '+job.searches+' '+direction+' toward '+(anyLog?'logs':s.block)+' at '+head.target);}
+     if(head){aim=head.target;direction=head.direction;leg=Math.max(leg,Math.min(64,head.distance-8));this.log('Gather: search leg '+job.searches+' '+direction+' toward '+(anyLog?'logs':s.block)+' at '+head.target);}
     }catch(e){this.check(token);}
-    await this.exploreLeg(token,{direction,distance:leg,seconds:90+leg*2});
+    try{await this.exploreLeg(token,{direction,distance:leg,seconds:90+leg*2});}
+    finally{if(aim)this.searchMiss(aim);}
     job.anchor=b.entity.position.floored();job.badColumns=[];job.climbs=0;this.save();
    };
    let lastScan=0,lastCount=null;
@@ -2987,6 +2999,22 @@ export class Worker extends EventEmitter {
    if(searchable){this.log('Gather: '+job.badColumns.length+' columns / '+job.badBlocks.length+' blocks refused here; searching further afield');job.badBlocks=[];job.colFails={};job.blockFails={};return 'search';}
    throw Error('Cannot gather safely: '+msg);
   }
+ }
+ // Round 62 (round-60 normal3: seven `wood failed 3 times`, every search leg aimed at the logs at
+ // 4,77,212 and every one ended `Navigation left the surface` - never a skip, so never a
+ // blacklist): a search target the leg ends more than SEARCH_SCAN/4 short of, SEARCH_MISSES times,
+ // has its column blacklisted for GATHER_BLACKLIST_SECONDS.
+ searchMiss(target){
+  const b=this.bot,[x,y,z]=String(target).split(',').map(Number);
+  if(![x,y,z].every(Number.isFinite)||!b?.entity)return;
+  const me=b.entity.position;
+  if(Math.hypot(x+0.5-me.x,z+0.5-me.z)<=SEARCH_SCAN/4){this.searchMisses?.delete(x+','+z);return;}
+  const m=this.searchMisses||(this.searchMisses=new Map()),k=x+','+z,n=(m.get(k)||0)+1;
+  m.set(k,n);
+  if(n<SEARCH_MISSES)return;
+  m.delete(k);
+  for(let dy=-8;dy<=8;dy++){try{this.blacklist&&this.blacklist.block&&this.blacklist.block(new Vec3(x,y+dy,z),GATHER_BLACKLIST_SECONDS);}catch{}}
+  this.log('Gather: the search target at '+target+' was missed '+n+' times (bot at '+me.floored()+'); its column is skipped for '+GATHER_BLACKLIST_SECONDS/60+' min');
  }
  gatherBlacklisted(job,p){
   if(job.badBlocks&&job.badBlocks.includes(p.x+','+p.y+','+p.z))return true;
