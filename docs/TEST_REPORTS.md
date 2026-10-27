@@ -9746,3 +9746,683 @@ Interventions 5, resumes 1, deaths 1. The resume is `operator: resumed the ladde
 `data/storage.json` and `data/ledger.json` are pasted above. They are not committed.
 
 After the stop, the flat world was restored (`level-name=agent-test-world`, `level-type=minecraft\:flat`, `level-seed` empty, `server-ip=0.0.0.0`, `difficulty=peaceful`). The model was still disabled and port 8081 was closed. End of this soak is `2026-10-27T19:44:26.948Z`. Spawn this generation was `[-42, 66, 129]`, hard anchor `[-49, 66, 106]` canopy light 15, normal anchor `[74, 77, 203]` sky 15. The seed line is `soak seed 20261027 (anchors scouted from spawn)`. Iron picks on 6 of 6. Diamonds 0. One death, a polar bear at `(72, 76, 202)` on normal2. No lava line. One sticks-first craft, a stone shovel, and it completed. normal1 ended with a wooden pick beside a stone pick. hard3 ended with a wooden axe and a wooden sword beside stone and iron swords. Two storage chests on normal2, and nothing under the iron, diamond, gold, or coal keep went in. Drowning was logged, one use job resumed and stepped out, and there was no drowning death. No mob-cave line, no cave morning, and no night mine. hard2's box sealed at y=46 and was still skipped. No bed was held. Night skips were 0/0/0/1/1/1. `wood failed 3 times` is 7, all normal3. No harness return from below the anchor.
+
+
+## 2026-10-28 02:00 IST – 2026-10-28 05:13 IST — round 62 soak (bot code `854a380`)
+
+This soak covers the round-61 and round-62 changes together, on bot code `854a380` (`Round 62: keep hunting harmless prey at low health, dig two spare blocks for a canopy pillar, and skip a search target missed twice`). HEAD for the run is `cc17e02` (`Add an obstruction probe: walls, a door, sealed cells, a pit, blocked chest spots and a holed night shelter on the flat test world`), which is that bot commit plus the probe. No combat and no integration.
+
+Units, every `tests/*.test.js` except `resources.test.js`, `--max-old-space-size=2048 --test-timeout=60000 --test-skip-pattern resources`: **672 pass, 0 fail**, 0 skipped, 41683 ms. That is 7 more than the round-60 live count of 665, and the fail count is 0, so this is a pass. `resources.test.js` was not run.
+
+`AGENT_MODEL=off` was in the soak process environment. `SOAK_SEED=20261027` was in that same environment. `SOAK_NIGHT_SKIP` was absent, so the harness default of 150 s applies. Supervisor log first line is `model server disabled (config.model.enabled=false): skipping llama-server, saving ~6.5 GB commit`. Port 8081 had nothing listening before the soak, after the flat-world restore, and after the probe. The soak process started at 02:00:51 IST (20:30:51Z) and the results file was written at 05:13:10 IST (23:43:10Z), 11539 s. The results were promoted to `data/soak-results.json` (same bytes as `data/soak-results-20261028-051310.json`). `errors` is empty. `invalid_attempts` is empty. Six valid runs, each on the first attempt (`normal1a1` through `hard3a3`). `tod_end` is `day` on all six. Deaths 1, resumes 1, interventions 4. The stdout capture of the soak shell stopped at 22:32:06Z, during normal3 at t=1958, when that shell was aborted. The soak process itself kept running until 23:43:24Z and wrote the results. Operator lines after 22:32:06Z are the intervention strings stored in the results file. Dashboard window used below is 20:38:20Z–23:43:08Z. `Autopilot started` / `Autopilot stopped`: normal1 20:38:20Z–21:18:30Z (a second start at 21:13:59Z after the death), normal2 21:18:42Z–21:58:52Z, normal3 21:59:04Z–22:39:14Z, hard1 22:39:29Z–23:00:34Z, hard2 23:00:46Z–23:21:51Z, hard3 23:22:03Z–23:43:08Z. `logs/dashboard-uncaught.log` stayed 2576174. The server log's `Preparing level "agent-soak-world"` for this run is at byte 16513178, `[02:01:12 INFO]`. The only BuilderBot disconnect in that slice is the restore stop, `[05:13:11 INFO]: BuilderBot lost connection: Disconnected`. No mid-soak disconnect.
+
+### Scout
+
+`soak seed 20261027 (anchors scouted from spawn)`
+
+`scout base: the spawn at [-23, 66, 122]`
+
+`scout: HARD anchor confirmed (gather completed, canopy light 15) at [-50, 65, 103]`
+
+`scout: NORMAL anchor confirmed (open sky 15, gather completed) at [-133, 63, 258]`
+
+These do not match round 60 on the same seed. Round 60 was spawn `[-42, 66, 129]`, hard `[-49, 66, 106]`, normal `[74, 77, 203]`. The server login is `BuilderBot logged in ... at ([minecraft:overworld]-22.5, 66.0, 122.5)`. The old soak world was deleted and regenerated. Spawn was not set by hand. The night-skip default stayed 150 s.
+
+### Rungs
+
+Seconds from the run start. Wood, stone, furnace, and iron pick are the harness first-sample times. Ore and ingots are sample peaks.
+
+| run | wood | stone | furnace | iron pick | ore | ingots | diamonds | diamond pick | bed | deaths |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| normal1 | 121 | 301 | 422 | 572 | 8 | 7 | 0 | no | no | 1 |
+| normal2 | 151 | 332 | 422 | 663 | 3 | 3 | 0 | no | no | 0 |
+| normal3 | 30 | 151 | 241 | 512 | 3 | 8 | 0 | no | no | 0 |
+| hard1 | 120 | 271 | 391 | 542 | 2 | 6 | 0 | no | no | 0 |
+| hard2 | 151 | 301 | 391 | 542 | 3 | 0 | 0 | no | no | 0 |
+| hard3 | 151 | 301 | 392 | no | 0 | 0 | 0 | no | no | 0 |
+
+Iron picks on 5 of 6. Round 60 on this seed was 6 of 6 (452/723/935 and 483/1176/1054). hard3 never held an iron pick. Diamonds 0, same as round 60. Deaths 1, but this one is a drowning, not the round-60 polar bear. No diamond pick. No bed. Food mins 11/0/15 and 17/20/20. End health 20, 0.6, 20, 20, 20, 20. normal2 ended under 6, at health 0.6 and food 0, position `[16, 78, 288]`, and did not die. Round 60's run under 6 was normal3 at health 1.
+
+### Digging
+
+One pillar that never rose:
+
+`2026-10-27T20:59:25.918Z Pillar: no rise in 3 jump-places at y=48 (held cobblestone, under stone, head air, above air)`
+
+It follows one `Ascend: no path up from y=48; pillaring` at 20:59:20.904Z on normal1. `Ascend: no path up from y=N; pillaring` is not repeated 5 or more times at the same y. The lines are one each: normal1 y=42 at 20:57:42.192Z, normal1 y=48 at 20:59:20.904Z, hard1 y=50 at 22:52:07.749Z. The hard1 one is followed by `22:52:30.945Z Ascend: y=50 -> 72 (surface 72)`.
+
+### Provoked mobs
+
+No `Threat: <mob> at P hit the bot; treating it as hostile for 60 s` line. No polar bear, wolf, iron golem, goat, bee, or llama line near the bot, and no damage logged from one. The one death is drowning, below.
+
+### Hunting at low health
+
+`Health below 8; retreated from <mob>` is 9 lines, all normal2, all `pig`: 21:44:36.271Z, 21:44:48.422Z, 21:45:00.749Z, 21:45:12.875Z, 21:45:37.462Z, 21:46:58.787Z, 21:47:10.394Z, 21:47:22.820Z, 21:57:56.421Z. Other runs have 0. A typical one:
+
+`21:44:32.704Z Autopilot [food] {"type":"fight","entity":"pig","maxSeconds":90}`
+
+`21:44:33.372Z Combat: retreat pig`
+
+`21:44:33.373Z Combat event: critical health 6 <= 8`
+
+`21:44:36.271Z Fight result: pig tactic=melee hits=0 crits=0 sweeps=0 shots=0 released=0 landed=0 damage taken=0 disengages=0 result=stopped`
+
+`21:44:36.271Z Job: Health below 8; retreated from pig`
+
+The hunt did not continue. Hits 0, damage taken 0, result stopped. There is no kill and no meal on these pig fights. normal2 also has 25 `Job: Health below 8; retreated from the fight` lines (no mob name), from 21:39:20.672Z through 21:57:40.201Z. Food min on normal2 is 0. End health is 0.6. The last minute is still a pig fight that stops the same way, with food 0. Round 60 normal3 ended at health 1 after retreating from chickens. This soak's low-health run is normal2, and it still retreats from the pig.
+
+### Canopy pillars
+
+Three `Gather: pillaring N up to the canopy log` lines. `Pillar: stopped` and `no blocks held` are 0 on every run. Round 60 had 7 no-blocks-held stops.
+
+`21:15:16.172Z Gather: pillaring 3 up to the canopy log at (-72, 74, 151)` on normal1, after the death resume. The next gather aims at a different log (`-122,68,156`). `21:15:57.261Z Fall: dropping from (-72, 74, 151)`. It reached that log's coordinates and fell. No stop line.
+
+`23:22:25.694Z Gather: pillaring 3 up to the canopy log at (-88, 73, 74)` on hard3. Twenty-four seconds later the next search leg aims at `-144,70,68`. No `Pillar: stopped` and no `no blocks held`.
+
+`23:24:57.732Z Gather: pillaring 3 up to the canopy log at (-146, 79, 92)` on hard3. `23:25:18.921Z Completed gather`. The bot is later at `(-145, 74, 93)`. No stop line.
+
+### Search targets
+
+One miss line:
+
+`23:01:06.080Z Gather: the search target at -88,73,74 was missed 2 times (bot at (-90, 68, 103)); its column is skipped for 10 min`
+
+The next search leg in that same hard2 run aims at `-146,74,92`, not at -88, 74. `wood failed 3 times; exploring before retry` is 0 on every run. Round 60 was 7, all normal3.
+
+### Night skip
+
+`night_skips` per run is 0, 0, 0, 1, 0, 0. The three normal runs freeze the clock. hard1 skipped once. hard2 and hard3 did not.
+
+hard1, harness record: `operator: skipped the night at t=753 (tod 15202, box safe 157 s)`. The seal before it:
+
+`22:49:24.203Z Shelter: sealed at (-118, 49, 75) (4 blocks placed)`
+
+hard1 started 22:39:29Z, so t=753 is 22:52:02Z. Then, the same second:
+
+`22:52:02.383Z Shelter: dawn (tod 1010); staying sealed until the morning is light and clear`
+
+`22:52:02.384Z Shelter: morning (tod 1010, nearest hostile 25.3); opening up`
+
+`22:52:07.037Z Completed shelter`
+
+The 60 s after the open have no damage, hurt, or drowning line. The bot ascends from y=50 to y=72 and explores for food. The nearest hostile at the open is 25.3 away.
+
+hard2 sealed and then mined before the safe clock could reach 150 s:
+
+`23:10:39.988Z Shelter: sealed at (-177, 70, 96) (2 blocks placed)`
+
+`23:11:08.724Z Night mine: down from the shelter at (-177, 70, 96) (tod 12601)`
+
+`23:11:52.420Z Night mine: could not climb back into (-177, 70, 96): Took to long to decide path to goal!`
+
+`23:11:52.421Z Shelter: not in the box at (-177, 70, 96) (the night mine could not climb home; bot at (-178, 70, 97)); sealing where it stands`
+
+`23:11:52.424Z Shelter: moved from -177,70,96 to (-178, 70, 97); building a new box here`
+
+`23:11:52.427Z Shelter: invalid operation; night pillar instead`
+
+`23:11:53.075Z Autopilot: the night job failed (invalid operation; night pillar instead); night pillar until morning`
+
+There is no second `Shelter: sealed` and no morning line on hard2. The night was not skipped because the box was opened by the night mine after 29 s and the reseal failed.
+
+hard3 also mined immediately, resealed, and the clock reached morning before 150 s safe:
+
+`23:39:34.242Z Shelter: sealed at (-145, 67, 95) (3 blocks placed)`
+
+`23:39:34.504Z Night mine: down from the shelter at (-145, 67, 95) (tod 21163)`
+
+`23:40:12.200Z Shelter: not in the box at (-145, 67, 95) (the night mine could not climb home; bot at (-145, 67, 96)); sealing where it stands`
+
+`23:40:15.249Z Shelter: sealed at (-145, 67, 96) (5 blocks placed)`
+
+`23:41:55.724Z Shelter: dawn (tod 3); staying sealed until the morning is light and clear`
+
+No `Shelter: morning` / opening line before hard3 stopped at 23:43:08Z. Safe time from the second seal to that dawn line is about 100 s, under 150 s, and tod was already 3.
+
+### Spare tools
+
+normal1 ended with a wooden pickaxe, wooden axe, and wooden sword, and a stone pickaxe (stone axe 0, stone sword 0). The wooden pick is beside a stone pick. The last drop before the end is `21:18:14.268Z Craft: dropped the wooden_pickaxe (stone_pickaxe held)`. The end bag still held the wooden pick.
+
+hard1 ended with a wooden sword beside a stone sword, plus a stone pick and an iron pick. The last wooden-sword drop before the end is `22:56:46.196Z Craft: dropped the wooden_sword (stone_pickaxe held)`. The end bag still held the wooden sword.
+
+hard2 ended with a wooden pickaxe beside two stone picks and an iron pick. The last drop is `23:09:46.747Z Craft: dropped the wooden_pickaxe (iron_pickaxe held)`. The end bag still held the wooden pick.
+
+normal2, normal3, and hard3 ended with no wooden or golden tool beside a stone-or-better tool of the same kind.
+
+### Tool loss
+
+`Tool left the inventory` with uses left above 5, not a break: normal1 62, normal2 29, normal3 61, hard1 36, hard2 23, hard3 10. They are equip swaps. The same tool is named again within a second, or the same timestamp is a `Craft: dropped` line. The harness sample counts wooden, stone, and iron picks, not axes, shovels, or swords. After normal1's `20:43:15.624Z Tool left the inventory: stone_pickaxe (131 uses left)`, the sample at t=301 still has `stone_pick` 1. End bags still hold the stone or iron pick on every run that crafted one, including normal3 after the break below.
+
+```
+normal1 20:42:45.046  Tool left the inventory: wooden_pickaxe (59 uses left)
+normal1 20:43:14.674  Tool left the inventory: wooden_pickaxe (56 uses left)
+normal1 20:43:15.624  Tool left the inventory: stone_pickaxe (131 uses left)
+normal1 20:44:30.023  Tool left the inventory: wooden_sword (59 uses left)
+normal1 20:44:35.470  Tool left the inventory: wooden_axe (59 uses left)
+normal1 20:44:35.470  Tool left the inventory: wooden_sword (59 uses left)
+normal1 20:44:46.709  Tool left the inventory: wooden_axe (59 uses left)
+normal1 20:44:46.710  Tool left the inventory: wooden_sword (59 uses left)
+normal1 20:44:54.584  Tool left the inventory: stone_axe (131 uses left)
+normal1 20:45:19.487  Tool left the inventory: stone_shovel (131 uses left)
+normal1 20:45:50.154  Tool left the inventory: wooden_axe (59 uses left)
+normal1 20:45:50.154  Tool left the inventory: wooden_sword (59 uses left)
+normal1 20:45:54.894  Tool left the inventory: stone_pickaxe (131 uses left)
+normal1 20:45:54.936  Tool left the inventory: stone_pickaxe (131 uses left)
+normal1 20:46:21.177  Tool left the inventory: stone_pickaxe (114 uses left)
+normal1 20:46:22.288  Tool left the inventory: stone_pickaxe (114 uses left)
+normal1 20:46:22.291  Tool left the inventory: stone_pickaxe (114 uses left)
+normal1 20:49:10.573  Tool left the inventory: stone_pickaxe (113 uses left)
+normal1 20:49:10.929  Tool left the inventory: stone_axe (126 uses left)
+normal1 20:49:11.572  Tool left the inventory: stone_shovel (113 uses left)
+normal1 20:49:12.857  Tool left the inventory: stone_axe (126 uses left)
+normal1 20:49:12.857  Tool left the inventory: stone_pickaxe (34 uses left)
+normal1 20:49:51.310  Tool left the inventory: stone_shovel (113 uses left)
+normal1 20:49:58.041  Tool left the inventory: stone_pickaxe (34 uses left)
+normal1 20:49:58.045  Tool left the inventory: stone_pickaxe (34 uses left)
+normal1 20:50:40.533  Tool left the inventory: stone_pickaxe (113 uses left)
+normal1 20:50:40.535  Tool left the inventory: stone_pickaxe (113 uses left)
+normal1 20:52:43.624  Tool left the inventory: iron_pickaxe (250 uses left)
+normal1 20:54:01.057  Tool left the inventory: wooden_axe (59 uses left)
+normal1 20:54:01.057  Tool left the inventory: wooden_sword (59 uses left)
+normal1 20:54:13.241  Tool left the inventory: wooden_axe (59 uses left)
+normal1 20:54:13.241  Tool left the inventory: wooden_sword (59 uses left)
+normal1 20:57:06.658  Tool left the inventory: stone_shovel (102 uses left)
+normal1 20:57:08.689  Tool left the inventory: stone_axe (119 uses left)
+normal1 20:57:35.145  Tool left the inventory: stone_axe (119 uses left)
+normal1 20:58:49.086  Tool left the inventory: stone_pickaxe (131 uses left)
+normal1 20:59:21.616  Tool left the inventory: stone_axe (118 uses left)
+normal1 20:59:21.618  Tool left the inventory: stone_axe (118 uses left)
+normal1 20:59:56.573  Tool left the inventory: iron_pickaxe (218 uses left)
+normal1 21:02:02.331  Tool left the inventory: iron_pickaxe (218 uses left)
+normal1 21:03:40.614  Tool left the inventory: wooden_axe (59 uses left)
+normal1 21:03:40.615  Tool left the inventory: wooden_sword (59 uses left)
+normal1 21:03:46.444  Tool left the inventory: wooden_sword (59 uses left)
+normal1 21:03:46.444  Tool left the inventory: wooden_axe (59 uses left)
+normal1 21:06:55.549  Tool left the inventory: stone_shovel (102 uses left)
+normal1 21:06:59.832  Tool left the inventory: iron_sword (250 uses left)
+normal1 21:06:59.832  Tool left the inventory: iron_pickaxe (159 uses left)
+normal1 21:07:37.234  Tool left the inventory: stone_pickaxe (131 uses left)
+normal1 21:07:37.235  Tool left the inventory: stone_pickaxe (131 uses left)
+normal1 21:09:47.972  Tool left the inventory: stone_axe (118 uses left)
+normal1 21:10:37.619  Tool left the inventory: stone_pickaxe (68 uses left)
+normal1 21:10:37.622  Tool left the inventory: stone_pickaxe (68 uses left)
+normal1 21:10:37.623  Tool left the inventory: stone_pickaxe (68 uses left)
+normal1 21:10:48.487  Tool left the inventory: stone_pickaxe (68 uses left)
+normal1 21:12:11.331  Tool left the inventory: stone_shovel (44 uses left)
+normal1 21:12:22.447  Tool left the inventory: iron_sword (235 uses left)
+normal1 21:12:27.734  Tool left the inventory: stone_shovel (44 uses left)
+normal1 21:13:45.674  Tool left the inventory: stone_axe (115 uses left)
+normal1 21:17:13.631  Tool left the inventory: wooden_axe (59 uses left)
+normal1 21:17:36.076  Tool left the inventory: wooden_pickaxe (59 uses left)
+normal1 21:18:14.267  Tool left the inventory: wooden_pickaxe (53 uses left)
+normal1 21:18:21.818  Tool left the inventory: stone_pickaxe (131 uses left)
+normal1 count 62
+normal2 21:22:39.174  Tool left the inventory: wooden_axe (59 uses left)
+normal2 21:23:19.071  Tool left the inventory: wooden_pickaxe (59 uses left)
+normal2 21:23:31.150  Tool left the inventory: wooden_axe (58 uses left)
+normal2 21:23:44.813  Tool left the inventory: wooden_pickaxe (55 uses left)
+normal2 21:23:47.820  Tool left the inventory: stone_pickaxe (131 uses left)
+normal2 21:24:59.167  Tool left the inventory: wooden_sword (59 uses left)
+normal2 21:25:15.937  Tool left the inventory: wooden_axe (58 uses left)
+normal2 21:25:15.937  Tool left the inventory: wooden_sword (59 uses left)
+normal2 21:25:19.268  Tool left the inventory: wooden_axe (58 uses left)
+normal2 21:25:19.269  Tool left the inventory: wooden_sword (59 uses left)
+normal2 21:25:27.456  Tool left the inventory: stone_axe (131 uses left)
+normal2 21:25:32.607  Tool left the inventory: stone_shovel (131 uses left)
+normal2 21:25:42.573  Tool left the inventory: stone_sword (131 uses left)
+normal2 21:25:42.574  Tool left the inventory: wooden_axe (58 uses left)
+normal2 21:25:47.675  Tool left the inventory: wooden_sword (59 uses left)
+normal2 21:27:36.487  Tool left the inventory: wooden_axe (58 uses left)
+normal2 21:27:36.487  Tool left the inventory: wooden_sword (59 uses left)
+normal2 21:27:51.328  Tool left the inventory: stone_pickaxe (131 uses left)
+normal2 21:29:35.126  Tool left the inventory: stone_axe (128 uses left)
+normal2 21:30:29.436  Tool left the inventory: stone_axe (128 uses left)
+normal2 21:33:57.322  Tool left the inventory: stone_axe (123 uses left)
+normal2 21:41:06.193  Tool left the inventory: stone_pickaxe (70 uses left)
+normal2 21:41:06.194  Tool left the inventory: stone_pickaxe (70 uses left)
+normal2 21:41:06.194  Tool left the inventory: stone_pickaxe (69 uses left)
+normal2 21:41:06.236  Tool left the inventory: stone_pickaxe (69 uses left)
+normal2 21:41:06.236  Tool left the inventory: stone_shovel (85 uses left)
+normal2 21:43:57.329  Tool left the inventory: stone_pickaxe (131 uses left)
+normal2 21:43:59.216  Tool left the inventory: stone_shovel (85 uses left)
+normal2 21:43:59.216  Tool left the inventory: stone_sword (122 uses left)
+normal2 count 29
+normal3 22:00:43.443  Tool left the inventory: wooden_axe (59 uses left)
+normal3 22:01:26.802  Tool left the inventory: wooden_pickaxe (52 uses left)
+normal3 22:01:27.026  Tool left the inventory: stone_pickaxe (131 uses left)
+normal3 22:02:27.017  Tool left the inventory: wooden_sword (59 uses left)
+normal3 22:02:27.018  Tool left the inventory: wooden_pickaxe (52 uses left)
+normal3 22:02:32.304  Tool left the inventory: wooden_axe (58 uses left)
+normal3 22:02:32.304  Tool left the inventory: wooden_sword (59 uses left)
+normal3 22:02:32.305  Tool left the inventory: wooden_pickaxe (52 uses left)
+normal3 22:02:39.207  Tool left the inventory: wooden_axe (58 uses left)
+normal3 22:02:39.208  Tool left the inventory: wooden_sword (59 uses left)
+normal3 22:02:39.208  Tool left the inventory: wooden_pickaxe (52 uses left)
+normal3 22:02:47.015  Tool left the inventory: stone_axe (131 uses left)
+normal3 22:03:02.404  Tool left the inventory: stone_sword (131 uses left)
+normal3 22:03:07.202  Tool left the inventory: stone_axe (130 uses left)
+normal3 22:03:14.073  Tool left the inventory: stone_shovel (131 uses left)
+normal3 22:04:41.961  Tool left the inventory: stone_axe (130 uses left)
+normal3 22:04:41.961  Tool left the inventory: stone_sword (126 uses left)
+normal3 22:04:55.350  Tool left the inventory: stone_shovel (113 uses left)
+normal3 22:04:56.172  Tool left the inventory: wooden_axe (58 uses left)
+normal3 22:04:56.722  Tool left the inventory: stone_pickaxe (83 uses left)
+normal3 22:04:57.073  Tool left the inventory: wooden_sword (59 uses left)
+normal3 22:04:59.750  Tool left the inventory: wooden_pickaxe (52 uses left)
+normal3 22:05:12.835  Tool left the inventory: stone_pickaxe (83 uses left)
+normal3 22:05:22.882  Tool left the inventory: stone_sword (126 uses left)
+normal3 22:05:54.522  Tool left the inventory: wooden_axe (58 uses left)
+normal3 22:05:54.523  Tool left the inventory: wooden_sword (59 uses left)
+normal3 22:05:54.523  Tool left the inventory: wooden_pickaxe (52 uses left)
+normal3 22:05:55.737  Tool left the inventory: stone_shovel (113 uses left)
+normal3 22:06:01.325  Tool left the inventory: stone_pickaxe (131 uses left)
+normal3 22:06:01.326  Tool left the inventory: stone_pickaxe (131 uses left)
+normal3 22:07:22.616  Tool left the inventory: stone_axe (126 uses left)
+normal3 22:08:20.783  Tool left the inventory: stone_axe (126 uses left)
+normal3 22:13:11.123  Tool left the inventory: stone_pickaxe (131 uses left)
+normal3 22:16:45.968  Tool left the inventory: stone_pickaxe (131 uses left)
+normal3 22:18:06.436  Tool left the inventory: stone_pickaxe (113 uses left)
+normal3 22:18:06.437  Tool left the inventory: stone_pickaxe (113 uses left)
+normal3 22:18:06.438  Tool left the inventory: stone_pickaxe (112 uses left)
+normal3 22:18:06.479  Tool left the inventory: stone_sword (123 uses left)
+normal3 22:18:06.535  Tool left the inventory: stone_pickaxe (112 uses left)
+normal3 22:18:06.535  Tool left the inventory: stone_shovel (78 uses left)
+normal3 22:18:19.683  Tool left the inventory: stone_shovel (78 uses left)
+normal3 22:18:33.343  Tool left the inventory: stone_axe (114 uses left)
+normal3 22:22:12.471  Tool left the inventory: iron_pickaxe (250 uses left)
+normal3 22:26:56.721  Tool left the inventory: iron_pickaxe (57 uses left)
+normal3 22:26:57.191  Tool left the inventory: iron_pickaxe (57 uses left)
+normal3 22:26:57.192  Tool left the inventory: stone_shovel (43 uses left)
+normal3 22:30:19.164  Tool left the inventory: stone_axe (114 uses left)
+normal3 22:32:01.667  Tool left the inventory: wooden_pickaxe (59 uses left)
+normal3 22:32:50.075  Tool left the inventory: stone_shovel (43 uses left)
+normal3 22:34:16.039  Tool left the inventory: wooden_pickaxe (59 uses left)
+normal3 22:34:23.837  Tool left the inventory: stone_pickaxe (131 uses left)
+normal3 22:35:01.954  Tool left the inventory: stone_pickaxe (106 uses left)
+normal3 22:35:04.050  Tool left the inventory: stone_pickaxe (106 uses left)
+normal3 22:36:59.823  Tool left the inventory: iron_sword (250 uses left)
+normal3 22:36:59.823  Tool left the inventory: stone_shovel (29 uses left)
+normal3 22:37:39.468  Tool left the inventory: stone_shovel (29 uses left)
+normal3 22:38:07.573  Tool left the inventory: stone_axe (94 uses left)
+normal3 22:38:15.160  Tool left the inventory: stone_shovel (131 uses left)
+normal3 22:38:15.659  Tool left the inventory: stone_axe (94 uses left)
+normal3 22:38:15.659  Tool left the inventory: stone_pickaxe (43 uses left)
+normal3 22:38:20.467  Tool left the inventory: stone_pickaxe (43 uses left)
+normal3 count 61
+hard1 22:42:57.225  Tool left the inventory: wooden_pickaxe (59 uses left)
+hard1 22:43:30.224  Tool left the inventory: wooden_pickaxe (56 uses left)
+hard1 22:43:44.301  Tool left the inventory: stone_pickaxe (131 uses left)
+hard1 22:45:17.065  Tool left the inventory: wooden_pickaxe (56 uses left)
+hard1 22:45:17.066  Tool left the inventory: wooden_sword (59 uses left)
+hard1 22:45:22.670  Tool left the inventory: wooden_axe (59 uses left)
+hard1 22:45:22.670  Tool left the inventory: wooden_pickaxe (56 uses left)
+hard1 22:45:22.670  Tool left the inventory: wooden_sword (59 uses left)
+hard1 22:45:26.052  Tool left the inventory: wooden_sword (59 uses left)
+hard1 22:45:26.052  Tool left the inventory: wooden_axe (59 uses left)
+hard1 22:45:26.052  Tool left the inventory: wooden_pickaxe (56 uses left)
+hard1 22:45:34.144  Tool left the inventory: stone_axe (131 uses left)
+hard1 22:45:48.573  Tool left the inventory: wooden_pickaxe (56 uses left)
+hard1 22:45:48.574  Tool left the inventory: wooden_sword (59 uses left)
+hard1 22:45:48.574  Tool left the inventory: wooden_axe (59 uses left)
+hard1 22:45:53.983  Tool left the inventory: stone_shovel (131 uses left)
+hard1 22:45:53.984  Tool left the inventory: wooden_axe (59 uses left)
+hard1 22:46:00.239  Tool left the inventory: stone_pickaxe (131 uses left)
+hard1 22:46:00.240  Tool left the inventory: wooden_pickaxe (56 uses left)
+hard1 22:46:00.240  Tool left the inventory: wooden_pickaxe (56 uses left)
+hard1 22:46:00.241  Tool left the inventory: stone_pickaxe (131 uses left)
+hard1 22:46:00.241  Tool left the inventory: wooden_pickaxe (56 uses left)
+hard1 22:48:29.160  Tool left the inventory: wooden_axe (59 uses left)
+hard1 22:48:29.160  Tool left the inventory: wooden_pickaxe (56 uses left)
+hard1 22:48:29.160  Tool left the inventory: wooden_sword (59 uses left)
+hard1 22:48:36.104  Tool left the inventory: wooden_pickaxe (56 uses left)
+hard1 22:48:36.104  Tool left the inventory: wooden_sword (59 uses left)
+hard1 22:48:36.104  Tool left the inventory: wooden_axe (59 uses left)
+hard1 22:54:11.243  Tool left the inventory: wooden_sword (59 uses left)
+hard1 22:54:11.244  Tool left the inventory: wooden_axe (59 uses left)
+hard1 22:54:11.244  Tool left the inventory: wooden_pickaxe (56 uses left)
+hard1 22:55:59.720  Tool left the inventory: wooden_sword (59 uses left)
+hard1 22:56:13.923  Tool left the inventory: stone_pickaxe (131 uses left)
+hard1 22:56:46.195  Tool left the inventory: wooden_pickaxe (56 uses left)
+hard1 22:56:46.195  Tool left the inventory: wooden_sword (59 uses left)
+hard1 22:56:46.196  Tool left the inventory: wooden_axe (59 uses left)
+hard1 count 36
+hard2 23:04:16.605  Tool left the inventory: wooden_axe (59 uses left)
+hard2 23:04:20.021  Tool left the inventory: wooden_pickaxe (59 uses left)
+hard2 23:04:56.044  Tool left the inventory: wooden_axe (58 uses left)
+hard2 23:05:41.752  Tool left the inventory: wooden_pickaxe (55 uses left)
+hard2 23:05:56.907  Tool left the inventory: stone_pickaxe (131 uses left)
+hard2 23:06:47.006  Tool left the inventory: wooden_sword (59 uses left)
+hard2 23:06:47.007  Tool left the inventory: wooden_pickaxe (55 uses left)
+hard2 23:06:52.123  Tool left the inventory: wooden_axe (58 uses left)
+hard2 23:06:52.124  Tool left the inventory: wooden_sword (59 uses left)
+hard2 23:06:52.124  Tool left the inventory: wooden_pickaxe (55 uses left)
+hard2 23:07:03.201  Tool left the inventory: wooden_axe (58 uses left)
+hard2 23:07:03.202  Tool left the inventory: wooden_sword (59 uses left)
+hard2 23:07:03.202  Tool left the inventory: wooden_pickaxe (55 uses left)
+hard2 23:07:11.453  Tool left the inventory: stone_axe (131 uses left)
+hard2 23:07:22.016  Tool left the inventory: wooden_axe (58 uses left)
+hard2 23:07:22.016  Tool left the inventory: wooden_sword (59 uses left)
+hard2 23:07:22.016  Tool left the inventory: wooden_pickaxe (55 uses left)
+hard2 23:07:23.654  Tool left the inventory: stone_shovel (131 uses left)
+hard2 23:07:26.549  Tool left the inventory: stone_pickaxe (131 uses left)
+hard2 23:07:26.591  Tool left the inventory: stone_pickaxe (131 uses left)
+hard2 23:09:03.078  Tool left the inventory: wooden_pickaxe (55 uses left)
+hard2 23:09:46.747  Tool left the inventory: wooden_pickaxe (55 uses left)
+hard2 23:10:12.000  Tool left the inventory: stone_pickaxe (130 uses left)
+hard2 count 23
+hard3 23:25:57.989  Tool left the inventory: wooden_axe (59 uses left)
+hard3 23:26:02.404  Tool left the inventory: wooden_pickaxe (59 uses left)
+hard3 23:27:03.044  Tool left the inventory: wooden_pickaxe (56 uses left)
+hard3 23:27:04.031  Tool left the inventory: stone_pickaxe (131 uses left)
+hard3 23:27:57.203  Tool left the inventory: wooden_sword (59 uses left)
+hard3 23:27:57.204  Tool left the inventory: wooden_pickaxe (56 uses left)
+hard3 23:28:05.491  Tool left the inventory: wooden_axe (58 uses left)
+hard3 23:28:05.492  Tool left the inventory: wooden_sword (59 uses left)
+hard3 23:28:05.492  Tool left the inventory: wooden_pickaxe (56 uses left)
+hard3 23:28:08.880  Tool left the inventory: wooden_pickaxe (56 uses left)
+hard3 count 10
+```
+
+### Iron pick breaks
+
+One break, on normal3:
+
+`22:28:46.821Z Tool left the inventory: iron_pickaxe (1 uses left, broke)`
+
+The next job is a wood gather at 22:29:17.215Z. An iron-pick craft is queued at 22:35:59.450Z (`Autopilot [iron] {"type":"craft","item":"iron_pickaxe","count":1}`). The end bag of normal3 holds `iron_pickaxe` 1. It did not finish the run on stone only.
+
+### Food
+
+Food mins 11/0/15 and 17/20/20. Verdicts: `ate 5`, `ate 6`, `ate 2`, `not hungry enough (food min 17)`, `not hungry enough (food min 20)`, `not hungry enough (food min 20)`.
+
+`food step set aside` lines: 1, 23, 0, 1, 0, 0.
+
+`20:45:41.853Z Autopilot: food step set aside for 8 min (6 explore legs without food); moving on, back to food when hungry with none held` on normal1.
+
+normal2, all `food step set aside for 8 min`: 21:40:32.841Z (failed 3 times), 21:41:18.027Z (failed 3 times), 21:41:55.086Z (failed 3 times), 21:42:32.228Z (failed 3 times), 21:43:09.383Z (failed 3 times), 21:43:46.493Z (failed 3 times), 21:44:24.396Z (failed 3 times), 21:45:01.321Z (failed 3 times), 21:45:38.121Z (failed 3 times), 21:47:23.363Z (failed 3 times), 21:49:40.561Z (6 explore legs without food), 21:50:18.319Z (6 explore legs without food), 21:50:49.821Z (failed 3 times), 21:51:14.280Z (failed 3 times), 21:51:51.217Z (6 explore legs without food), 21:53:59.766Z (failed 3 times), 21:54:35.773Z (failed 3 times), 21:55:07.707Z (6 explore legs without food), 21:55:25.871Z (failed 3 times), 21:56:01.571Z (failed 3 times), 21:56:38.454Z (6 explore legs without food), 21:57:16.279Z (6 explore legs without food), 21:57:36.586Z (failed 3 times).
+
+`22:53:22.799Z Autopilot: food step set aside for 8 min (failed 3 times); moving on, back to food when hungry with none held` on hard1.
+
+Bed set-asides, not food: normal1 `20:59:20.878Z` and `21:11:57.760Z`, normal3 `22:19:06.068Z`, each `no sheep after 3 search legs; bed set aside for 10 min`.
+
+### Storage
+
+All five `Store:` placements are normal3, in one row at y=65, z=375:
+
+`22:32:11.817Z Store: placed a storage chest at -178,65,375`
+
+`22:32:28.504Z Store: placed a storage chest at -176,65,375`
+
+`22:32:46.881Z Store: placed a storage chest at -174,65,375`
+
+`22:33:26.948Z Store: placed a storage chest at -172,65,375`
+
+`22:34:06.635Z Store: placed a storage chest at -170,65,375`
+
+`22:34:07.022Z Store: put away cobbled_deepslate x109, diorite x54, cobblestone x32, andesite x26, gravel x8, dirt x2, flint x1, coal x8, raw_copper x5, spruce_sapling x1, leather x2, feather x1, pink_petals x2 (5 storage chests)`
+
+Two `Store: no chest and 1 planks; chopping 2 logs for one` lines sit between those placements (22:32:47.532Z and 22:33:27.541Z). No other run placed a chest.
+
+Categories and contents, from `data/storage.json`:
+
+- stone at -178, 65, 375: cobbled_deepslate 109, diorite 54, cobblestone 32, andesite 26, gravel 8, dirt 2, flint 1
+- metal at -176, 65, 375: coal 8, raw_copper 5
+- wood at -174, 65, 375: spruce_sapling 1
+- drops at -172, 65, 375: leather 2, feather 1
+- misc at -170, 65, 375: pink_petals 2
+
+No iron ingot, raw iron, diamond, or gold went into a chest. Coal 8 did. The coal keep is 16, so this coal is under the keep. Round 60 put nothing under the keep in.
+
+`data/storage.json`:
+
+```
+{
+ "chests": [
+  {
+   "x": -178,
+   "y": 65,
+   "z": 375,
+   "category": "stone",
+   "contents": {
+    "cobbled_deepslate": 109,
+    "diorite": 54,
+    "cobblestone": 32,
+    "andesite": 26,
+    "gravel": 8,
+    "dirt": 2,
+    "flint": 1
+   },
+   "full": false,
+   "updated": 1793140332035
+  },
+  {
+   "x": -176,
+   "y": 65,
+   "z": 375,
+   "category": "metal",
+   "contents": {
+    "coal": 8,
+    "raw_copper": 5
+   },
+   "full": false,
+   "updated": 1793140348971
+  },
+  {
+   "x": -174,
+   "y": 65,
+   "z": 375,
+   "category": "wood",
+   "contents": {
+    "spruce_sapling": 1
+   },
+   "full": false,
+   "updated": 1793140367376
+  },
+  {
+   "x": -172,
+   "y": 65,
+   "z": 375,
+   "category": "drops",
+   "contents": {
+    "leather": 2,
+    "feather": 1
+   },
+   "full": false,
+   "updated": 1793140407387
+  },
+  {
+   "x": -170,
+   "y": 65,
+   "z": 375,
+   "category": "misc",
+   "contents": {
+    "pink_petals": 2
+   },
+   "full": false,
+   "updated": 1793140446867
+  }
+ ]
+}
+```
+
+`data/ledger.json`:
+
+```
+{"dirt":22}
+```
+
+Those two files are not committed.
+
+### Drowning, lava, caves, mines
+
+normal1 stepped out, then drowned. The step-out is `21:12:24.588Z Water: stepped out to (-156, 63, 238)` during an iron use of a bucket at -154, 62, 236. One `WorldSurvival: drowning (air 8), swimming up` at 21:13:29.398Z, then the death at 21:13:51.676Z. The two minutes before the death, from 21:11:57Z: bed set aside, a 50-block south explore, a bucket use, the step-out, a furnace load of 4 raw iron at -157, 63, 238, a gather, taking 4 iron ingots back, three spider hunts that find no spider, then drowning with the head in ice and the feet in water. The server teleports the bot to `(-156, 61, 238)` ten times between 21:13:29Z and 21:13:49Z. `21:13:43.069Z WorldSurvival: head in a wall; digging out at (-156, 61, 238) (head ice, feet water)`. `21:13:47.271Z Food: ate cooked_mutton (bar 19 -> 20)`. Then:
+
+`21:13:51.676Z BuilderBot drowned`
+
+`21:13:51.677Z Bot died at -156, 61, 238`
+
+Respawn is `21:13:53.202Z Server set position to (-42, 66, 130)`. The harness resumed at t=2139: `operator: resumed the ladder after death at t=2139`. The death-cause string in the results is `System chat: BuilderBot drowned`. This is not a polar bear.
+
+normal2 has 43 `WorldSurvival: drowning (air N), swimming up` lines, from 21:32:53.747Z (air -1) through 21:40:09.422Z (air 6), with air readings from -1 up through 8 and back down to 2. No `stepped out` line on normal2. No drowning death.
+
+No lava line. No warden line. No cave-morning line. No plant-break line. No sticks-first craft line.
+
+One mob cave, at the end of hard1:
+
+`23:00:18.374Z Job: Mob cave: 9 hostiles within 24 at (-142, 52, 163) (sky 0, surface 68); leaving`
+
+`23:00:18.551Z Autopilot: a mob cave (9 hostiles within 24 at (-142, 52, 163) (sky 0, surface 68); leaving); its ores set aside for 20 min, climbing out`
+
+The mark is y=52, surface 68. hard1 stops at 23:00:34Z, so the next night box is hard2's, sealed at `(-177, 70, 96)`, y=70, not at the cave mark.
+
+Two night mines, both above y=56, neither opened onto a cave (0 ore items, 0 wall digs, bot stayed at the box y):
+
+hard2 box `(-177, 70, 96)`, tod 12601, quoted under night skip. The bot ends the mine at `(-178, 70, 97)`.
+
+hard3 box `(-145, 67, 95)`, tod 21163, quoted under night skip. The bot ends the mine at `(-145, 67, 96)`.
+
+### Beds
+
+No bed held (`bed_at` is null on all six). No sleep line and no `Slept`. `home set` lines are crafting tables: `20:40:03.950Z Autopilot: home set to the table at -135,65,264` and `21:15:48.301Z Autopilot: home set to the table at -73,75,151`.
+
+### Falls, stranded, warden
+
+Two fall lines:
+
+`21:15:57.261Z Fall: dropping from (-72, 74, 151) (job gather, pathing false, sprint false)`
+
+`22:38:22.678Z Reflex: MLG Water Bucket Fall Chain engaging` on normal3, with `22:38:22.682Z Job: Reflex: preempted by MLG Water Bucket Fall Chain`.
+
+One stranded line:
+
+`23:09:53.821Z Navigation: stranded at (-179, 53, 97) (drops on every side); allowing drops of up to 6 and digging` on hard2.
+
+No warden line.
+
+Two harness returns from below the anchor. Round 60 had none. Captured stdout: `operator: returned the bot from y=-7` on normal3. The stored intervention is `operator: returned the bot from below the anchor at [-178, -7, 383]`. hard1's stored intervention is `operator: returned the bot from below the anchor at [-86, 49, 135]`.
+
+### Repeated errors
+
+`Navigation: no path with mob avoidance` counts, not quoted: normal1 336, normal2 247, normal3 196, hard1 121, hard2 73, hard3 74.
+
+Job text repeated 10 or more times in one run, normal2 only: `Reflex: preempted by Misc World Survival Chain` 73, `Health below #; retreated from the fight` 25, `Navigation climbed above the graze cap at (#, #, #)` 23. Other runs have none.
+
+### Disconnects, interventions, uncaught
+
+No mid-soak disconnect. The server log disconnect is the restore at 05:13:11 IST. Interventions are the death resume, the normal3 return from y=-7, the hard1 night skip, and the hard1 return from y=49. `logs/dashboard-uncaught.log` did not grow (2576174).
+
+Six valid runs. `tod_end` day on all six. IST window 02:00:51–05:13:10 on 28 Oct 2026 (20:30:51Z–23:43:10Z), 11539 s. Clean: empty `errors`, promoted to `data/soak-results.json`.
+
+### Obstructions
+
+The probe ran after the flat world was back and the services were up, model off. All 11 scenarios, 23:45:15Z–23:49:42Z, exit 0. Printed table:
+
+```
+cobble_wall          complete       4.0s  Completed and verified
+plank_wall_long      complete      12.1s  Completed and verified
+door_wall            complete      12.1s  Completed and verified
+cobble_box_pick      complete      12.1s  Completed and verified
+cobble_box_bare      failed         2.0s  Tunnel needs a suitable tool in the inventory for cobblestone
+plank_box            complete      12.1s  Completed and verified
+glass_box            complete      10.1s  Completed and verified
+pit                  complete      10.1s  Completed and verified
+chest_spot_blocked   failed         2.0s  Cannot place at (2802, -60, 0): occupied by cobblestone
+chest_spot_flower    complete       2.0s  Completed and verified
+shelter_hole         complete      20.1s  Completed and verified
+```
+
+`repeated_errors` is empty on every scenario.
+
+**cobble_wall.** Setup: a 13-wide, 3-high cobblestone wall; goto 8 east from (2000, -60, 0). Status complete, `Completed and verified`, 4.0 s, end (2008, -60, 1). `lines` is empty.
+
+**plank_wall_long.** Setup: a 61-wide oak-plank wall; goto 8 east from (2100, -60, 0). Status complete, `Completed and verified`, 12.1 s, end (2108, -60, -1). `lines` is empty.
+
+**door_wall.** Setup: the same plank wall with an oak door in front of the bot; goto 8 east from (2200, -60, 0). Status complete, `Completed and verified`, 12.1 s, end (2208, -60, -1). `lines` is empty.
+
+**cobble_box_pick.** Setup: sealed in a cobblestone 1x2 cell, stone pickaxe held; goto 10 east from (2300, -60, 0). Status complete, `Completed and verified`, 12.1 s, end (2309, -60, 0). Lines:
+
+`23:46:20.134 Navigation: no path with mob avoidance at (2300, -60, 0); trying without it`
+
+`23:46:22.490 Navigation: stranded at (2300, -60, 0) (drops on every side); allowing drops of up to 6 and digging`
+
+`23:46:28.964 Boxed in at (2300, -60, 0): no way to stair out`
+
+`23:46:28.964 Navigation: stranded at (2300, -57, 1) (drops on every side); allowing drops of up to 6 and digging`
+
+**cobble_box_bare.** Setup: the same cobblestone cell, nothing held, from (2400, -60, 0). Status failed, `Tunnel needs a suitable tool in the inventory for cobblestone`, 2.0 s, end still (2400, -60, 0). Lines:
+
+`23:46:40.578 Navigation: no path with mob avoidance at (2400, -60, 0); trying without it`
+
+`23:46:40.657 Job: Tunnel needs a suitable tool in the inventory for cobblestone`
+
+**plank_box.** Setup: oak-plank 1x2 cell, stone axe and pickaxe held, from (2500, -60, 0). Status complete, `Completed and verified`, 12.1 s, end (2509, -60, 0). Lines:
+
+`23:46:50.923 Navigation: no path with mob avoidance at (2500, -60, 0); trying without it`
+
+`23:46:52.798 Navigation: stranded at (2500, -60, 0) (drops on every side); allowing drops of up to 6 and digging`
+
+`23:46:59.222 Boxed in at (2500, -60, 0): no way to stair out`
+
+`23:46:59.223 Navigation: stranded at (2500, -57, 1) (drops on every side); allowing drops of up to 6 and digging`
+
+**glass_box.** Setup: glass 1x2 cell, stone pickaxe held, from (2600, -60, 0). Status complete, `Completed and verified`, 10.1 s, end (2609, -60, 0). Lines:
+
+`23:47:11.292 Navigation: no path with mob avoidance at (2600, -60, 0); trying without it`
+
+`23:47:12.561 Navigation: stranded at (2600, -60, 0) (drops on every side); allowing drops of up to 6 and digging`
+
+`23:47:17.241 Boxed in at (2600, -60, 0): no way to stair out`
+
+`23:47:17.241 Navigation: stranded at (2600, -57, 1) (drops on every side); allowing drops of up to 6 and digging`
+
+**pit.** Setup: bottom of a 1x1 pit 3 deep, 16 dirt held, goto 8 east from (2700, -60, 0). Status complete, `Completed and verified`, 10.1 s, end (2707, -60, 0). Lines:
+
+`23:47:31.600 Navigation: no path with mob avoidance at (2700, -63, 0); trying without it`
+
+`23:47:39.422 Boxed in at (2700, -63, 0): dug 3 steps up east to (2703, -60, 0)`
+
+**chest_spot_blocked.** Setup: place a chest where cobblestone sits, at (2802, -60, 0). Status failed, `Cannot place at (2802, -60, 0): occupied by cobblestone`, 2.0 s, end (2800, -60, 0). Line: `23:47:49.912 Job: Cannot place at (2802, -60, 0): occupied by cobblestone`.
+
+**chest_spot_flower.** Setup: place a chest where a poppy grows, at (2902, -60, 0). Status complete, `Completed and verified`, 2.0 s, `verified` true, end (2900, -60, 0). Line: `23:48:00.218 Place: broke the poppy at (2902, -60, 0) first`.
+
+**shelter_hole.** Setup: a night shelter, then one wall block removed while it is sealed. `sealed_after` 62.1 s, hole `[3001, -60, -1]`, `resealed_after` 4.0 s, status complete, `Completed and verified`, `opened_after` 20.1 s, end (3002, -60, -3). Lines:
+
+`23:48:10.119 Reflex: Mob Defense engaging`
+
+`23:48:28.820 Shelter: sealed at (3000, -60, 0) (25 blocks placed)`
+
+`23:48:49.423 Navigation: no path with mob avoidance at (3002, -62, 0); trying without it`
+
+`23:48:49.472 Navigation: stranded at (3002, -62, 0) (drops on every side); allowing drops of up to 6 and digging`
+
+`23:48:49.533 Navigation: still stranded at (3002, -62, 0); pillaring up 3`
+
+`23:48:52.774 Tunnel climb: step 3002,-63,0 failed (No path to the goal!); digging through natural fill`
+
+`23:48:52.893 Tunnel climb: step 3001,-63,0 failed (No path to the goal!); digging through natural fill`
+
+`23:48:53.005 Tunnel climb: step 3000,-62,0 failed (No path to the goal!); digging through natural fill`
+
+`23:49:02.472 Shelter: not in the box at (3000, -60, 0) (the night mine could not climb home; bot at (3000, -60, -1)); sealing where it stands`
+
+`23:49:02.475 Shelter: moved from 3000,-60,0 to (3000, -60, -1); building a new box here`
+
+`23:49:10.388 Shelter: sealed at (3000, -60, -1) (11 blocks placed)`
+
+`23:49:17.375 Shelter: re-sealing 1 open cell(s)`
+
+`23:49:21.571 Shelter: dawn (tod 1000); staying sealed until the morning is light and clear`
+
+`23:49:21.572 Shelter: morning (tod 1000, nearest hostile none); opening up`
+
+Walls: the bot ended on the east side of all three walls. The dashboard between each teleport onto the patch and `Completed goto` has no dig line, no pillar line, and no door line, and the stored `lines` are empty. It went round. It did not dig through. The 61-wide plank wall and the door wall both took 12.1 s, so the door was not used as a shorter way through. Nothing logged an opened door. Door opening is off.
+
+Sealed cells: the cobblestone cell with a pickaxe, the oak-plank cell, and the glass cell were left, in 12.1 s, 12.1 s, and 10.1 s. Each log is stranded, then `Boxed in`, then stranded again one block up at y=-57, and the end position is outside to the east. The bare-handed cobblestone cell was not left. It failed in 2.0 s on the one tool message and stayed at (2400, -60, 0). That message is once. `repeated_errors` is empty. It gave up cleanly.
+
+Pit: it got out of the 1x1 pit. The line is `dug 3 steps up east to (2703, -60, 0)`, in 10.1 s. It dug steps. It did not pillar with the dirt.
+
+Chest spots: the cobblestone spot failed with `Cannot place at (2802, -60, 0): occupied by cobblestone`. The poppy spot succeeded, `verified` true, with `Place: broke the poppy at (2902, -60, 0) first`.
+
+Shelter hole: `sealed_after` 62.1 s, hole `[3001, -60, -1]`, `resealed_after` 4.0 s, `opened_after` 20.1 s. The Shelter lines are quoted above: sealed, then a night mine that could not climb home, a second box, `Shelter: re-sealing 1 open cell(s)`, then dawn and morning with the box opening. The knocked-out block was back in 4.0 s.
+
+After the probe the world is still `level-name=agent-test-world`, `level-type=minecraft\:flat`, `level-seed` empty, `server-ip=0.0.0.0`, `difficulty=peaceful`. The model stayed off and port 8081 stayed closed.
