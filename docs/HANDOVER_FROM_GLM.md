@@ -2209,3 +2209,11 @@ The round-60 soak on seed 20261027 (spawn [-42, 66, 129]; hard anchor [-49, 66, 
   - normal1's iron pick broke in a deepslate tunnel. It fell back to wooden and stone picks, then looped on `Ascend: no path up from y=12` 13 times; round 61 makes the pillar say why.
   - About 100-330 `Navigation: no path with mob avoidance` lines per run (noise).
   - No bed was slept in, and no diamond pick.
+- **Obstruction probe** (`tests/obstruct.py`, user request): 11 scenarios on the flat test world, each on its own patch at x = 2000 + 100·i, cleared again afterwards:
+  - **Walls:** a cobblestone wall; a 61-wide plank wall; the same plank wall with an oak door.
+  - **1x2 cells:** cobblestone with a pickaxe and bare-handed; oak planks; glass.
+  - **Pit:** a 1x1 pit 3 deep.
+  - **Chest spot:** a chest spot taken by cobblestone, and one taken by a poppy.
+  - **Shelter hole:** a night shelter with a wall block knocked out after it reports safe.
+  - **Output:** `data/obstruction-results.json` holds the job status, message, time, end position, the bot's own lines and any error repeated 3+ times.
+  - **Smoke run:** cobble wall done in 4 s. Poppy spot: broke the poppy, chest placed. Plank box: out in 12 s. Shelter hole: re-sealed in 4 s, and the box opened 0 s after morning. On flat ground the night mine dug to bedrock and could not climb home, so the bot built a second box.
