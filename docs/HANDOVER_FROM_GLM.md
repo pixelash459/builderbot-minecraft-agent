@@ -2176,3 +2176,14 @@ The round-58 soak was the first on a new seed, **6274947974391380586** (the Nitr
 - **Harness** (`tests/soak.py`): the wood-step return fires 14 below the anchor, not 8.
 - Soak seeds rotate from now on (a new world each round); round 59 runs on seed 20261027.
 - Not changed yet: food on hard runs with no animals in reach; dropped tools picked back up; no bed slept in; no diamond pick.
+
+## Round 60 (2026-10-27)
+
+No soak between rounds 59 and 60 (the round-59 soak had not started). Two changes from the user:
+
+- **One seed from now on**: the soak stays on seed **20261027**; the rotation ends with it.
+- **Night skip** (user request): a sealed night no longer has to be waited out in real time.
+  - Bot side (worker `shelterReport`, `noteShelter`): `observe` now carries `shelter` (`{kind:'box'|'burrow', safe, seconds, gaps}`) and `tod` (ticks). The safe clock runs while the bot stands in its box cell (or burrow hole) with no open gap (`guardShelter` records `shelterGaps`), no hostile inside the box (`shelterIntruder`) and the burrow cap on. Leaving the cell, a gap, or any unsealing (a night mine, the morning) restarts it: `shelterSealed` is an accessor whose `false` clears the clock.
+  - Harness side (`tests/soak.py`, `NIGHT_SKIP_SECONDS`, env `SOAK_NIGHT_SKIP`, default 150, 0 disables): at a sample where the shelter reports safe for 150+ s and tod is 12000-23499, the operator runs `time add` up to tick 1000 of the next day (the day counter advances like a slept night, so the next night's once-per-day plans still fire). The bot then sees the morning and opens up through its normal exit (`leaveRefuge`: waits for hostiles to clear). Each skip is an intervention line and a `night_skips` entry; the summary has `night_skips` per run.
+  - The bot never changes the time itself; only the soak's console fixture on the private test server does.
+- Not changed yet: food on hard runs with no animals in reach; dropped tools picked back up; no bed slept in; no diamond pick.

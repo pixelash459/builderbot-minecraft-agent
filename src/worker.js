@@ -587,7 +587,18 @@ async function fillFooting(w,token,foot,filler){
  await b.equip(item,'hand');w.check(token);
  await w.placeBlocks(b.blockAt(new Vec3(foot.support.x,foot.support.y,foot.support.z)),new Vec3(foot.face.x,foot.face.y,foot.face.z),new Vec3(foot.fill.x,foot.fill.y,foot.fill.z),filler,token);
 }
+// Night skip (soak harness, user request 2026-10-27): observe reports how long the bot has been
+// sealed in its box or burrow with nothing open and nothing inside, so the private test server's
+// operator can set the clock to the next morning after a few safe minutes - the bot then sees
+// the morning and opens up through its normal exit. Never sent by the bot itself.
+export function shelterReport(w,now=Date.now()){
+ if(!w||!w.shelterSealed||!w.shelterSafeSince)return w&&w.shelterSealed?{kind:w.shelterKind||'box',safe:false,seconds:0,gaps:w.shelterGaps??null}:null;
+ return {kind:w.shelterKind||'box',safe:true,seconds:Math.floor((now-w.shelterSafeSince)/1000),gaps:w.shelterGaps??0};
+}
 export class Worker extends EventEmitter {
+ get shelterSealed(){return !!this._shelterSealed;}
+ set shelterSealed(v){this._shelterSealed=!!v;if(!v)this.shelterSafeSince=null;}
+ noteShelter(ok){if(!ok||!this.shelterSealed)this.shelterSafeSince=null;else if(!this.shelterSafeSince)this.shelterSafeSince=Date.now();}
  constructor(root,config){
   super();this.root=root;this.config=config;this.bot=null;this.ready=false;this.busy=false;this.epoch=0;this.events=[];
   this.reflexEnabled=config.reflexes!==false;this.reflexBusy=false;this.reflexStopping=false;this.userStopped=false;this.deathResume=false;this.eating=false;
@@ -726,6 +737,7 @@ export class Worker extends EventEmitter {
  observe(){
   const running=this.jobs.find(j=>['running','queued'].includes(j.status));
   const summary={connected:this.ready,job:running?{type:running.spec.type,status:running.status,progress:running.progress,message:running.message}:null,autopilot:this.autopilot.status(),
+   shelter:shelterReport(this),tod:this.bot?dayTicks(this.bot):null,
    events:this.events.slice(0,10).map(e=>({time:e.time.slice(11,19),message:e.message.slice(0,80)}))};
   return this.ready&&this.bot?{...summary,...survey(this.bot)}:summary;
  }
@@ -1655,16 +1667,17 @@ export class Worker extends EventEmitter {
   }
   this.save();this.update(job,required.length,'Waiting for morning (sealed)');
   this.log('Shelter: sealed at '+origin+' ('+job.placed.length+' blocks placed)');
-  this.shelterSealed=true;this.shelterSpot={x:origin.x,y:origin.y,z:origin.z};this.nightPillar=null;
+  this.shelterSealed=true;this.shelterKind='box';this.shelterSpot={x:origin.x,y:origin.y,z:origin.z};this.nightPillar=null;
   // Round 11: the box only shelters a bot inside it. Out of the cell (a night mine that could
   // not climb home, a world-survival move) for SHELTER_AWAY_MS, it seals where it stands.
   let away=null,outSince=null;
   try{
    while(!this.shelterExitSafe()){
     await sleep(250);this.check(token);
-    if(!here().equals(origin)){if(outSince==null)outSince=Date.now();if(Date.now()-outSince>=SHELTER_AWAY_MS){away='the bot left the cell';break;}continue;}
+    if(!here().equals(origin)){this.noteShelter(false);if(outSince==null)outSince=Date.now();if(Date.now()-outSince>=SHELTER_AWAY_MS){away='the bot left the cell';break;}continue;}
     outSince=null;
     await this.guardShelter(job,token,origin);
+    this.noteShelter(this.shelterGaps===0&&!this.shelterIntruder);
     const tod=dayTicks(b);
     // Habit 4: use the night - a staircase mine under the box, back before dawn.
     // Round 54: no night mine from a box in a marked hazard (a mob cave): it walked back down the cave.
@@ -1953,17 +1966,19 @@ export class Worker extends EventEmitter {
  async holdBurrow(job,token,plan){
   const b=this.bot,feet=new Vec3(plan.feet.x,plan.feet.y,plan.feet.z),cap=new Vec3(plan.cap.x,plan.cap.y,plan.cap.z);
   this.update(job,1,'Waiting for morning (burrow)');
-  this.shelterSealed=true;this.nightPillar=null;
+  this.shelterSealed=true;this.shelterKind='burrow';this.nightPillar=null;
   let outSince=null,away=false;
   try{
    while(!this.shelterExitSafe()){
     await sleep(250);this.check(token);
-    if(!b.entity.position.floored().equals(feet)){if(outSince==null)outSince=Date.now();if(Date.now()-outSince>=SHELTER_AWAY_MS){away=true;break;}continue;}
+    if(!b.entity.position.floored().equals(feet)){this.noteShelter(false);if(outSince==null)outSince=Date.now();if(Date.now()-outSince>=SHELTER_AWAY_MS){away=true;break;}continue;}
     outSince=null;
     if(b.blockAt(cap)?.boundingBox!=='block'){
      const fill=FILL_ITEMS.find(n=>this.count(n)>0);
      if(fill){try{await b.equip(b.inventory.items().find(i=>i.name===fill),'hand');await this.placeBlocks(b.blockAt(new Vec3(plan.ref.x,plan.ref.y,plan.ref.z)),new Vec3(plan.face.x,plan.face.y,plan.face.z),cap,fill,token);this.log('Burrow: re-capped');}catch(e){this.check(token);}}
     }
+    this.shelterGaps=b.blockAt(cap)?.boundingBox==='block'?0:1;
+    this.noteShelter(this.shelterGaps===0);
    }
   }finally{this.shelterSealed=false;}
   if(away){this.log('Burrow: out of the hole at '+b.entity.position.floored()+'; sheltering where it stands');return this.shelter(job,token);}
@@ -2078,6 +2093,7 @@ export class Worker extends EventEmitter {
   const me=b.entity.position;
   const hostiles=Object.values(b.entities||{}).filter(e=>e&&e!==b.entity&&e.type==='hostile'&&e.position&&e.isValid!==false&&e.position.distanceTo(me)<=6&&!leaveAlone(e,b));
   const target=shelterTarget(hostiles,origin,gaps);
+  this.shelterGaps=gaps.length;this.shelterIntruder=!!(target&&target.inside);
   if(target){
    if(Date.now()-(this.shelterGuardLog||0)>5000){this.shelterGuardLog=Date.now();this.log('Shelter: hitting '+target.entity.name+(target.inside?' inside the box':' at a gap'));}
    await this.shelterStrike(target.entity,token);
@@ -2092,6 +2108,7 @@ export class Worker extends EventEmitter {
   let why=null;
   try{await this.sealShelter(job,token,origin);}catch(e){this.check(token);why=String(e&&e.message||e).slice(0,80);}
   const left=shellGaps(at,shelterShell(origin,job.pod).required);
+  this.shelterGaps=left.length;
   if(left.length>=gaps.length){
    this.resealIdleUntil=Date.now()+RESEAL_BACKOFF_MS;
    const held=SHELTER_BLOCKS_HELD(b);

@@ -16,7 +16,7 @@ Results go to data/soak-results-<timestamp>.json; a failed run never overwrites
 data/soak-results.json - only a fully clean triple (no errors, full samples, final state in
 every run) is promoted to it. The flat agent-test-world is restored afterwards, never deleted.
 """
-import pathlib,json,urllib.request,urllib.error,time,re,sys,subprocess,socket,shutil
+import pathlib,json,urllib.request,urllib.error,time,re,sys,subprocess,socket,shutil,os
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 sys.stdout.reconfigure(encoding='utf-8')
 PROPS=ROOT/'test-server'/'server.properties'
@@ -38,6 +38,16 @@ def api(route,data=None):
             raise RuntimeError(e.read().decode())
         except OSError as e:last=e;time.sleep(1)
     raise last
+# Night skip (user request 2026-10-27): once observe reports the bot sealed and safe in its
+# shelter for NIGHT_SKIP_SECONDS (box or burrow: in the cell, nothing open, nothing inside), the
+# operator moves the clock to the next morning (tick 1000 of the next day, so the day counter
+# advances like a slept night). The bot sees the morning and opens up on its own. 0 disables it.
+NIGHT_SKIP_SECONDS=int(os.environ.get('SOAK_NIGHT_SKIP','150'))
+def night_skip_ticks(o):
+    sh=o.get('shelter') if isinstance(o,dict) else None;tod=o.get('tod') if isinstance(o,dict) else None
+    if NIGHT_SKIP_SECONDS<=0 or not sh or not sh.get('safe') or (sh.get('seconds') or 0)<NIGHT_SKIP_SECONDS:return None
+    if not isinstance(tod,(int,float)) or not (12000<=tod<23500):return None
+    return int(24000-tod+1000)
 def command(text):
     # Console fixtures affect ONLY the private test server (supervisor, loopback, token auth).
     r=urllib.request.Request('http://127.0.0.1:8766/test-command',data=json.dumps({'command':text}).encode(),headers={'Authorization':'Bearer '+read_token('supervisor-token'),'Content-Type':'application/json'})
@@ -415,6 +425,14 @@ def run_one(index,spawn,seconds=NORMAL_SECONDS):
                     **iron_sample(inv),**kit_sample(inv),
                     'food_items':o.get('edible',0),'eaten':meals_delta(state,run)['eaten'],'deaths':deaths}
             run['samples'].append(sample)
+            skip=night_skip_ticks(o)
+            if skip:
+                try:
+                    command('time add '+str(skip))
+                    run.setdefault('night_skips',[]).append({'at':sample['t'],'tod':o.get('tod'),'kind':o['shelter'].get('kind'),'sealed_s':o['shelter'].get('seconds')})
+                    run['interventions'].append('operator: skipped the night at t='+str(sample['t'])+' (tod '+str(o.get('tod'))+', '+str(o['shelter'].get('kind'))+' safe '+str(o['shelter'].get('seconds'))+' s)')
+                    print('operator: night skipped (tod '+str(o.get('tod'))+', sealed safe '+str(o['shelter'].get('seconds'))+' s)',flush=True)
+                except Exception as e:run['errors'].append('night skip: '+str(e)[:80])
             # Operator role: a death pauses everything and needs an explicit resume before the
             # ladder will move again. The death also disables the autopilot within a second
             # (worker.stop on death sets userStopped), so trigger on the death COUNT rising,
@@ -571,7 +589,7 @@ def summarise(runs):
             'food_attempts':[(r.get('meals') or {}).get('attempts',0) for r in runs],'food_deferred':[(r.get('meals') or {}).get('deferred',0) for r in runs],
             'food_min':[(r.get('food_level') or {}).get('food_min') for r in runs],'food_max':[(r.get('food_level') or {}).get('food_max') for r in runs],
             'food_verdict':[r.get('food_verdict') for r in runs],
-            'tod_end':[r.get('tod_end') for r in runs],
+            'tod_end':[r.get('tod_end') for r in runs],'night_skips':[len(r.get('night_skips') or []) for r in runs],
             'wood_at':[r.get('wood_at') for r in runs],'stone_at':[r.get('stone_at') for r in runs],
             'deaths':sum((r.get('deaths') or 0) for r in runs),'resumes':sum((r.get('resumes') or 0) for r in runs),
             'interventions':sum(len(r['interventions']) for r in runs),
