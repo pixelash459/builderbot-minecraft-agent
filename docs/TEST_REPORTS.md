@@ -8431,3 +8431,422 @@ Interventions 1, resumes 1. That one intervention is `operator: resumed the ladd
 ```
 
 After the stop, the flat world was restored (`level-name=agent-test-world`, `level-type=minecraft\:flat`, `level-seed` empty, `server-ip=0.0.0.0`, `difficulty=peaceful`). The model was still disabled and port 8081 was closed. End of this soak is `2026-10-26T23:42:35.392Z`. Spawn this generation was `[23, 69, 70]`, hard anchor `[19, 64, 77]` canopy light 15, normal anchor `[81, 66, 80]` sky 15. The straight-up drowning line never appeared; the roof-dig line did, and the bot still drowned under it. hard1's escape finished on the surface and the night box sealed 27.7 blocks from the mark. hard3's night box sealed on that same mark. The one storage chest holds stone junk and pink petals, and no iron.
+
+## 2026-10-27 11:56 IST – 2026-10-27 15:06 IST — round 57 soak (bot code `65c6c86`)
+
+Units first, then one model-off restart, then one six-run soak. No combat and no integration. `git pull --rebase` stashed local `data/` dumps, origin was already at `65c6c86`, and the stash was popped. HEAD for the run is `65c6c86` (`Round 57: hold the drowning latch while the head is under water, drop wooden tools once a better one is crafted, make room for the storage chest's planks, overflow into any chest with room, and only call a box under the surface a cave`).
+
+Unit tests, every `tests/*.test.js` except `resources.test.js`, `--max-old-space-size=2048 --test-timeout=60000 --test-skip-pattern resources`: **657 pass, 0 fail**, 0 skipped, 41417 ms. The live fail count is 0, so this is a pass. The count is higher than the 653 that were current at the round 56 report. `resources.test.js` was not run.
+
+`AGENT_MODEL=off`. Supervisor log first line after the fresh restart, again after the soak's own restart, and again after the flat-world restore, is `model server disabled (config.model.enabled=false): skipping llama-server, saving ~6.5 GB commit`. Port 8081 has nothing listening. One soak, exit 0, 11416 s (11:56:23 IST 27 Oct – 15:06:39 IST 27 Oct, 06:26:23Z–09:36:39Z). `SOAK DONE (clean)`, promoted to `data/soak-results.json` (`clean triple promoted`). Harness interventions 3, resumes 1, deaths 1. Six valid runs, each on the first attempt (`normal1a1` through `hard3a3`). `invalid_attempts` is empty. `errors` is empty. `tod_end` is `day` on all six. The stored run objects have `timeOfDay` null. Every run header was dawn, clear weather, empty inventory, full vitals. Dashboard window is the bytes after offset 69788149 (2533 dated lines, 06:26:26Z–09:36:25Z). `Autopilot started` / `Autopilot stopped`: normal1 06:31:38Z–07:11:48Z, normal2 07:12:00Z–07:52:09Z (a second start at 07:18:01Z after the death), normal3 07:52:21Z–08:32:31Z, hard1 08:32:45Z–08:53:50Z, hard2 08:54:02Z–09:15:06Z, hard3 09:15:18Z–09:36:22Z. Server log size at soak start was 16564323. The soak was not stopped early. `logs/dashboard-uncaught.log` stayed 2576174.
+
+The world seed is **8675309**, logged as `soak seed 8675309 (anchors scouted from spawn)`, and the soak switched `server.properties` to `level-seed=8675309`, `level-name=agent-soak-world` for the run. The old soak world was deleted and regenerated. Round 56's scout spawn was `[23, 69, 70]`. This generation is a different stand on the same seed.
+
+### Scout
+
+Spawn `[26, 64, 71]`. Both anchors were found. The log lines:
+
+`scout: HARD anchor confirmed (gather completed, canopy light 13) at [29, 64, 71]`
+
+`scout: NORMAL anchor confirmed (open sky 15, gather completed) at [91, 71, 132]`
+
+The hard anchor's canopy light is 13, at the same column as the spawn. The normal anchor is sky 15 at y=71, about 87 blocks east and south of the hard anchor. Oak and birch planks are both crafted in the window.
+
+### Rungs
+
+Seconds from the run start. Wood is the harness wooden-pick time. Stone is the harness stone-pick time. Furnace, iron pick, and bed are the harness first-sample times. Ore and ingots are sample peaks. normal2's end-state wood and stone flags are false (the wooden pick and the stone shovel are gone by the end, and the stone flag also requires a furnace). hard2's end-state stone flag is false because the furnace is gone by the end, and its iron flag is false. The times below are still the first samples.
+
+| run | wood | stone | furnace | iron pick | ore | ingots | diamonds | diamond pick | bed | deaths |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| normal1 | 90 | 181 | 271 | 874 | 3 | 7 | 0 | no | 1567, held | 0 |
+| normal2 | 120 | 211 | 662 | 904 | 13 | 7 | 2 | no | no | 1 |
+| normal3 | 211 | 331 | 422 | 753 | 5 | 8 | 0 | no | no | 0 |
+| hard1 | 151 | 211 | 301 | 482 | 2 | 3 | 0 | no | no | 0 |
+| hard2 | 90 | 211 | 301 | no | 3 | 0 | 0 | no | no | 0 |
+| hard3 | 90 | 241 | 301 | 602 | 2 | 3 | 0 | no | no | 0 |
+
+Food mins 15/14/14 and 20/20/20. Eaten 2/2/2 and 0/0/0. The three normal verdicts are "ate 2", and two of those record a failed bite (normal2 `Promise timed out`, normal3 `the food bar did not rise`). All three hard verdicts are "not hungry enough (food min 20)".
+
+Round 50 on this seed (bot `af2e562`): iron picks on 4 of 6, normal 873/542/662, hard none/none/452. Deaths 2.
+
+Round 51 on this seed (bot `01ed10c`): iron picks on 3 of 6, normal none/662/602, hard 482/none/none. Deaths 2.
+
+Round 52 on this seed (bot `8d0e0f4`): iron picks on 4 of 6, normal 633/633/602, hard 391/none/none. Deaths 2.
+
+Round 53 on this seed (bot `d02d0e9`): iron picks on 4 of 6, normal 602/692/783, hard none/none/602. Deaths 0.
+
+Round 54 on this seed (bot `d6a2cd4`): iron picks on 4 of 6, normal 632/1144/663, hard 602/none/none. Deaths 4, three of them drowning.
+
+Round 55 on this seed (bot `c3648ec`): iron picks on 3 of 6, normal 602/542/602, hard none. Diamonds 3 on normal3, no diamond pick. Deaths 1, a drowning.
+
+Round 56 on this seed (bot `9654197`): iron picks on 6 of 6, normal 784/542/542, hard 512/512/512. Diamonds 0. Deaths 1, a drowning.
+
+This soak reached an iron pick on 5 of 6 (normal 874/904/753, hard 482/none/602). That is one fewer than round 56, which was the first 6 of 6. hard2 never submitted `craft iron_pickaxe`. Its ore peak is 3, its ingot peak is 0, a furnace was in a sample at 301 s, and the end bag has no furnace and no iron pick. The run spent from 09:02:18Z to the clock in a sealed box. Diamonds are 2, both on normal2, mined as `deepslate_diamond_ore` at `(73, -2, 104)` and `(73, -2, 103)` at 07:40:22Z and 07:40:32Z. The server logged `Diamonds!` at 13:10:22 IST. No diamond pick was crafted. A bed was held on normal1 at 1567 s (`white_bed` crafted at 06:57:11Z). The window has no sleep line, no `Home set`, and no `Slept`. Deaths are 1, lava. Round 56 had 1, a drowning. Round 55 had 1, a drowning. Round 54 had 4. Round 53 had 0.
+
+### Drowning
+
+The window has no `WorldSurvival: drowning` line, no `treating it as drowning` line, no `open water N up (air A); swimming straight up` line, no `roof over the water` line, no `Water: stepped out` line, and no `Reflex: resumed` line of either kind. There is no drowning resume, so there is no moment at which the head was in or out of the water when a job resumed after one. The latch was not exercised on this soak.
+
+The one death is lava, on normal2. The two lava lines, 10.3 s apart, both name the head and the feet as `cave_air`:
+
+`07:17:38.305Z WorldSurvival: in lava; escaping at (94, 68, 139) (head cave_air, feet cave_air)`
+
+`07:17:48.652Z WorldSurvival: in lava; escaping at (93, 68, 139) (head cave_air, feet cave_air)`
+
+`07:17:48.759Z BuilderBot tried to swim in lava`
+
+`07:17:48.760Z Bot died at 93, 67, 139`
+
+There is no drowning death, so there is no 60 s drowning-death quote. The 60 s before this death is inside the 2-minute quote below, and that stretch has no drowning line.
+
+### Spare tools
+
+Every `Craft: dropped the` line. There is no golden tool in any of them, and no `Store: tossed a spare` line.
+
+normal1:
+
+`06:34:35.080Z Craft: dropped the wooden_pickaxe (stone_pickaxe held)`
+
+`06:35:32.989Z Craft: dropped the wooden_sword (stone_sword held)`
+
+`06:35:38.971Z Craft: dropped the wooden_axe (stone_axe held)`
+
+`06:37:44.572Z Craft: dropped the wooden_pickaxe (stone_pickaxe held)`
+
+`06:45:35.778Z Craft: dropped the wooden_pickaxe (stone_pickaxe held)`
+
+`06:45:56.605Z Craft: dropped the wooden_pickaxe (iron_pickaxe held)`
+
+`06:47:53.783Z Craft: dropped the wooden_sword (iron_sword held)`
+
+`06:53:18.872Z Craft: dropped the wooden_pickaxe (stone_pickaxe held)`
+
+`07:08:44.861Z Craft: dropped the wooden_pickaxe (stone_pickaxe held)`
+
+normal2:
+
+`07:15:19.134Z Craft: dropped the wooden_pickaxe (stone_pickaxe held)`
+
+`07:17:02.207Z Craft: dropped the wooden_sword (stone_sword held)`
+
+`07:17:07.286Z Craft: dropped the wooden_axe (stone_axe held)`
+
+`07:21:20.224Z Craft: dropped the wooden_pickaxe (stone_pickaxe held)`
+
+`07:22:36.251Z Craft: dropped the wooden_sword (stone_sword held)`
+
+`07:22:48.896Z Craft: dropped the wooden_axe (stone_axe held)`
+
+`07:24:13.197Z Craft: dropped the wooden_pickaxe (stone_pickaxe held)`
+
+`07:27:25.662Z Craft: dropped the wooden_sword (iron_sword held)`
+
+normal3:
+
+`07:57:25.225Z Craft: dropped the wooden_pickaxe (stone_pickaxe held)`
+
+`07:59:00.802Z Craft: dropped the wooden_sword (stone_sword held)`
+
+`07:59:06.537Z Craft: dropped the wooden_axe (stone_axe held)`
+
+`08:01:28.970Z Craft: dropped the wooden_pickaxe (stone_pickaxe held)`
+
+`08:05:51.589Z Craft: dropped the wooden_sword (iron_sword held)`
+
+`08:25:46.523Z Craft: dropped the wooden_pickaxe (stone_pickaxe held)`
+
+hard1:
+
+`08:36:03.974Z Craft: dropped the wooden_pickaxe (stone_pickaxe held)`
+
+`08:36:53.466Z Craft: dropped the wooden_sword (stone_sword held)`
+
+`08:36:58.331Z Craft: dropped the wooden_axe (stone_axe held)`
+
+`08:37:27.161Z Craft: dropped the wooden_pickaxe (stone_pickaxe held)`
+
+hard2:
+
+`08:57:23.612Z Craft: dropped the wooden_pickaxe (stone_pickaxe held)`
+
+`08:58:31.807Z Craft: dropped the wooden_sword (stone_sword held)`
+
+`08:58:37.213Z Craft: dropped the wooden_axe (stone_axe held)`
+
+`08:58:58.243Z Craft: dropped the wooden_pickaxe (stone_pickaxe held)`
+
+hard3:
+
+`09:18:56.767Z Craft: dropped the wooden_pickaxe (stone_pickaxe held)`
+
+`09:19:36.506Z Craft: dropped the wooden_sword (stone_sword held)`
+
+`09:19:47.227Z Craft: dropped the wooden_axe (stone_axe held)`
+
+`09:20:24.457Z Craft: dropped the wooden_pickaxe (stone_pickaxe held)`
+
+A dropped tool was picked back up. On normal1 the only `wooden_pickaxe` craft after the first stone pick is at 06:45:24Z. The same unused pick (59 uses left) is then dropped at 06:45:35Z, 06:45:56Z, 06:53:18Z, and 07:08:44Z, with no further wooden-pick craft between those drops. The 30 s samples go from `wood_pick` 1 to 0 at t=2229 and back to 1 at t=2259, and the end bag still holds one beside a stone pick and an iron pick. The earlier 53-use pick is dropped at 06:34:35Z and again at 06:37:44Z, also with no craft between them. The wood step does craft a fresh wooden pick after some later drops (each run starts the wood step again when the pick is gone, and after the normal2 death). Those are new crafts. The normal1 59-use cycle is the same tool coming back.
+
+End of each run, from the harness end bag (wooden shovel is 0 on all six; no golden tool is held):
+
+| run | wooden beside a better tool of the same kind |
+| --- | --- |
+| normal1 | pick, axe, and sword, beside stone and iron |
+| normal2 | axe, beside a stone axe. Pick and sword are 0 |
+| normal3 | axe, beside a stone axe. Pick and sword are 0 |
+| hard1 | axe and sword, beside stone. Pick is 0. Iron pick is held |
+| hard2 | pick, axe, and sword, beside stone. No iron pick |
+| hard3 | axe and sword, beside stone. Pick is 0. Iron pick is held |
+
+Round 56 ended every run with a wooden pick, axe, and sword beside the better tier. This soak still ends every run with at least one wooden tool beside a stone tool of the same kind. The pick is the one that is gone by the end on normal2, normal3, hard1, and hard3.
+
+### Storage
+
+Every `Store:` line:
+
+`07:48:57.785Z Store: placed a storage chest at 19,64,83`
+
+`07:48:58.524Z Store: no chest and 1 planks; chopping 3 logs for one`
+
+`07:49:43.394Z Store: placed a storage chest at 21,64,83`
+
+Both placements are on normal2, during the inventory step, at the end of that run. There is no `Store: tossed ... to make room for planks` line, no `no <cat> chest` line, and no `putting <cat> in the <cat> chest` line. The window has no `could not craft <planks> (No room for crafting result)`.
+
+`No room for crafting result` does appear twice, both on normal3, and both are a stick craft after the iron pick had just been made, not a plank craft for a chest:
+
+`08:27:02.602Z Job: No room for crafting result` after `Autopilot [iron] {"type":"craft","item":"stick","count":3}`, with `the bag is full` immediately after.
+
+`08:32:04.493Z Job: No room for crafting result` on the same stick craft, again followed by the bag-full line.
+
+Those two are followed by six `place chest` submits at `(73, 78, 154)`, each rejected with `Cannot place at (73, 78, 154): occupied by pink_petals`. An earlier inventory submit placed toward `(51, -15, 155)`. Neither spot is in `storage.json`.
+
+Chests made, from the `Store: placed` lines: normal1 none, normal2 two, normal3 none, hard1 none, hard2 none, hard3 none. hard1 later logs `home chest found at (21, 64, 83)`, the misc chest from normal2.
+
+`data/storage.json` at the end:
+
+```json
+{
+ "chests": [
+  {
+   "x": 19,
+   "y": 64,
+   "z": 83,
+   "category": "stone",
+   "contents": {
+    "cobbled_deepslate": 115,
+    "dirt": 59,
+    "andesite": 42,
+    "diorite": 33,
+    "cobblestone": 32,
+    "granite": 18,
+    "gravel": 8,
+    "flint": 1
+   },
+   "full": false,
+   "updated": 1793087338356
+  },
+  {
+   "x": 21,
+   "y": 64,
+   "z": 83,
+   "category": "misc",
+   "contents": {
+    "pink_petals": 20,
+    "lilac": 2
+   },
+   "full": false,
+   "updated": 1793087383860
+  }
+ ]
+}
+```
+
+The stone chest is stone junk. The misc chest is pink petals and lilac. No iron ingot, raw iron, diamond, gold, or coal is in either chest. Nothing below the keep of 40/40/24/8/16 went in. The end bag still holds coal 4, which is under the keep of 16, and it is not in a chest.
+
+### Cave mornings
+
+One `Shelter: morning in a cave` line. It is hard2's box.
+
+`09:02:18.500Z Shelter: sealed at (17, 47, 72) (1 blocks placed)`
+
+`09:13:55.759Z Shelter: dawn (tod 19); staying sealed until the morning is light and clear`
+
+`09:14:17.405Z Shelter: morning in a cave (5 hostiles within 24, sky 0); climbing out through the roof`
+
+The box is y=47. The mob-cave line 2 minutes earlier on this run names the surface as 64. 47 is under 64 minus 2. This morning is from a box under the surface. The window has no morning-in-a-cave line from a box at or above the surface.
+
+The other two sealed boxes also sit under the surface number logged on that run, and neither produced a morning-in-a-cave line. hard1 sealed `(47, 56, 82)` at 08:42:43Z, dawn at 08:52:38Z (`tod 11`), and the run clock cancelled the shelter at 08:53:50Z, 72 s after dawn. That cave's own line names surface 67, and 56 is under 67 minus 2. hard3 sealed `(53, 45, 61)` at 09:25:32Z, dawn at 09:35:11Z (`tod 15`), and the clock cancelled the shelter at 09:36:22Z, 71 s after dawn. The hard3 cave line names surface 64.
+
+The 2 minutes after hard2's morning line are the climb, then the run clock. It never logged a reached height:
+
+`09:14:17.405Z Shelter: morning in a cave (5 hostiles within 24, sky 0); climbing out through the roof`
+
+`09:14:20.023Z Navigation: stranded at (17, 47, 72) (drops on every side); allowing drops of up to 6 and digging`
+
+`09:14:23.305Z Navigation: stranded at (18, 48, 72) (drops on every side); allowing drops of up to 6 and digging`
+
+`09:14:26.355Z Tunnel: mined iron_ore in the wall at 19,49,71`
+
+`09:14:31.055Z Boxed in at (17, 47, 72): dug 3 steps up east to (19, 49, 72)`
+
+`09:14:31.066Z Ascend: path up stopped (No path to the goal! (empty path at (19, 49, 72), last path:)`
+
+`09:14:31.066Z Ascend: no path up from y=47; pillaring`
+
+`09:15:06.759Z Pause trace: shelter -> Current job cancelled`
+
+The pillar started at y=47. The next position line is the harness teleport back to `(29, 64, 71)` at 09:15:10Z, which is the hard3 setup. The climb did not log `y=47 -> ` a surface.
+
+### Crafting
+
+Three crafts were re-submitted 3 times with `Missing ingredients or a nearby crafting table`, and each was then skipped. All three are `stone_shovel` on normal2. The message does not say which half failed. The samples sit on either side of the burst.
+
+First, 07:17:07Z, 07:17:08Z, 07:17:16Z, then `stone_shovel craft failed 3 times; skipped for 10 min` at 07:17:24Z. A stone sword and a stone axe had just completed, at 07:17:02Z and 07:17:07Z. The sample at t=301 (07:17:01Z) has planks 8, sticks 4, cobble 18, and 1 table in the bag, at `(94, 68, 142)`. The sample at t=331 has sticks 1 and cobble 13. A shovel needs 2 sticks. The sword and the axe between those samples use 3.
+
+Second, 07:27:26Z, 07:27:27Z, 07:27:35Z, skipped at 07:27:43Z. An iron sword had just completed at 07:27:25Z. The sample at t=904 has planks 9, sticks 2, cobble 49, and 2 tables in the bag. The sample at t=934 has sticks 1, cobble 53, and 1 table in the bag.
+
+Third, 07:45:53Z, 07:45:54Z, 07:46:02Z, skipped at 07:46:10Z. A stone pickaxe had just completed at 07:45:52Z, at y=-33 on the diamond rung. The sample at t=2017 has planks 15, sticks 3, cobble 64, and 1 table in the bag. The sample at t=2048 has sticks 1, cobble 64, and 0 tables in the bag.
+
+Two further single submits of the same message were not part of a 3-streak: hard1 at 08:33:26Z, and hard3 at 09:19:41Z. Neither was skipped for 10 minutes in the log. Round 56's stone-shovel skip was on normal1 and normal3. This soak's three skips are all on normal2.
+
+### Mob caves and the night box
+
+Three `Autopilot: a mob cave` lines, one on each hard run. Each escape logged a reached height at the surface number in that line. None of the three ascends has a `Pause trace` of its own. The pause that follows each one is the night job cancelling a gather.
+
+hard1, 08:37:33Z, `6 hostiles within 24 at (32, 57, 70) (sky 0, surface 67)`. `Ascend: no path up from y=57; pillaring`, then 9.8 s later `Ascend: y=57 -> 67 (surface 67)`. At 08:38:28Z a tunnel toward iron ore `dropped to y=51`. `Pause trace: gather -> Current job cancelled` at 08:42:39Z, and the box sealed at 08:42:43Z at `(47, 56, 82)`. That is 19.2 blocks from the mark (15 east, 1 down, 12 south), 5 min 10 s after the cave line. The box y is 56, under the surface 67. The escape had reached y=67, and the night box is back underground.
+
+hard2, 08:59:58Z, `6 hostiles within 24 at (16, 53, 92) (sky 0, surface 64)`. `Ascend: no path up from y=53; pillaring`, then `Ascend: y=53 -> 64 (surface 64)` at 09:00:46Z. `Pause trace: gather -> Current job cancelled` at 09:02:17Z, and the box sealed at 09:02:18Z at `(17, 47, 72)`. That is 20.9 blocks from the mark (1 east, 6 down, 20 north), 2 min 20 s after the cave line. The box y is 47, 17 under the surface the escape had just reached.
+
+hard3, 09:21:08Z, `8 hostiles within 24 at (32, 55, 70) (sky 0, surface 64)`. `Ascend: no path up from y=55; pillaring`, then `Ascend: y=55 -> 64 (surface 64)` at 09:22:25Z. `Pause trace: gather -> Current job cancelled` at 09:25:12Z, an iron-pick craft was submitted at 09:25:15Z, and the box sealed at 09:25:32Z at `(53, 45, 61)`. That is 24.9 blocks from the mark (21 east, 10 down, 9 north), 4 min 24 s after the cave line. The box y is 45.
+
+hard1 and hard2 sealed inside 24 blocks of the mark, inside 20 minutes. hard3 sealed 24.9 blocks away, also inside 20 minutes. No death sits within 2 minutes of a mob-cave line. The only death is normal2, about 80 minutes before the first cave line.
+
+### Night mines
+
+The window has no `Night mine:` line. None from a box below y=56, and none that opened onto a cave, because none ran. The three boxes are at y=56 (hard1), y=47 (hard2), and y=45 (hard3). hard2 and hard3 are below y=56. Both of those runs stayed in the sealed box from the seal until the clock, apart from hard2's morning climb above.
+
+### Beds
+
+normal1 crafted `white_bed` at 06:57:11Z and the harness first held a bed at 1567 s. normal2 and normal3 each logged `no sheep after 3 search legs; bed set aside for 10 min` (07:34:37Z and 07:48:18Z on normal2, 08:16:37Z on normal3). The hard runs have no bed line. The window has no `Sleeping`, no `Slept`, and no `Home set`.
+
+### Deaths
+
+One death. normal2, lava, at 07:17:48Z, position `(93, 67, 139)`. The death log records `killer` null and `job` null. The job that was live 10 s earlier was a cow fight, and the lava chain preempted it. The server cause is `BuilderBot tried to swim in lava`. The harness resumed the ladder (`operator: resumed the ladder after death 1`, death log resume at t=361). No mob-cave line is in the previous 2 minutes. This is the whole dated stretch from 07:15:48Z to the death:
+
+`07:16:14.048Z Navigation: no path with mob avoidance at (95, 72, 139); trying without it`
+
+`07:16:15.897Z Navigation: no path with mob avoidance at (94, 72, 139); trying without it`
+
+`07:16:32.234Z Gather: attempt 1 on stone at (92, 67, 138) failed: Fluid beside target`
+
+`07:16:32.234Z Gather: skipping stone at 92,67,138 (Fluid beside target)`
+
+`07:16:33.248Z Gather: attempt 2 on stone at (92, 67, 139) failed: Fluid beside target`
+
+`07:16:33.248Z Gather: skipping stone at 92,67,139 (Fluid beside target)`
+
+`07:16:34.257Z Gather: attempt 3 on stone at (93, 67, 140) failed: Fluid beside target`
+
+`07:16:34.257Z Gather: skipping stone at 93,67,140 (Fluid beside target)`
+
+`07:16:35.270Z Gather: attempt 4 on stone at (93, 66, 139) failed: Fluid beside target`
+
+`07:16:35.271Z Gather: skipping stone at 93,66,139 (Fluid beside target)`
+
+`07:16:36.282Z Gather: attempt 5 on stone at (94, 67, 141) failed: Fluid beside target`
+
+`07:16:36.283Z Gather: skipping stone at 94,67,141 (Fluid beside target)`
+
+`07:16:56.762Z Completed gather`
+
+`07:16:57.199Z Autopilot [stone] {"type":"craft","item":"stone_sword","count":1,"keepTable":true}`
+
+`07:17:02.207Z Craft: dropped the wooden_sword (stone_sword held)`
+
+`07:17:02.207Z Completed craft`
+
+`07:17:02.311Z Autopilot [stone] {"type":"craft","item":"stone_axe","count":1,"keepTable":true}`
+
+`07:17:07.286Z Craft: dropped the wooden_axe (stone_axe held)`
+
+`07:17:07.286Z Completed craft`
+
+`07:17:07.364Z Autopilot [stone] {"type":"craft","item":"stone_shovel","count":1,"keepTable":true}`
+
+`07:17:07.364Z Job: Missing ingredients or a nearby crafting table`
+
+`07:17:08.417Z Autopilot [stone] {"type":"craft","item":"stone_shovel","count":1,"keepTable":true}`
+
+`07:17:08.417Z Job: Missing ingredients or a nearby crafting table`
+
+`07:17:16.539Z Autopilot [stone] {"type":"craft","item":"stone_shovel","count":1,"keepTable":true}`
+
+`07:17:16.539Z Job: Missing ingredients or a nearby crafting table`
+
+`07:17:24.585Z Autopilot: stone_shovel craft failed 3 times; skipped for 10 min`
+
+`07:17:24.636Z Autopilot [stone] {"type":"craft","item":"furnace","count":1,"keepTable":true,"collectTable":true}`
+
+`07:17:36.683Z Completed craft`
+
+`07:17:36.784Z Autopilot [food] {"type":"fight","entity":"cow","maxSeconds":90}`
+
+`07:17:38.305Z WorldSurvival: in lava; escaping at (94, 68, 139) (head cave_air, feet cave_air)`
+
+`07:17:38.305Z Reflex: Misc World Survival Chain engaging`
+
+`07:17:38.307Z Pause trace: fight -> Reflex: preempted by Misc World Survival Chain`
+
+`07:17:48.652Z WorldSurvival: in lava; escaping at (93, 68, 139) (head cave_air, feet cave_air)`
+
+`07:17:48.759Z BuilderBot tried to swim in lava`
+
+`07:17:48.760Z Bot died at 93, 67, 139`
+
+The head and the feet on both lava lines are `cave_air`. The bot died 10.5 s after the first lava line, one block down, at the same column.
+
+### Falls, stranded, pillars, warden
+
+One fall line. normal3, iron gather, 08:06:34Z: `Fall: dropping from (152, 45, 190) (job gather, pathing true, sprint true)`. The next navigation line is `(152, 42, 193)`. It is not a death.
+
+Stranded lines:
+
+`06:31:18.971Z Navigation: stranded at (92, 75, 135)` on the scout, with `Boxed in at (92, 75, 135): no way to stair out`.
+
+`07:49:57.965Z Navigation: stranded at (21, 64, 83)` and `07:49:58.013Z Navigation: still stranded at (21, 64, 83); pillaring up 3`, on normal2, standing on the misc chest it had just placed.
+
+`08:26:40.618Z Navigation: stranded at (78, 69, 140)` on normal3, then `Boxed in at (78, 68, 139): dug 3 steps up north`.
+
+`08:37:43.487Z Navigation: stranded at (32, 67, 70)` on hard1, the same second as `Boxed in at (32, 67, 70): no way to stair out`, which is the surface cell the mob-cave escape had just reached.
+
+`09:00:02.211Z Navigation: stranded at (17, 54, 92)` on hard2, 4 s before the escape pillar from y=53.
+
+`09:14:20.023Z` and `09:14:23.305Z` the two stranded lines in the hard2 morning climb, quoted above.
+
+The window has no `Night: no pillar` line and no crowd-pillar line. The one `pillaring up 3` is the stranded retry at the chest. The window has no `warden` line and no `Deep dark` line.
+
+The other two harness returns are not deaths. normal1: `operator: returned the bot from y=45` at `[128, 45, 166]`, during iron, after three samples stuck at `(127, 44, 166)`. normal3: `operator: returned the bot from below the anchor at [57, -9, 155]` during the diamond rung. The sample 30 s earlier is `[32, -34, 155]`, still descending. The sample after the return is `[57, -9, 155]`, then `[71, 83, 155]`.
+
+### Repeated errors
+
+`Job: Missing ingredients or a nearby crafting table` is 11. The longest same-item streak is the stone shovel's 3, three times, all on normal2. `Job: Current job cancelled` is 9. `Job: Cannot place at (73, 78, 154): occupied by pink_petals` is 6. No other job text reached 10.
+
+`Navigation: no path with mob avoidance` is 820 across the window. `Gather: column N has nothing that can be dug without taking the floor` is 32. Those are path and dig retries, not a job error string.
+
+### Disconnects, interventions, uncaught
+
+No kick. The server slice appended during this soak has 25 `BuilderBot moved wrongly` warnings and one connection loss. The loss is the restore: `[15:06:25 INFO]: BuilderBot lost connection: Disconnected` and `BuilderBot left the game`. The warnings are 23 lines from 12:10:22 IST to 12:11:13 IST (normal1), one line at 13:33:15 IST (normal3), and one line at 14:54:39 IST (hard3). The bot was not kicked.
+
+Interventions 3, resumes 1. normal1 returned from y=45, normal2 resumed after the lava death, normal3 returned from `[57, -9, 155]`. The hard runs have 0.
+
+`logs/dashboard-uncaught.log` gained no bytes (size stayed 2576174).
+
+### Ledger and the flat world
+
+`data/ledger.json` at the end is the hard3 bag. It matches that run's end state: a wooden axe and a wooden sword beside stone tools and an iron pick, a table, a furnace, coal 4. Coal 4 is under the keep of 16, and it is not in a chest. The bag has no raw iron and no diamond.
+
+```json
+{"oak_sapling":1,"birch_log":1,"apple":1,"pink_petals":4,"dirt":7,"stone_pickaxe":1,"coal":4,"stone_sword":1,"wooden_sword":1,"oak_planks":4,"stone_axe":1,"wooden_axe":1,"stone_shovel":1,"torch":8,"cobblestone":35,"diorite":63,"granite":14,"stick":2,"iron_pickaxe":1,"crafting_table":1,"furnace":1}
+```
+
+After the stop, the flat world was restored (`level-name=agent-test-world`, `level-type=minecraft\:flat`, `level-seed` empty, `server-ip=0.0.0.0`, `difficulty=peaceful`). The model was still disabled and port 8081 was closed. End of this soak is `2026-10-27T09:36:39.647Z`. Spawn this generation was `[26, 64, 71]`, hard anchor `[29, 64, 71]` canopy light 13, normal anchor `[91, 71, 132]` sky 15. The drowning latch was not exercised: no drowning line, no straight-up line, no roof line, and no resume after one. The death is lava at `(93, 67, 139)` with the head in cave air. Dropped wooden tools came back on normal1, and every run still ended holding a wooden tool beside a stone tool. Two storage chests, stone junk and petals, and nothing under the keep went in. One cave morning, from a box at y=47 under a surface of 64, and the climb was cancelled by the clock while still pillaring from y=47. All three mob-cave escapes reached the surface number, and the night boxes sealed 19.2, 20.9, and 24.9 blocks from those marks, back underground. No night mine ran.
