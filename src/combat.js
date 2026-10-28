@@ -1087,7 +1087,10 @@ export class CombatController{
   if(t.name!=='creeper'&&this._pillar){this._pillar=null;this._controls({jump:false});}
   if(t.name==='creeper'&&this._pillarTick(t,gear,now))return this;
   const bowMode=tactic.style==='bow'||(t.name==='creeper'&&gear.bow&&gear.arrows>0);
-  if(gear.weaponName&&!bowMode&&(bot.heldItem&&bot.heldItem.name)!==gear.weaponName&&!this._disengaged&&bot.health>this.opts.healthRetreat){
+  // Round 63: prey that cannot hit back (the worker's spareRetreat: a pig, cow, chicken... with no
+  // hostile near) is no reason to back off - a starving bot at health 6 must still kill it.
+  const spare=!!(this.opts.spareRetreat&&this.opts.spareRetreat(t));
+  if(gear.weaponName&&!bowMode&&(bot.heldItem&&bot.heldItem.name)!==gear.weaponName&&!this._disengaged&&(bot.health>this.opts.healthRetreat||spare)){
    this._setState('equip');
    this._lowerShield();
    if(now-this._lastEquip>=0.5){ // re-equip at most every 0.5 s until heldItem verifies
@@ -1097,7 +1100,7 @@ export class CombatController{
    return this;
   }
   // 7b.8 health discipline: cover up and back off; the driver eats/retreats.
-  if(bot.health<=this.opts.healthRetreat){
+  if(bot.health<=this.opts.healthRetreat&&!spare){
    this._setState('retreat');this._raiseShield();this._faceTarget(t);this._backOff(t,tactic);
    this._emit('critical','health '+Math.round(bot.health)+' <= '+this.opts.healthRetreat);
    return this;

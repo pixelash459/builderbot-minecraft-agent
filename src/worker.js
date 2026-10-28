@@ -275,6 +275,7 @@ export const SKY_OPEN=12;
 // step never finished on any hard run): under open sky the bot is still on the surface, down to
 // SURFACE_SLACK below the floor. A ravine deeper than that still stops the walk.
 export const SURFACE_SLACK=8,RESEAL_BACKOFF_MS=15000;
+export const THROW_RUN=3;
 export const HARMLESS_PREY=new Set(['chicken','cow','pig','sheep','rabbit','mooshroom']),PREY_SAFE=10,PILLAR_SPARE=2,SEARCH_MISSES=2;
 const SHELTER_BLOCKS_HELD=b=>{try{return b.inventory.items().filter(i=>/^(cobblestone|cobbled_deepslate|dirt|stone|deepslate|andesite|diorite|granite|tuff|netherrack|.*_planks|sand|gravel|coarse_dirt)$/.test(i.name)).reduce((a,i)=>a+i.count,0);}catch{return 0;}};
 export function openSurface(b,floor){
@@ -746,7 +747,7 @@ export class Worker extends EventEmitter {
  connect(){
   if(this.bot)return;
   const bot=this.bot=mineflayer.createBot({...this.config.server,hideErrors:true});
-  installMovementFix(bot);installWeatherFix(bot);this.trackMeals(bot);guardEquip(bot);installProvoked(bot,m=>this.log(m));
+  installMovementFix(bot);installWeatherFix(bot);this.trackMeals(bot);guardEquip(bot);installProvoked(bot,m=>this.log(m));bot.__windowLog=m=>this.log(m);
   bot.loadPlugin(pathfinder);bot.loadPlugin(toolPackage.plugin);
   bot.once('spawn',()=>{this.ready=true;installToolWear(bot);if(!bot._earnHook){bot._earnHook=true;bot.on('playerCollect',(collector,collected)=>{try{if(collector!==bot.entity)return;const it=collected?.getDroppedItem?.();if(it)this.earn(it.name,it.count);}catch{}});}if(!bot.inventory._lossWatch){bot.inventory._lossWatch=true;watchToolLoss(bot,m=>this.log(m));}const movement=this.movements=this.normalMovements(bot);bot.pathfinder.setMovements(movement);bot.pathfinder.searchRadius=128;if(!bot._ledgeGuard){bot._ledgeGuard=true;let last=0;const fall={};const gait=newGait();bot.on('physicsTick',()=>{try{const g=gaitTick(bot,gait,Date.now());if(g)this.log(g);if(ledgeGuard(bot)&&Date.now()-last>5000){last=Date.now();this.log('Ledge guard: stopped at '+bot.entity.position.floored()+' (a '+LEDGE_DROP+'+ drop ahead)');}const f=fallWatch(bot,fall);if(f)this.log('Fall: dropping from '+new Vec3(f.from.x,f.from.y,f.from.z).floored()+' (job '+((this.jobs||[]).find(j=>j.status==='running')?.spec?.type||'none')+', pathing '+!!bot.pathfinder?.isMoving?.()+', sprint '+!!bot.getControlState?.('sprint')+')');}catch{}});}bot.pathfinder.LOSWhenPlacingBlocks=false;bot.pathfinder.thinkTimeout=10000;/* round 27: 5 s timed out every night-mine climb home (`Took to long to decide path to goal!`) *//* round 25: its returningPos is never cleared by a reset and wedged all pathing */// in blocks: bounds searches for unreachable goals; legit paths may still cost up to goal distance + 128
   if(!this.trackersTimer){ // tracker refresh + preemption resume + idle armour, port of the reflex cadence
@@ -1483,8 +1484,18 @@ export class Worker extends EventEmitter {
  // Round 62 (round-60 normal3: health 1, food 0, `Health below 8; retreated from chicken` 47
  // times in 13 min - the hunt that would feed it was the thing it kept running from): prey that
  // cannot hit back, with no hostile within PREY_SAFE, is no reason to retreat.
+ // Round 63 (round-62 normal2: `Health below 8; retreated from pig` 9 times and `... from the
+ // fight` 25 times, hits 0 on every one, food 0, end health 0.6): the guard ran 250 ms in, before
+ // the controller had picked its target, so the prey check saw no target and the retreat fired; and
+ // the controller's own health gate backed off from the pig at health 8 whatever the guard said. The
+ // job's entity names the prey until a target is locked, and the controller is told to spare it.
  harmlessFight(task){
   const t=task&&task.controller&&task.controller.target;
+  if(t)return this.harmlessTarget(t);
+  const name=task&&task.entityFilter;
+  return !!name&&HARMLESS_PREY.has(name)&&!(this.nearestHostile()<=PREY_SAFE);
+ }
+ harmlessTarget(t){
   return !!t&&HARMLESS_PREY.has(t.name)&&!provoked(this.bot,t)&&!(this.nearestHostile()<=PREY_SAFE);
  }
  async combatTask(job,token,mk,{timeoutMs=0,timeoutMessage='Fight timed out'}={}){
@@ -1575,6 +1586,7 @@ export class Worker extends EventEmitter {
     opts:{entityFilter:s.entity||null,range:huntRange,lockFirst:!hostileTargets||undefined,forceStyle:style!=='auto'?style:null,
      // A named enderman fight is provoked by definition (7c: never provoked by looking).
      provoked:s.entity==='enderman'||undefined,
+     spareRetreat:t=>this.harmlessTarget(t),
      // The ablation harness toggles primitives per fight (tests/combat_ablation.py).
      primitives:s.primitives||undefined}}),
    {timeoutMs:Math.min(s.maxSeconds??30,120)*1000});
@@ -2536,7 +2548,7 @@ export class Worker extends EventEmitter {
    await this.combatTask(job,token,()=>new FightTask({
     move:this.move,
     log:m=>{try{this.log(m);}catch{}},
-    opts:{entityFilter:s.entity,range:24,lockFirst:true,allowHand:true}}),
+    opts:{entityFilter:s.entity,range:24,lockFirst:true,allowHand:true,spareRetreat:t=>this.harmlessTarget(t)}}),
    {timeoutMs:Math.max(1000,deadline-Date.now()),timeoutMessage:'Hunt timed out fighting '+s.entity});
    await this.sweepDrops(token);
   }
@@ -2552,6 +2564,11 @@ export class Worker extends EventEmitter {
   return t.points;
  }
  async run(job,token){const spec=job.spec;
+  // Round 63 (round-62 hard2: the night-mine walk home, then the new box and the night pillar all
+  // failed at once with `invalid operation` - mineflayer's window-click assert, an inventory slot
+  // clicked against a container window still open from the cancelled furnace take): no job needs
+  // a window left over from the last one.
+  if(this.bot?.currentWindow)this.closeStaleWindow('before the '+spec.type+' job');
   // Round 33 (round-33 normal run: drowned at 325,23,-109 after 90 s in a flooded cave, the
   // drop, craft and smelt jobs resuming in the water between swim-ups): a job resumed after a
   // drowning escape first steps out to a dry stand.
@@ -3449,13 +3466,42 @@ export class Worker extends EventEmitter {
  // Round 57 (round-56: all six runs ended with a wooden pick, axe and sword beside the stone and
  // iron ones, and normal1's full bag named all three): once a stone-or-better tool is crafted, the
  // wooden or golden one of the same kind is dropped (and not picked back up).
+ closeStaleWindow(why){
+  const b=this.bot,w=b&&b.currentWindow;
+  if(!w)return false;
+  try{b.closeWindow(w);}catch{}
+  this.log('Window: closed a stale '+(w.type||'container')+' window left open '+why);
+  return true;
+ }
+ // Round 63 (round-62: normal1, hard1 and hard2 each ended with a wooden tool beside a stone or
+ // iron one, every one after `Craft: dropped the wooden_...` - and no collect line: tossed at the
+ // bot's feet in a tunnel, the stack bounced off the wall and the bot picked it straight back up
+ // when the 2 s pickup delay ran out). The toss goes down the longest open line (THROW_RUN cells
+ // of open feet and head at least); with none, the spare is kept for a later craft.
+ throwLine(){
+  const b=this.bot,me=b&&b.entity&&b.entity.position;
+  if(!me||typeof b.blockAt!=='function')return null;
+  const open=p=>{const bl=b.blockAt(p);return !!bl&&bl.boundingBox!=='block'&&!/lava|water/.test(bl.name);};
+  const f=me.floored();let best=null,run=0;
+  for(const[dx,dz]of[[1,0],[-1,0],[0,1],[0,-1]]){
+   let k=0;
+   while(k<THROW_RUN+1&&open(f.offset(dx*(k+1),0,dz*(k+1)))&&open(f.offset(dx*(k+1),1,dz*(k+1))))k++;
+   if(k>run){run=k;best=Math.atan2(-dx,-dz);}
+  }
+  return run>=THROW_RUN?best:false;
+ }
  async tossSpareTools(made,token){
   const b=this.bot,m=/^(stone|iron|diamond|netherite)_(sword|axe|pickaxe|shovel|hoe)$/.exec(made||'');
   if(!m||!this.count(made))return;
   const held={};for(const i of b.inventory.items())held[i.name]=(held[i.name]||0)+i.count;
   // Round 58 (round-57: a wooden axe beside a stone axe at the end of every run - the stone axe
   // was crafted before a later wood step made another): every spare kind goes, not only this one.
-  for(const it of b.inventory.items().filter(i=>spareTool(i.name,held))){
+  const spares=b.inventory.items().filter(i=>spareTool(i.name,held));
+  if(!spares.length)return;
+  const aim=this.throwLine();
+  if(aim===false){this.log('Craft: keeping the spare '+spares.map(i=>i.name).join(', ')+' for now (no open line '+THROW_RUN+' long to throw it down; it would be picked straight back up)');return;}
+  if(aim!=null){try{await b.look(aim,0.3,true);}catch{}}
+  for(const it of spares){
    this.check(token);
    try{await b.tossStack(it);(this.droppedJunk||(this.droppedJunk=new Map())).set(it.name,Date.now());this.log('Craft: dropped the '+it.name+' ('+made+' held)');}catch{}
   }

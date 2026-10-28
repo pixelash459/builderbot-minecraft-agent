@@ -1144,3 +1144,13 @@ test('controller: a 3-high perch is outside the fuse ring and keeps the bow on a
  assert.ok(!logs.some(l=>/fuse ring/.test(l)));
  assert.ok(!calls.some(x=>x[0]==='equip'&&x[1]==='stone_sword'));
 });
+test('round 63: a spared pig is fought at health 6; without the spare the controller retreats',()=>{
+ for(const spare of [false,true]){
+  const target=mob(53,'pig',at(2,-60,0));
+  const {bot}=makeBot({inventory:['stone_sword'],heldItem:'stone_sword',health:6,food:0,entities:[target]});
+  const c=new CombatController(bot,makeMove(bot,null),{now:()=>0,spareRetreat:spare?t=>t.name==='pig':undefined});
+  c.setTarget(target);c.tick();
+  if(spare)assert.notEqual(c.state,'retreat','a pig that cannot hit back is no reason to back off');
+  else assert.equal(c.state,'retreat');
+ }
+});

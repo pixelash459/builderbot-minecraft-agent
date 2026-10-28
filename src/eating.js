@@ -32,7 +32,16 @@ export function guardEquip(bot){
  const raw=bot.__rawEquip=bot.equip.bind(bot);
  bot.equip=async(item,dest,...rest)=>{
   if(bot.__meal&&(dest==null||dest==='hand'))await Promise.race([bot.__meal,sleep(EAT_GUARD_MS)]);
-  return raw(item,dest,...rest);
+  // Round 63: `invalid operation` is mineflayer's click assert - an inventory slot clicked
+  // against a container window still open. Close it and equip once more.
+  try{return await raw(item,dest,...rest);}
+  catch(e){
+   const w=bot.currentWindow;
+   if(!w||!/invalid operation/.test(String(e&&e.message)))throw e;
+   try{bot.closeWindow(w);}catch{}
+   try{bot.__windowLog&&bot.__windowLog('Window: closed a stale '+(w.type||'container')+' window left open (equip refused: invalid operation); retrying');}catch{}
+   return raw(item,dest,...rest);
+  }
  };
 }
 // Eat one `name`. Returns {ok, gained, attempts} or {ok:false, reason, attempts}; throws only

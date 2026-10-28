@@ -270,12 +270,18 @@ export class EscapeFreezingTask extends Task{
 // re-dig every tick restarts it and floods the server with dig packets). Only natural
 // terrain and falling blocks are dug; inside anything else the bot pushes toward the side
 // whose feet and head cells are open.
+const ICE=/^(ice|packed_ice|blue_ice|frosted_ice)$/;
 const suffocates=bl=>!!bl&&bl.boundingBox==='block'&&!/_leaves$|glass|_slab$|_stairs$|fence|_wall$|door|pane|_bars$|chest|scaffolding|^snow$|farmland|dirt_path|_carpet$|ladder|vine/.test(bl.name);
 export class EscapeSuffocationTask extends Task{
  constructor(){super('EscapeSuffocationTask');this.digging=null;}
  static cells(bot){const p=bot.entity.position;return [bot.blockAt&&bot.blockAt(p.offset(0,1.62,0)),bot.blockAt&&bot.blockAt(p.offset(0,0.2,0))];}
  static inWall(bot){return !!(bot&&bot.entity&&bot.entity.position&&suffocates(EscapeSuffocationTask.cells(bot)[0]));}
- static diggable(bl){return NATURAL_DIG.has(bl.name)||isGravity(bl)||/_ore$/.test(bl.name);}
+ // Round 63 (round-62 soak, 21:13Z: drowned at -156,61,238 in a 1-high water gap under a frozen
+ // lake - `head in a wall (head ice, feet water)` for 22 s, ice was not on the dig list, so the
+ // band at 100 kept shimmying sideways under more ice and the swim-up at 97 never ran): the
+ // frozen-water family is natural and digs bare-handed; broken ice over water turns to water,
+ // which opens the way up to the air above the sheet.
+ static diggable(bl){return NATURAL_DIG.has(bl.name)||ICE.test(bl.name)||isGravity(bl)||/_ore$/.test(bl.name);}
  isFinished(bot,ctx){return !EscapeSuffocationTask.inWall(bot);}
  onTick(bot,ctx){
   if(this.digging)return null;

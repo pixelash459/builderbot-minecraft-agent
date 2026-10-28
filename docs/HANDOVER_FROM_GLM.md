@@ -2217,3 +2217,44 @@ The round-60 soak on seed 20261027 (spawn [-42, 66, 129]; hard anchor [-49, 66, 
   - **Shelter hole:** a night shelter with a wall block knocked out after it reports safe.
   - **Output:** `data/obstruction-results.json` holds the job status, message, time, end position, the bot's own lines and any error repeated 3+ times.
   - **Smoke run:** cobble wall done in 4 s. Poppy spot: broke the poppy, chest placed. Plank box: out in 12 s. Shelter hole: re-sealed in 4 s, and the box opened 0 s after morning. On flat ground the night mine dug to bedrock and could not climb home, so the bot built a second box.
+
+## Round 63 (2026-10-28)
+
+The round-62 soak on seed 20261027. The world was regenerated: spawn [-23, 66, 122], hard anchor [-50, 65, 103], normal anchor [-133, 63, 258].
+
+**Results**
+- **Iron picks:** 5 of 6 (hard3 had none). Diamonds 0, no bed.
+- **Death:** one, normal1 drowned under a frozen lake.
+- **Round-62 fixes that held:**
+  - No canopy pillar ran out of blocks.
+  - The missed search target was skipped once and never aimed at again.
+  - `wood failed 3 times` was 0 (round 60 had 7).
+- **Night skip:** fired once (hard1 at tod 15202, after 157 s safe). The box opened in the same second with no damage after. hard2 and hard3 started a night mine within 30 s of sealing, so their safe clocks never reached 150 s.
+- **Obstruction probe:** 9 of 11 passed. The two failures were the expected ones:
+  - The bare-handed cobblestone cell failed once and cleanly, with the tool message.
+  - The chest spot taken by cobblestone was refused with `occupied by cobblestone`.
+  - The bot went round all three walls; door opening is off.
+  - It got out of every cell it had a tool for in 10-12 s.
+  - It dug 3 steps out of the pit.
+  - It broke the poppy and placed the chest.
+  - It re-sealed the knocked-out shelter block in 4 s.
+
+**Fixes**
+- **Ice over the head** (`EscapeSuffocationTask.diggable`):
+  - **What happened:** normal1 swam into a one-high water gap under a frozen lake and logged `head in a wall (head ice, feet water)` for 22 s. Ice was not on the dig list, so the wall band (priority 100) kept shimmying sideways under more ice. The swim-up (97) never ran, and the bot drowned.
+  - **Fix:** ice, packed ice, blue ice and frosted ice now dig bare-handed. Broken ice over water turns to water, which opens the way up.
+- **Hunting at low health** (worker `harmlessFight` and `harmlessTarget`; the combat controller's `spareRetreat`):
+  - **What happened:** normal2 logged 9 `retreated from pig` and 25 `retreated from the fight`, every one with hits 0. It reached food 0 and ended at health 0.6. Round 62's guard ran before the controller had locked a target, so the prey check saw no target. The controller's own health-8 gate also backed off from the pig whatever the guard said.
+  - **Fix:** the job's entity now names the prey until a target is locked. Fight and hunt jobs pass `spareRetreat` so the controller fights harmless prey at any health, provided no hostile is within 10.
+- **A stale container window** (worker `closeStaleWindow` at job start; `guardEquip` retries once):
+  - **What happened:** hard2's night-mine walk home, its new box and the night pillar all failed at once with `invalid operation`. That is mineflayer's window-click assert, raised when an inventory slot is clicked while a container window is still open; the furnace take was cancelled just before.
+  - **Fix:** each job now starts with no window left over. An equip refused this way closes the window and tries again. Both log `Window: closed a stale ... window left open`.
+- **Spare tools picked straight back up** (worker `throwLine` and `THROW_RUN`):
+  - **What happened:** three runs ended with a wooden tool beside a better one. In every case there was a `Craft: dropped` line and no collect line. The toss landed at the bot's feet in a tunnel, and the bot picked it up when the 2 s pickup delay ran out.
+  - **Fix:** the toss now goes down the longest open line, at least 3 cells of open feet and head. With no such line, the spare is kept for a later craft: `Craft: keeping the spare ... for now`.
+
+**Not changed yet**
+- **Night-mine climb home:** fails with `Took to long to decide path` (hard2, and the flat-world probe). It still costs the night skip whenever the bot mines straight after sealing.
+- **normal2:** 43 drowning swim-ups and 23 `climbed above the graze cap` lines.
+- **hard3:** no iron pick.
+- **Navigation noise:** about 70-340 `no path with mob avoidance` lines per run.

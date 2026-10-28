@@ -155,6 +155,14 @@ test('head in a built block: no dig, push toward the open side',()=>{
  assert.ok(!calls.some(c=>c[0]==='dig'),'a player block is never broken');
  assert.ok(calls.some(c=>c[0]==='control'&&c[1]==='forward'&&c[2]===true));
 });
+test('round 63: a head in ice over water digs the ice instead of shimmying under the sheet',()=>{
+ const {bot,calls}=wallBot({'0,-59,0':'ice','0,-60,0':'water','1,-60,0':'water','1,-59,0':'water','-1,-59,0':'ice','-1,-60,0':'water'});
+ assert.equal(EscapeSuffocationTask.inWall(bot),true);
+ const task=new EscapeSuffocationTask();task.onTick(bot,ctx);
+ assert.deepEqual(calls.find(c=>c[0]==='dig'),['dig','ice']);
+ assert.ok(!calls.some(c=>c[0]==='control'&&c[1]==='forward'&&c[2]===true),'no shimmy while the ice is dug');
+ for(const n of ['packed_ice','blue_ice'])assert.equal(EscapeSuffocationTask.diggable({name:n}),true,n);
+});
 test('leaves, slabs and open air at the head are not a wall',()=>{
  for(const n of ['oak_leaves','stone_slab','air'])assert.equal(EscapeSuffocationTask.inWall(wallBot({'0,-59,0':n}).bot),false,n);
  assert.equal(EscapeSuffocationTask.inWall(wallBot({'0,-59,0':'dirt'}).bot),true);
