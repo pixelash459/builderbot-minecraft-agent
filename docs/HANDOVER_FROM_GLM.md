@@ -2323,3 +2323,36 @@ The round-64 soak on seed 20261027 (spawn [-41, 67, 120], hard anchor [-49, 70, 
 - **Pillar desync:** see the pillar data above.
 - **Night-mine climb home:** still fails on the flat probe.
 - **Air pocket and flooded furnace:** neither was exercised (no roof-dig drowning this soak).
+
+## Round 66 (2026-10-28)
+
+The round-65 soak on seed 20261027 (spawn [-23, 66, 124], hard anchor [-72, 69, 150], normal anchor [-9, 71, 205]).
+
+**Results**
+- **No deaths in any run:**
+  - Iron picks on 6 of 6.
+  - normal1 found 6 diamonds and crafted a diamond pick again (t=2142).
+  - normal3 held a bed (not slept in).
+- **Round 65's pick-first rule worked** on every no-pick gap:
+  - normal1: sticks and a stone pick 52 s after the break.
+  - normal2: a stone pick 34 s after its iron pick broke, and `Tunnel needs a suitable tool` only once (round 64: 52 times, 7 min stuck).
+  - normal3: planks, sticks and a stone pick in 113 s, then an iron pick.
+  - None waited behind a food or ascend job.
+- **Spare tools:** every end bag is clean (no wooden tool beside a better one).
+- **Windows:** two stale windows were closed before a job (a crafting table and a furnace), and there was no `invalid operation`.
+- **Night skip:** all three hard nights skipped.
+- **Obstruction probe:** the same 9 of 11.
+- **One death between runs:** hard1 ended starving at health 0.5. The next run's teleport onto the hard anchor put it in dirt, and it `suffocated in a wall`.
+
+**Fixes**
+- **The harness clears the anchor before a teleport** (`tests/soak.py` `clear_stand`, `tp_anchor`):
+  - **What happened:** a block from an earlier run sat in the anchor's standing room. A second head-in-wall happened at the same anchor before hard3.
+  - **Fix:** the anchor's feet and head cells are set to air before every teleport there (run start, the below-anchor return, the wood-blocked return). The run start heals the bot before the teleport, not after.
+- **A straight food search** (autopilot `foodHeading`, `FOOD_HEADINGS`):
+  - **What happened:** hard1 (8 set-asides, food 0, health 0.5) and hard2 (food 0) explored for food in 32-block legs, each in a fresh random direction. That random walk stayed within about 80 blocks, and no animal came in range.
+  - **Fix:** with no graze biome in sight, the search keeps one heading leg after leg, and turns 90 degrees when the step is set aside. A graze biome direction still wins.
+
+**Not changed yet**
+- **Night-mine climb home:** fails on the flat probe (`Pillar: stopped at y=-61 (no solid block under the feet: air)`, then the tunnel climb).
+- **Air pocket and flooded furnace:** not exercised in two soaks.
+- **Navigation noise:** about 150-240 `no path with mob avoidance` lines per run.

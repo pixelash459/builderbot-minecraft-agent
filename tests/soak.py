@@ -332,6 +332,19 @@ def inventory_clean():
     except Exception:
         return False
 
+# Round 66 (round-65 soak, 14:53:06Z: the run-start teleport put the bot at -71.5,69,150.5 and it
+# `suffocated in a wall` the same second - a block placed there by an earlier run, and the bot
+# arrived starving at about 1 health from the run before): the anchor's feet and head cells are
+# cleared before every teleport there, and the bot is healed first. Test world only; the cells
+# are the bot's own standing room.
+def clear_stand(spawn,run=None):
+    x,y,z=spawn
+    try:command(f'fill {x} {y} {z} {x} {y+1} {z} minecraft:air')
+    except Exception as e:
+        if run is not None:run['errors'].append('setup fill: '+str(e)[:120])
+def tp_anchor(spawn,run=None):
+    clear_stand(spawn,run)
+    command(f'tp BuilderBot {spawn[0]} {spawn[1]} {spawn[2]}')
 def run_one(index,spawn,seconds=NORMAL_SECONDS):
     run={'index':index,'errors':[],'samples':[],'interventions':[],'resumes':0,'deaths':0}
     reset_ladder(run)
@@ -339,6 +352,9 @@ def run_one(index,spawn,seconds=NORMAL_SECONDS):
     # `weather clear <ticks>`: 1200 was only 60 s, and when a clear timer expires vanilla flips
     # straight into rain (rainTime is held at 1 while clear), so every run used to turn to rain and
     # thunder a minute in. 1000000 ticks (~14 h) keeps the run's sky clear.
+    try:command('effect give BuilderBot minecraft:instant_health 1 10 true')
+    except Exception as e:run['errors'].append('setup heal: '+str(e)[:120])
+    clear_stand(spawn,run)
     for text in (f'tp BuilderBot {spawn[0]} {spawn[1]} {spawn[2]}','time set 0','weather clear 1000000','clear BuilderBot'):
         try:command(text)
         except Exception as e:run['errors'].append('setup '+text.split()[0]+': '+str(e)[:120])
@@ -467,14 +483,14 @@ def run_one(index,spawn,seconds=NORMAL_SECONDS):
             # anchor sits at y=71 over ground at y=61-66, and 8 below teleported it 12 times).
             if sample['step']=='wood' and sample['logs']==0 and sample['pos'][1]<spawn[1]-14 and run.get('returns',0)<3:
                 run['returns']=run.get('returns',0)+1
-                command(f'tp BuilderBot {spawn[0]} {spawn[1]} {spawn[2]}')
+                tp_anchor(spawn,run)
                 run['interventions'].append('operator: returned the bot from below the anchor at '+json.dumps(sample['pos']))
                 print('operator: returned the bot from y='+str(sample['pos'][1]),flush=True)
             # Operator role: wood blocked with no logs means the bot wandered somewhere it
             # cannot path from; return it to the fixed spawn point once per run.
             if 'blocked: wood' in str(ap.get('state','')) and sample['logs']==0 and 'recovered' not in run:
                 run['recovered']=True
-                command(f'tp BuilderBot {spawn[0]} {spawn[1]} {spawn[2]}')
+                tp_anchor(spawn,run)
                 run['interventions'].append('operator: returned the bot to the spawn point after wood blocked at '+json.dumps(sample['pos']))
                 print('operator: returned the bot to the forest after wood blocked',flush=True)
             # Operator role: a gather that holds the bot motionless for three straight samples

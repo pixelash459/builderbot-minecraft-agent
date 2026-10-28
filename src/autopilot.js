@@ -68,6 +68,7 @@ export function grazeDirection(bot){
 const IRON_CORE=[['iron_pickaxe',3,2],['iron_sword',2,1],['shield',1,0]];
 // The food graze may go this far below its anchor (hills, not caves).
 const GRAZE_DEPTH=6,ASCEND_BELOW=16,DEEP_COOL_MS=20000;
+export const FOOD_HEADINGS=['north','east','south','west'];
 export const DEEP_ASCEND_AFTER=2; // round 35: deep-underground failure rounds before climbing out
 const STONE_KIT=[['stone_pickaxe',3],['stone_sword',2],['stone_axe',3],['stone_shovel',1]];
 // Round 16: kit pieces the ladder can go on without (a craft that keeps failing is skipped).
@@ -690,7 +691,7 @@ export const STEPS=[
   // normal3 was shot dead at y=41, 90 below its anchor). A bot already under it stays level.
   let floor=Number.isFinite(anchorY)?anchorY-GRAZE_DEPTH:undefined;
   if(floor!=null&&Number.isFinite(ctx.standY)&&ctx.standY<floor)floor=ctx.standY;
-  return {type:'explore',distance:32,direction:ctx.grazeDirection||'random',...(cap!=null?{surfaceCeiling:cap}:{}),...(floor!=null?{surfaceFloor:floor}:{})};
+  return {type:'explore',distance:32,direction:ctx.foodDirection||ctx.grazeDirection||'random',...(cap!=null?{surfaceCeiling:cap}:{}),...(floor!=null?{surfaceFloor:floor}:{})};
  }},
  {name:'iron',done:(c,ctx)=>c('iron_pickaxe')>=1&&c('iron_sword')>=1&&c('iron_axe')>=1&&c('shield')>=1&&(c('bow')>=1||skipped(ctx,'bow'))&&(c('arrow')>=ARROWS||skipped(ctx,'arrow'))&&c('iron_helmet')>=1&&c('iron_chestplate')>=1&&c('iron_leggings')>=1&&c('iron_boots')>=1&&c('bucket')+c('water_bucket')>=1&&c('torch')>=TORCHES,next(c,ctx){
   // M5 core FIRST: iron pickaxe, then iron sword, then the shield (COMBAT_SPEC 7a: right after
@@ -1255,8 +1256,20 @@ export class Autopilot{
   if(job&&job.type==='explore'&&++f.legs>=FOOD_LEGS){this.deferFood(f.legs+' explore legs without food');return true;}
   return false;
  }
+ // Round 66 (round-65 hard1 and hard2: food 0, hard1 down to health 0.5, eight and two
+ // `6 explore legs without food` - every 32-block leg in a fresh random direction, a random walk
+ // that kept the bot within ~80 blocks of where it started, no animal ever in range): with no
+ // graze biome to aim at, the food search keeps one heading leg after leg (192 blocks per set
+ // of FOOD_LEGS) and turns 90 degrees each time the step is set aside.
+ foodHeading(graze){
+  if(graze&&graze!=='random')return graze;
+  const f=this.food||(this.food={mark:mealsEaten(this.worker),legs:0,best:0,offUntil:0,deferred:false});
+  if(!FOOD_HEADINGS.includes(f.heading))f.heading=FOOD_HEADINGS[Math.floor(Math.random()*4)];
+  return f.heading;
+ }
  deferFood(why){
   const f=this.food||(this.food={mark:mealsEaten(this.worker),legs:0,best:0,offUntil:0,deferred:false});
+  if(FOOD_HEADINGS.includes(f.heading))f.heading=FOOD_HEADINGS[(FOOD_HEADINGS.indexOf(f.heading)+1)%4];
   f.offUntil=Date.now()+FOOD_OFF_MS;f.deferred=true;f.legs=0;
   this.state='food deferred: '+why;
   this.log('Autopilot: food step set aside for '+FOOD_OFF_MS/60000+' min ('+why+'); moving on, back to food when hungry with none held');
@@ -1414,7 +1427,8 @@ export class Autopilot{
   const worldTable=!!b.findBlock({matching:b.registry.blocksByName.crafting_table?.id,maxDistance:8})||!!(left&&left.distance<=32);
   const worldFurnace=!!b.findBlock({matching:b.registry.blocksByName.furnace?.id,maxDistance:16});
   const standY=b.entity&&b.entity.position?Math.floor(b.entity.position.y):null;
-  const ctx={slotsFull:items/36,animalsNearby:animals?animals.type:null,animalsClose:animals?animals.close:0,huntPhase:this.huntPhase,homeChest:this.homeChest,home:this.home,chestSpot:this.home?this.chestSpotNear(b):null,hostileDistance:this.hostileDistance(b),worldTable,worldFurnace,grazeDirection:grazeDirection(b),standY,underSky:underSky(b),tod:dayTicks(b),lastSurfaceY:this.lastSurfaceY??this.foodAnchorY,
+  const graze=grazeDirection(b);
+  const ctx={slotsFull:items/36,animalsNearby:animals?animals.type:null,animalsClose:animals?animals.close:0,huntPhase:this.huntPhase,homeChest:this.homeChest,home:this.home,chestSpot:this.home?this.chestSpotNear(b):null,hostileDistance:this.hostileDistance(b),worldTable,worldFurnace,grazeDirection:graze,foodDirection:this.foodHeading(graze),standY,underSky:underSky(b),tod:dayTicks(b),lastSurfaceY:this.lastSurfaceY??this.foodAnchorY,
    // Round 8 rung: coal in reach, the bed's wool, the last equip (no equip loops).
    coalNear:this.oreNear(b,['coal_ore','deepslate_coal_ore'],32),waterAt:this.waterSource(b),sheepNear:this.sheepNear(b),bedNear:this.bedNear(b),lastEquip:this.lastEquip||null,coalOff:Date.now()<(this.coalOffUntil||0),bedOff:Date.now()<(this.bedOffUntil||0),bedSearch:(this.bedSearch?.legs||0)<BED_SEARCH_LEGS,sheepFar:this.sheepFar(b),searchDistance:BED_SEARCH_DIST[Math.min(this.bedSearch?.legs||0,BED_SEARCH_DIST.length-1)],diamondOff:Date.now()<(this.diamondOffUntil||0),
    breedable:this.breedable(b,counts),hayNear:this.hayNear(b),
