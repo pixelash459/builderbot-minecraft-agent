@@ -2395,3 +2395,8 @@ The round-66 soak on seed 20261027 (spawn [-41, 65, 136], hard anchor [-48, 67, 
 - **Spare tools:** hard1 and hard2 ended with wooden tools after `keeping the spare ... (no room to throw it within 12)`.
 - **normal1's broken iron pick:** the bot went 21 min without a pick, because the 18-min store stall sat in the gap.
 - **Air pocket and flooded furnace:** still not exercised.
+- **The soak on a copy of the group's Nitrous world** (user request; `tests/soak.py` `SOAK_WORLD`):
+  - **The copy:** `test-server/nitrous-copy-20261029` is a read-only copy of the Nitrous server's `world` (same 26.3 version, 1.08 GB). It was taken without `session.lock` and `players/`, so BuilderBot joins as a new player and no one's inventory or position comes along. It is git-ignored with the rest of `test-server/`.
+  - **How a soak uses it:** with `SOAK_WORLD=<that folder>`, each soak copies it fresh into `agent-soak-world` instead of generating from `SOAK_SEED`, so the pristine copy is never played on. Anchors are scouted from that world's own spawn. The harness refuses a folder under `crafty/` (a live server world).
+  - **Its world settings:** keep_inventory off, mobs, monsters and mob griefing on, natural time; the soak still sets its own rules per anchor.
+- **Built-block dig log** (worker `installDigWatch`, `builtLooking`, `BUILT_HINT`): logging only. Every block the bot breaks that looks built is logged with its position and job as `Dig: broke <block> at P (looks built; job X)`; this covers planks, slabs, stairs, glass, wool, bricks, fences, doors, storage, light, redstone and decoration. A log with no leaves within 3 is logged as `(no leaves within 3; job X)`.

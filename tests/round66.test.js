@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Autopilot,FOOD_HEADINGS} from '../src/autopilot.js';
-import {sprintAssist,ledgeGuard,SPRINT_FOOD,installSprintHold,newGait,gaitTick,guardPlace} from '../src/worker.js';
+import {sprintAssist,ledgeGuard,SPRINT_FOOD,installSprintHold,newGait,gaitTick,guardPlace,builtLooking,installDigWatch} from '../src/worker.js';
 import {EventEmitter} from 'node:events';
+import {Vec3} from 'vec3';
 
 // Round 66: the round-65 soak on seed 20261027.
 test('round 66: with no graze biome the food search keeps one heading, and turns when set aside',()=>{
@@ -57,4 +58,16 @@ test('round 67: a block placed against a chest sneaks (no window opened); agains
  assert.deepEqual(log,['place on stone sneak=false']);
  log.length=0;await bot.placeBlock({name:'crafting_table'},{x:0,y:1,z:0});
  assert.ok(log.includes('place on crafting_table sneak=true'));
+});
+test('round 67: a broken block that looks built is logged with the job; a tree log is not',()=>{
+ const world={};const at=(x,y,z,n)=>{world[x+','+y+','+z]=n;};
+ at(0,70,0,'oak_log');at(1,72,0,'oak_leaves');at(10,70,0,'oak_log');
+ const bot=Object.assign(new EventEmitter(),{blockAt:p=>({name:world[p.x+','+p.y+','+p.z]||'air'})});
+ const logs=[];installDigWatch(bot,m=>logs.push(m),()=>'gather');
+ bot.emit('diggingCompleted',{name:'oak_log',position:new Vec3(0,70,0)});
+ bot.emit('diggingCompleted',{name:'oak_log',position:new Vec3(10,70,0)});
+ bot.emit('diggingCompleted',{name:'spruce_planks',position:new Vec3(5,70,5)});
+ bot.emit('diggingCompleted',{name:'stone',position:new Vec3(5,60,5)});
+ assert.deepEqual(logs,['Dig: broke oak_log at (10, 70, 0) (no leaves within 3; job gather)','Dig: broke spruce_planks at (5, 70, 5) (looks built; job gather)']);
+ assert.equal(builtLooking(bot,{name:'glass_pane'}),'looks built');
 });

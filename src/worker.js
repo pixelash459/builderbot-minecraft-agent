@@ -271,6 +271,30 @@ export function guardPlace(bot){
   finally{try{bot.setControlState('sneak',false);}catch{}}
  };
 }
+// Round 67 (user request 2026-10-29: the soak on a copy of the group's Nitrous world, to see what
+// the bot does to player-made builds): every block the bot breaks that looks built - planks,
+// glass, bricks, doors, storage, light, decoration - is logged with where and under which job,
+// and a log with no leaves within 3 (a house wall more likely than a tree). Logging only.
+export const BUILT_HINT=/_planks$|_slab$|_stairs$|glass|_wool$|bricks?$|_fence|_wall$|_door$|_trapdoor$|torch|lantern|chest$|barrel|furnace|smoker|crafting_table|_bed$|_carpet$|concrete|terracotta$|^smooth_|^polished_|^chiseled_|^cut_|quartz|bookshelf|ladder|rail$|_sign$|_banner$|flower_pot|anvil|bell$|hopper|lectern|scaffolding|iron_bars|chain$|_button$|lever|pressure_plate|hay_block|campfire|composter|cauldron|loom|stonecutter|grindstone|smithing_table|fletching_table|cartography_table|enchanting_table|brewing_stand|jukebox|note_block|redstone_|repeater|comparator|piston|observer|dispenser|dropper|beacon|end_rod|sea_lantern|glowstone|shulker_box/;
+export function builtLooking(bot,block){
+ const name=block&&block.name||'';
+ if(BUILT_HINT.test(name))return 'looks built';
+ if(/_(log|wood)$/.test(name)&&typeof bot?.blockAt==='function'&&block.position){
+  const p=block.position;
+  for(let dx=-3;dx<=3;dx++)for(let dy=-3;dy<=3;dy++)for(let dz=-3;dz<=3;dz++){
+   const b=bot.blockAt(p.offset(dx,dy,dz));if(b&&/_leaves$/.test(b.name))return null;
+  }
+  return 'no leaves within 3';
+ }
+ return null;
+}
+export function installDigWatch(bot,log,jobOf){
+ if(!bot||bot.__digWatch||typeof bot.on!=='function')return;
+ bot.__digWatch=true;
+ bot.on('diggingCompleted',block=>{
+  try{const why=builtLooking(bot,block);if(why)log('Dig: broke '+block.name+' at '+block.position+' ('+why+'; job '+(jobOf()||'none')+')');}catch{}
+ });
+}
 export const SPRINT_FOOD=6;
 export function sprintAssist(bot){
  const e=bot&&bot.entity;
@@ -809,7 +833,7 @@ export class Worker extends EventEmitter {
  connect(){
   if(this.bot)return;
   const bot=this.bot=mineflayer.createBot({...this.config.server,hideErrors:true});
-  installMovementFix(bot);installWeatherFix(bot);this.trackMeals(bot);guardEquip(bot);guardPlace(bot);installProvoked(bot,m=>this.log(m));bot.__windowLog=m=>this.log(m);
+  installMovementFix(bot);installWeatherFix(bot);this.trackMeals(bot);guardEquip(bot);guardPlace(bot);installDigWatch(bot,m=>this.log(m),()=>(this.jobs||[]).find(j=>j.status==='running')?.spec?.type);installProvoked(bot,m=>this.log(m));bot.__windowLog=m=>this.log(m);
   bot.loadPlugin(pathfinder);bot.loadPlugin(toolPackage.plugin);
   bot.once('spawn',()=>{this.ready=true;installToolWear(bot);if(!bot._earnHook){bot._earnHook=true;bot.on('playerCollect',(collector,collected)=>{try{if(collector!==bot.entity)return;const it=collected?.getDroppedItem?.();if(it)this.earn(it.name,it.count);}catch{}});}if(!bot.inventory._lossWatch){bot.inventory._lossWatch=true;watchToolLoss(bot,m=>this.log(m));}const movement=this.movements=this.normalMovements(bot);bot.pathfinder.setMovements(movement);bot.pathfinder.searchRadius=128;if(!bot._ledgeGuard){bot._ledgeGuard=true;let last=0;const fall={};const gait=newGait();installSprintHold(bot);bot.on('physicsTick',()=>{bot.__pathTick=false;try{sprintAssist(bot);const g=gaitTick(bot,gait,Date.now());if(g)this.log(g);if(ledgeGuard(bot)&&Date.now()-last>5000){last=Date.now();this.log('Ledge guard: stopped at '+bot.entity.position.floored()+' (a '+LEDGE_DROP+'+ drop ahead)');}const f=fallWatch(bot,fall);if(f)this.log('Fall: dropping from '+new Vec3(f.from.x,f.from.y,f.from.z).floored()+' (job '+((this.jobs||[]).find(j=>j.status==='running')?.spec?.type||'none')+', pathing '+!!bot.pathfinder?.isMoving?.()+', sprint '+!!bot.getControlState?.('sprint')+')');}catch{}});}bot.pathfinder.LOSWhenPlacingBlocks=false;bot.pathfinder.thinkTimeout=10000;/* round 27: 5 s timed out every night-mine climb home (`Took to long to decide path to goal!`) *//* round 25: its returningPos is never cleared by a reset and wedged all pathing */// in blocks: bounds searches for unreachable goals; legit paths may still cost up to goal distance + 128
   if(!this.trackersTimer){ // tracker refresh + preemption resume + idle armour, port of the reflex cadence

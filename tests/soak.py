@@ -120,7 +120,14 @@ ANCHOR=[140,130,30]
 # by gathering (no measured coordinates).
 import os
 SEED=os.environ.get('SOAK_SEED','8675309')
-MEASURED=SEED=='12345'
+# Round 67 (user request 2026-10-29: the bot on a copy of the group's Nitrous survival world, to
+# see what it does among player-made builds): SOAK_WORLD names a pristine world folder (a copy,
+# never the live server's). Each soak copies it fresh into agent-soak-world instead of
+# generating from SOAK_SEED; the pristine folder itself is never played on. Anchors are scouted
+# from that world's own spawn.
+WORLD_COPY=os.environ.get('SOAK_WORLD','').strip()
+LIVE_SERVERS=ROOT.parent/'crafty'
+MEASURED=SEED=='12345' and not WORLD_COPY
 def edit_props(changes):
     lines=PROPS.read_text(encoding='utf-8').splitlines(True)
     out=[]
@@ -884,8 +891,9 @@ def main():
     subprocess.run(['powershell','-NoProfile','-ExecutionPolicy','Bypass','-File',str(ROOT/'Stop-Agent.ps1')],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=300)
     stop_services()
     print('switching to agent-soak-world',flush=True)
-    edit_props({'level-name':'agent-soak-world','level-seed':SEED,'level-type':'normal','difficulty':'normal'})
-    print('soak seed '+SEED+(' (measured anchors)' if MEASURED else ' (anchors scouted from spawn)'),flush=True)
+    edit_props({'level-name':'agent-soak-world','level-seed':'' if WORLD_COPY else SEED,'level-type':'normal','difficulty':'normal'})
+    if WORLD_COPY:print('soak world copy '+WORLD_COPY+' (anchors scouted from spawn)',flush=True)
+    else:print('soak seed '+SEED+(' (measured anchors)' if MEASURED else ' (anchors scouted from spawn)'),flush=True)
     # Every soak starts from VIRGIN terrain: delete the soak world entirely and let the
     # server regenerate it from the pinned seed. Previous soaks dug out every reachable
     # trunk around the anchor, which would make later soaks - and later runs within one
@@ -894,7 +902,13 @@ def main():
     # so the files are not in use. The flat agent-test-world is never touched.
     world=(ROOT/'test-server'/'agent-soak-world')
     if world.exists():
-        shutil.rmtree(world);print('removed the old agent-soak-world (regenerating from seed)',flush=True)
+        shutil.rmtree(world);print('removed the old agent-soak-world'+('' if WORLD_COPY else ' (regenerating from seed)'),flush=True)
+    if WORLD_COPY:
+        src=pathlib.Path(WORLD_COPY).resolve()
+        if not (src/'level.dat').exists():raise RuntimeError('SOAK_WORLD has no level.dat: '+WORLD_COPY)
+        if LIVE_SERVERS.resolve() in src.parents:raise RuntimeError('SOAK_WORLD must be a copy, not a live server world: '+WORLD_COPY)
+        shutil.copytree(src,world,ignore=shutil.ignore_patterns('session.lock','players'))
+        print('copied the soak world from '+WORLD_COPY,flush=True)
     print('starting services (fresh world generation takes a while)',flush=True)
     subprocess.Popen(['powershell','-NoProfile','-ExecutionPolicy','Bypass','-File',str(ROOT/'Start-Agent.ps1'),'-NoBrowser'],cwd=str(ROOT),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
     wait_dashboard();wait_server()
@@ -946,7 +960,7 @@ def main():
         valid=[r for r in runs if not r.get('invalid')]
         payload={'runs':runs,'summary':summarise(valid),'errors':[e for r in valid for e in r['errors']],
                  'invalid_attempts':[{'index':r.get('index'),'reason':r.get('invalid')} for r in runs if r.get('invalid')],
-                 'anchors':{'hard':hard_anchor,'normal':normal_anchor}}
+                 'anchors':{'hard':hard_anchor,'normal':normal_anchor},'world':WORLD_COPY or ('seed '+SEED)}
         clean=save_results(payload)
     finally:
         # Always put the flat test world back, including when a run or the supervisor dies.
