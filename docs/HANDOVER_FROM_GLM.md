@@ -2258,3 +2258,38 @@ The round-62 soak on seed 20261027. The world was regenerated: spawn [-23, 66, 1
 - **normal2:** 43 drowning swim-ups and 23 `climbed above the graze cap` lines.
 - **hard3:** no iron pick.
 - **Navigation noise:** about 70-340 `no path with mob avoidance` lines per run.
+
+## Round 64 (2026-10-28)
+
+The round-63 soak on seed 20261027 (spawn [-38, 67, 121], hard anchor [-49, 66, 103], normal anchor [-133, 63, 258]).
+
+**Results**
+- **Iron picks:** 6 of 6 (452/663/603 and 482/482/1055).
+- **Diamonds:** the first one, on normal2. No diamond pick.
+- **Bed:** a bed was crafted on normal1. No sleep.
+- **Low health:** `retreated from pig/the fight` went from 34 to 0. No run ended under health 6, and the food min was 5.
+- **Windows:** no `invalid operation`.
+- **Night skip:** all three hard nights skipped (box safe 155-156 s), with no damage after any of them. There was no night mine this soak.
+- **Obstruction probe:** the same 9 of 11 as round 62. The pit was 6.1 s and the glass cell 8.1 s.
+- **Death:** one, hard3 drowned in a flooded cave at -155, 46, 99.
+
+**Fixes**
+- **An air pocket instead of a roof dig** (`airPocket`, `POCKET_MAX` 8, in `get-out-of-water-task.js`):
+  - **What happened:** hard3 was boxed in at y=46-47 in water. `roof over the water ... digging it` took 14 s for one stone block, because digging floating in water is 5x slower under water and another 5x off the ground. It came up at air -1. The second time the air ran out and it drowned.
+  - **Fix:** the escape now searches through the water (up and sideways, with room for the body) for open air within 8 cells and swims to it, logging `WorldSurvival: air at P, N cell(s) through the water ...; swimming to it instead of digging`. The roof is dug only when there is no such pocket.
+- **No walking back into the flood** (`takeSmelt`, `floodedAround`, `FLOODED_MS` 3 min):
+  - **What happened:** after the first escape, the furnace take walked straight back to the kiln at -156, 44, 97 in that water.
+  - **Fix:** within 3 min of a drowning escape, a furnace with water against it (or beside its stand) is left, with the log `Smelt: the furnace at X stands in water the bot just escaped; leaving ...`.
+- **Spare tools, the drop job's way** (`tossSpareTools`, `SPARE_RETRY_MS` 5 min):
+  - **What happened:** round 63's throw line logged `keeping the spare` 46 times, mostly at a crafting table on the surface. The tosses that did go out came back within seconds while the bot crafted on at the same table, and normal1-3 ended with spares.
+  - **Fix:** too cramped, the bot walks to `openStandNear` first. It tosses down the longest run (at least 3), steps 4+ from where the stack lands, waits 2.6 s and checks. A spare that came back is kept for 5 min (`Craft: the dropped X came back (picked up again); keeping it for 5 min`), as is one with no room within 12.
+  - A snow layer no longer counts as a wall in `dropDirection`.
+- **A pillar that never rises says why** (`pillarUp`):
+  - **What happened:** normal2 sat 8 min at y=-37 with a full bag: 5 `Pillar: no rise in 3 jump-places (... head air, above air)`, and 36 `Dropped cobblestone came back` because it could not walk away.
+  - **Fix:** the no-rise line now adds each jump's peak, any `placeBlock` error, onGround and in-water.
+
+**Not changed yet**
+- **normal2's y=-37 trap:** it needs next round's jump data.
+- **Iron picks that broke** (normal1, normal3) were not replaced before the run ended.
+- **Night-mine climb home:** still fails on the flat-world probe.
+- **Navigation noise:** about 80-220 `no path with mob avoidance` lines per run.

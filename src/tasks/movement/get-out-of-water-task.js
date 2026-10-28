@@ -48,6 +48,36 @@ export function waterAbove(bot,max=24){
  }
  return null;
 }
+// Round 64 (round-63 soak, 04:03-04:04Z: drowned twice in a flooded cave at -155,46,98 - each time
+// `roof over the water ... digging it`, and a stone roof dug by a bot floating in water takes 25x
+// as long (5x under water, 5x off the ground): 14 s the first time, the air ran out at the second):
+// the nearest cell of open air reachable through the water, at most POCKET_MAX cells away -
+// up and sideways only, with room for the body under each sideways step. {cell, path, steps} or
+// null. A pocket beats a roof dig: a few swum cells take a second or two.
+export const POCKET_MAX=8;
+const WATERY=/^(water|bubble_column|seagrass|tall_seagrass|kelp|kelp_plant)$/;
+export function airPocket(bot,max=POCKET_MAX){
+ const p=bot.entity?.position;if(!p||!bot.blockAt)return null;
+ const start=new Vec3(Math.floor(p.x),Math.floor(p.y+1.6),Math.floor(p.z));
+ const key=v=>v.x+','+v.y+','+v.z,seen=new Set([key(start)]);
+ let frontier=[[start]];
+ for(let d=0;d<max&&frontier.length;d++){
+  const next=[];
+  for(const path of frontier){
+   const c=path[path.length-1];
+   for(const[dx,dy,dz]of[[0,1,0],[1,0,0],[-1,0,0],[0,0,1],[0,0,-1]]){
+    const n=c.offset(dx,dy,dz),k=key(n);
+    if(seen.has(k))continue;seen.add(k);
+    const bl=bot.blockAt(n);if(!bl)continue;
+    if(dy===0){const body=bot.blockAt(n.offset(0,-1,0));if(!body||body.boundingBox==='block'||/lava/.test(body.name))continue;}
+    if(AIRISH(bl.name))return {cell:n,path:path.concat([n]),steps:path.length};
+    if(WATERY.test(bl.name))next.push(path.concat([n]));
+   }
+  }
+  frontier=next;
+ }
+ return null;
+}
 export const headUnderWater=bot=>{const p=bot.entity?.position;if(!p||!bot.blockAt)return false;const h=bot.blockAt(new Vec3(Math.floor(p.x),Math.floor(p.y+1.6),Math.floor(p.z)));return !!h&&/water|bubble_column/.test(h.name);};
 export class GetOutOfWaterTask extends Task {
  constructor({maxSeconds=30,radius=16,ctx=null}={}){
@@ -78,6 +108,16 @@ export class GetOutOfWaterTask extends Task {
     if(this.navPromise){move.cancel(ctx);this.navPromise=null;}
     move.setControls(ctx,{jump:true,forward:false,sprint:false});
     if(!this.upLogged){this.upLogged=true;const w=ctx?.worker;try{w?.log?.('WorldSurvival: open water '+up.open+' up (air '+air+'); swimming straight up');}catch{}}
+    return null;
+   }
+   if(!this.pocketAt||Date.now()-this.pocketAt>=250){this.pocket=airPocket(bot);this.pocketAt=Date.now();}
+   const pk=this.pocket;
+   if(pk&&!this.digging){
+    if(this.navPromise){move.cancel(ctx);this.navPromise=null;}
+    const to=pk.path[1]||pk.cell;
+    try{const r=bot.lookAt?.(new Vec3(to.x+0.5,to.y+0.5,to.z+0.5),true);r&&r.catch&&r.catch(()=>{});}catch{}
+    move.setControls(ctx,{forward:true,jump:true,sprint:false});
+    if(!this.pocketLogged){this.pocketLogged=true;const w=ctx?.worker;try{w?.log?.('WorldSurvival: air at '+pk.cell+', '+pk.steps+' cell(s) through the water (air '+air+'); swimming to it instead of digging');}catch{}}
     return null;
    }
    if(up&&up.roof&&up.dy<=1&&!this.digging&&!/bedrock|barrier|obsidian|spawner/.test(up.roof.name)){

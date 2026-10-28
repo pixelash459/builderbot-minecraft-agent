@@ -149,7 +149,15 @@ export function bedSpots(at,feet){
 // the cell LEDGE_LOOK ahead along its motion opens onto a drop of LEDGE_DROP+, let go of the
 // keys. True when it stopped the bot.
 // Round 33: a drowning escape this recent marks the resumed job to leave the water first.
-export const DROWN_RECENT_MS=10000;
+export const DROWN_RECENT_MS=10000,FLOODED_MS=180000;
+// Water in a cell beside the block, or in one beside the cell above it (where the bot stands).
+export function floodedAround(b,p){
+ for(const[dx,dy,dz]of[[1,0,0],[-1,0,0],[0,0,1],[0,0,-1],[0,1,0],[1,1,0],[-1,1,0],[0,1,1],[0,1,-1]]){
+  const bl=b&&b.blockAt&&b.blockAt(p.offset(dx,dy,dz));
+  if(bl&&/^(water|bubble_column)$/.test(bl.name))return true;
+ }
+ return false;
+}
 export const STRANDED_DROP=6,STRANDED_HEALTH=12,STRAND_PILLAR=3;
 export const HAZARD_NEAR=8,HAZARD_MS=5*60000,DEEP_DARK_AVOID=32,DEEP_DARK_MS=30*60000;
 // Round 52: a mob cave - a crowd met underground (round 50 hard2 and round 51's first run died
@@ -275,7 +283,7 @@ export const SKY_OPEN=12;
 // step never finished on any hard run): under open sky the bot is still on the surface, down to
 // SURFACE_SLACK below the floor. A ravine deeper than that still stops the walk.
 export const SURFACE_SLACK=8,RESEAL_BACKOFF_MS=15000;
-export const THROW_RUN=3;
+export const THROW_RUN=3,SPARE_RETRY_MS=300000;
 export const HARMLESS_PREY=new Set(['chicken','cow','pig','sheep','rabbit','mooshroom']),PREY_SAFE=10,PILLAR_SPARE=2,SEARCH_MISSES=2;
 const SHELTER_BLOCKS_HELD=b=>{try{return b.inventory.items().filter(i=>/^(cobblestone|cobbled_deepslate|dirt|stone|deepslate|andesite|diorite|granite|tuff|netherrack|.*_planks|sand|gravel|coarse_dirt)$/.test(i.name)).reduce((a,i)=>a+i.count,0);}catch{return 0;}};
 export function openSurface(b,floor){
@@ -343,7 +351,7 @@ export function dropDirection(b){
  for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]){
   let k=0;
   while(k<8){const a=b.blockAt(f.offset(dx*(k+1),0,dz*(k+1))),h=b.blockAt(f.offset(dx*(k+1),1,dz*(k+1)));
-   if(!a||!h||a.boundingBox==='block'||h.boundingBox==='block'||/lava/.test(a.name))break;k++;}
+   if(!a||!h||(a.boundingBox==='block'&&a.name!=='snow')||h.boundingBox==='block'||/lava/.test(a.name))break;k++;}
   if(!best||k>best.open)best={dir:{x:dx,z:dz},open:k};
  }
  return best;
@@ -1344,6 +1352,14 @@ export class Worker extends EventEmitter {
   const b=this.bot,run=this.furnaceRun;
   if(!run)throw Error('No furnace run to collect');
   const at=new Vec3(run.x,run.y,run.z);
+  // Round 64 (round-63 normal run: swam clear of a flooded cave at air -1, then the furnace take
+  // walked straight back down to the kiln at -156,44,97 in that water and the bot drowned 10 s
+  // later): within FLOODED_MS of a drowning escape, a furnace with water against it is left.
+  if(Date.now()-(this.lastDrownAt||0)<FLOODED_MS&&floodedAround(b,at)){
+   this.furnaceRun=null;
+   this.log('Smelt: the furnace at '+run.x+','+run.y+','+run.z+' stands in water the bot just escaped; leaving the '+run.count+' '+run.item+' in it');
+   throw Error('The furnace at '+at+' is in flooded ground');
+  }
   await this.walkToFurnace(run,token);
   const block=b.blockAt(at);
   if(block?.name!=='furnace'){this.furnaceRun=null;throw Error('The furnace at '+at+' is gone');}
@@ -1873,7 +1889,7 @@ export class Worker extends EventEmitter {
  // the head must be open, or a block `clear` accepts, which is dug); three tries per level.
  async pillarUp(targetY,token,{clear=null,maxDigs=TRUNK_PILLAR}={}){
   const b=this.bot;
-  let digs=0,tries=0;
+  let digs=0,tries=0;const peaks=[];
   for(;b.entity.position.floored().y<targetY&&tries<3;){
    this.check(token);
    const f=b.entity.position.floored(),y0=f.y;
@@ -1889,15 +1905,19 @@ export class Worker extends EventEmitter {
    try{if(b.pathfinder?.goal)b.pathfinder.setGoal(null);}catch{} // a stale goal clears the controls every tick
    b.setControlState('jump',true);
    const deadline=Date.now()+1000;
-   while(b.entity.position.y<y0+1&&Date.now()<deadline){await sleep(30);this.check(token);}
-   try{if(b.entity.position.y>=y0+1)await b.placeBlock(ref,new Vec3(0,1,0));}catch{}
+   let peak=b.entity.position.y-y0;
+   while(b.entity.position.y<y0+1&&Date.now()<deadline){await sleep(30);this.check(token);peak=Math.max(peak,b.entity.position.y-y0);}
+   peaks.push(Math.round(peak*100)/100);
+   let placeErr=null;
+   try{if(b.entity.position.y>=y0+1)await b.placeBlock(ref,new Vec3(0,1,0));}catch(e){placeErr=String(e&&e.message||e).slice(0,50);}
+   if(placeErr)peaks.push('place: '+placeErr);
    if(token===this.epoch)b.clearControlStates();
    await sleep(400);
    if(b.entity.position.floored().y>y0)tries=0;else tries++;
   }
   // Round 61: a pillar that never rose said nothing (round-60 soak: `no path up from y=12;
   // pillaring` then `y=12 -> 12` 22 times, no Pillar line).
-  if(tries>=3){const f=b.entity.position.floored();this.log('Pillar: no rise in 3 jump-places at y='+f.y+' (held '+(b.heldItem?.name||'nothing')+', under '+(b.blockAt(f.offset(0,-1,0))?.name||'unloaded')+', head '+(b.blockAt(f.offset(0,1,0))?.name||'unloaded')+', above '+(b.blockAt(f.offset(0,2,0))?.name||'unloaded')+')');}
+  if(tries>=3){const f=b.entity.position.floored();this.log('Pillar: no rise in 3 jump-places at y='+f.y+' (held '+(b.heldItem?.name||'nothing')+', under '+(b.blockAt(f.offset(0,-1,0))?.name||'unloaded')+', head '+(b.blockAt(f.offset(0,1,0))?.name||'unloaded')+', above '+(b.blockAt(f.offset(0,2,0))?.name||'unloaded')+'; jumps +'+peaks.join(' / ')+', onGround '+b.entity.onGround+', in water '+!!b.entity.isInWater+')');}
   return b.entity.position.floored().y>=targetY;
  }
  // Round 61 (user, 2026-10-27: the bot breaking blocks with dirt in hand): the pillar's ceiling,
@@ -3474,22 +3494,14 @@ export class Worker extends EventEmitter {
   return true;
  }
  // Round 63 (round-62: normal1, hard1 and hard2 each ended with a wooden tool beside a stone or
- // iron one, every one after `Craft: dropped the wooden_...` - and no collect line: tossed at the
- // bot's feet in a tunnel, the stack bounced off the wall and the bot picked it straight back up
- // when the 2 s pickup delay ran out). The toss goes down the longest open line (THROW_RUN cells
- // of open feet and head at least); with none, the spare is kept for a later craft.
- throwLine(){
-  const b=this.bot,me=b&&b.entity&&b.entity.position;
-  if(!me||typeof b.blockAt!=='function')return null;
-  const open=p=>{const bl=b.blockAt(p);return !!bl&&bl.boundingBox!=='block'&&!/lava|water/.test(bl.name);};
-  const f=me.floored();let best=null,run=0;
-  for(const[dx,dz]of[[1,0],[-1,0],[0,1],[0,-1]]){
-   let k=0;
-   while(k<THROW_RUN+1&&open(f.offset(dx*(k+1),0,dz*(k+1)))&&open(f.offset(dx*(k+1),1,dz*(k+1))))k++;
-   if(k>run){run=k;best=Math.atan2(-dx,-dz);}
-  }
-  return run>=THROW_RUN?best:false;
- }
+ // iron one, every one after `Craft: dropped the wooden_...` - tossed at the bot's feet in a
+ // tunnel, the stack bounced back and was picked up when the 2 s pickup delay ran out).
+ // Round 64 (round-63: 46 `keeping the spare ... (no open line 3 long)`, mostly at a crafting
+ // table on the surface, and normal1, normal2 and normal3 still ended with spares - the drops
+ // that did go out were back within seconds, while the bot crafted on at the same table): the
+ // drop job's way. Too cramped: walk to a stand with room first; toss down the longest open run
+ // (THROW_RUN at least), step 4+ away from where it lands, and check it stayed gone. A spare that
+ // came back, or one with no room anywhere near, is kept for SPARE_RETRY_MS.
  async tossSpareTools(made,token){
   const b=this.bot,m=/^(stone|iron|diamond|netherite)_(sword|axe|pickaxe|shovel|hoe)$/.exec(made||'');
   if(!m||!this.count(made))return;
@@ -3497,13 +3509,33 @@ export class Worker extends EventEmitter {
   // Round 58 (round-57: a wooden axe beside a stone axe at the end of every run - the stone axe
   // was crafted before a later wood step made another): every spare kind goes, not only this one.
   const spares=b.inventory.items().filter(i=>spareTool(i.name,held));
-  if(!spares.length)return;
-  const aim=this.throwLine();
-  if(aim===false){this.log('Craft: keeping the spare '+spares.map(i=>i.name).join(', ')+' for now (no open line '+THROW_RUN+' long to throw it down; it would be picked straight back up)');return;}
-  if(aim!=null){try{await b.look(aim,0.3,true);}catch{}}
+  if(!spares.length||Date.now()<(this.spareKeepUntil||0))return;
+  const names=spares.map(i=>i.name).join(', ');
+  let toss=dropDirection(b);
+  if(toss&&toss.open<THROW_RUN&&b.pathfinder){
+   const stand=openStandNear(b);
+   if(stand){try{await this.navigate(new goals.GoalBlock(stand.x,stand.y,stand.z),token,20);}catch{}this.check(token);toss=dropDirection(b);}
+  }
+  if(toss&&toss.open<THROW_RUN){
+   this.spareKeepUntil=Date.now()+SPARE_RETRY_MS;
+   this.log('Craft: keeping the spare '+names+' for now (no room to throw it within 12; it would be picked straight back up)');
+   return;
+  }
+  if(toss){try{await b.look(Math.atan2(-toss.dir.x,-toss.dir.z),0.3,true);}catch{}}
+  const tossed=[];
   for(const it of spares){
    this.check(token);
-   try{await b.tossStack(it);(this.droppedJunk||(this.droppedJunk=new Map())).set(it.name,Date.now());this.log('Craft: dropped the '+it.name+' ('+made+' held)');}catch{}
+   try{await b.tossStack(it);(this.droppedJunk||(this.droppedJunk=new Map())).set(it.name,Date.now());tossed.push(it.name);this.log('Craft: dropped the '+it.name+' ('+made+' held)');}catch{}
+  }
+  if(!toss||!tossed.length||!b.entity?.position||!b.pathfinder)return;
+  const land=b.entity.position.floored().offset(toss.dir.x*2,0,toss.dir.z*2);
+  try{await this.navigate(new goals.GoalInvert(new goals.GoalNear(land.x,land.y,land.z,4)),token,5);}catch{}
+  this.check(token);
+  await sleep(this.dropSettleMs??DROP_SETTLE_MS);
+  const back=[...new Set(tossed)].filter(n=>this.count(n)>0);
+  if(back.length){
+   this.spareKeepUntil=Date.now()+SPARE_RETRY_MS;
+   this.log('Craft: the dropped '+back.join(', ')+' came back (picked up again); keeping it for '+SPARE_RETRY_MS/60000+' min');
   }
  }
  async placeBlocks(support,face,target,name,token){
