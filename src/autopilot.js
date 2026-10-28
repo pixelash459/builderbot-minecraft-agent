@@ -295,8 +295,19 @@ export const ironGather=count=>({type:'gather',block:'iron_ore',count:Math.max(1
 // Two stone pickaxes broke in round 6 (conserveTool wears stone first while iron is held):
 // the iron step keeps a spare, from the cobble its staircases bring up, before any dig.
 export const STONE_PICKS=2;
-function spareStonePick(c,ctx){
- if(c('stone_pickaxe')>=STONE_PICKS||c('cobblestone')<3)return null;
+// Round 65 (round-64 normal2: the iron pick broke at y=12 with no stone pick left; the food
+// emergency's `ascend for food` then hit `Tunnel needs a suitable tool for diorite` 52 times in 7
+// min under a ceiling at y=29 - holding a log, a crafting table and 146 cobble the whole time):
+// with no pickaxe at all, a stone pick from what is held comes before every step, the food
+// emergency included. Any stone-tool rock counts.
+export const PICKS=['wooden_pickaxe','stone_pickaxe','golden_pickaxe','iron_pickaxe','diamond_pickaxe','netherite_pickaxe'];
+export const STONE_TOOL_ROCK=['cobblestone','cobbled_deepslate','blackstone'];
+export function pickFirst(c,ctx){
+ if(PICKS.some(n=>c(n)>0)||ctx.blocked==='stone')return null;
+ return spareStonePick(c,ctx,{anyStone:true});
+}
+function spareStonePick(c,ctx,{anyStone=false}={}){
+ if(c('stone_pickaxe')>=STONE_PICKS||(anyStone?STONE_TOOL_ROCK.reduce((a,n)=>a+c(n),0):c('cobblestone'))<3)return null;
  // Round 37 (round-36 soak: `stone_pickaxe craft failed 3 times; skipped` and the spare was
  // re-submitted the next tick, `No clear spot to place a crafting_table`): the skip holds here too.
  if(skipped(ctx,'stone_pickaxe'))return null;
@@ -828,6 +839,7 @@ export function bedPrepJob(counts,ctx){
 export function plan(counts,ctx={}){
  const c=countFactory(counts);
  ctx=woodTotals(counts,{...ctx});
+ {const pick=pickFirst(c,ctx);if(pick)return {step:'stone',job:tableFirst(c,ctx,pick)};}
  // Round 16: a food emergency (nothing to eat, and the bar nearly empty or health low under a
  // bar of 18) jumps the ladder - the wood and stone steps' jobs are all refused meanwhile.
  if(foodEmergency(c,ctx)&&ctx.blocked!=='food'){const food=STEPS.find(e=>e.name==='food');if(!food.done(c,ctx))return {step:'food',job:food.next(c,ctx)};}

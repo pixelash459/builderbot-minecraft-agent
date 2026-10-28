@@ -2293,3 +2293,33 @@ The round-63 soak on seed 20261027 (spawn [-38, 67, 121], hard anchor [-49, 66, 
 - **Iron picks that broke** (normal1, normal3) were not replaced before the run ended.
 - **Night-mine climb home:** still fails on the flat-world probe.
 - **Navigation noise:** about 80-220 `no path with mob avoidance` lines per run.
+
+## Round 65 (2026-10-28)
+
+The round-64 soak on seed 20261027 (spawn [-41, 67, 120], hard anchor [-49, 70, 105], normal anchor [74, 77, 203]).
+
+**Results**
+- **Best soak so far:**
+  - **No deaths**, and no harness returns from below the anchor.
+  - **Iron picks:** 6 of 6.
+  - **Diamonds:** peak 3 on normal1 and 2 on normal2.
+  - **First diamond pickaxe:** normal1, at t=1717.
+- **Night skip:** all three hard nights skipped. hard1's night mine climbed home by pillaring up the sump.
+- **Dropped items that came back:** 2, down from 72.
+- **Spare tools:** normal1-3 and hard3 ended clean. hard1 kept a wooden axe and hard2 all three wooden tools, both under `keeping the spare ... (no room to throw it within 12)`.
+- **Obstruction probe:** the same 9 of 11.
+- **Pillar data** (the new no-rise line):
+  - Jumps often peak at only +0.42 (one physics tick) or 0.
+  - Several `Server refused to place ...` errors. The server still had the bot lower than the client did, so the jump-place is a desync, not a ceiling.
+  - normal1 still climbed out from y=-51 on its own.
+
+**Fix**
+- **A stone pick before everything when no pickaxe is held** (autopilot `pickFirst`, `PICKS`, `STONE_TOOL_ROCK`; `spareStonePick` gains `anyStone`):
+  - **What happened:** normal2's iron pick broke at y=12 with no stone pick left. The food emergency (food 5, nothing to eat) then submitted `ascend for food`, which hit `Tunnel needs a suitable tool in the inventory for diorite` 52 times in 7 min under a ceiling at y=29. The bot held a log, a crafting table and 146 cobble the whole time.
+  - **Fix:** `plan()` now checks first, before the food emergency. With no pickaxe of any tier, and the stone (cobblestone, cobbled deepslate or blackstone) plus the wood for sticks and a table, it runs planks, then sticks, then a stone pick. A blocked stone step is left to the usual unblock.
+
+**Not changed yet**
+- **normal1 starving:** food min 0 and end health 1 after 5 food set-asides (frozen day, no death).
+- **Pillar desync:** see the pillar data above.
+- **Night-mine climb home:** still fails on the flat probe.
+- **Air pocket and flooded furnace:** neither was exercised (no roof-dig drowning this soak).
