@@ -2360,3 +2360,38 @@ The round-65 soak on seed 20261027 (spawn [-23, 66, 124], hard anchor [-72, 69, 
 - **Night-mine climb home:** fails on the flat probe (`Pillar: stopped at y=-61 (no solid block under the feet: air)`, then the tunnel climb).
 - **Air pocket and flooded furnace:** not exercised in two soaks.
 - **Navigation noise:** about 150-240 `no path with mob avoidance` lines per run.
+
+## Round 67 (2026-10-29)
+
+The round-66 soak on seed 20261027 (spawn [-41, 65, 136], hard anchor [-48, 67, 106], normal anchor [189, 71, 275]).
+
+**Results**
+- **The first fully clean soak:**
+  - **Deaths:** 0, with no death or suffocation line anywhere, between runs included.
+  - **Repeated errors:** no job text repeated 10+ times.
+  - **Tools:** no `Tunnel needs a suitable tool` and no `invalid operation`.
+  - **Rungs:** iron picks on 6 of 6, and normal2 crafted a diamond pick and a bed.
+- **Food search** (round 66 heading):
+  - Normal runs found sheep or pigs in 1-3 legs.
+  - hard1 found a pig 220 blocks out.
+  - hard2 and hard3 kept west with no animal before the run ended.
+  - Food mins were 10-19, and no run reached 0 (round 65: two runs at 0).
+- **Harness:** every run start healed before its teleport, with no head-in-wall.
+- **Night skip:** all three hard nights skipped. hard1 and hard2's night mines still failed the climb home and sealed a second box, which then reached the 150 s skip.
+- **Obstruction probe:** the same 9 of 11.
+
+**Fixes**
+- **Running, without the packet flip** (worker `installSprintHold`, `sprintWanted`; `gaitTick`):
+  - **What happened:** round 66's `sprintAssist` still read 35-60%. mineflayer writes an `entity_action` packet on every sprint change, and the pathfinder sets sprint false in its own tick wherever its simulation says walk, so the key flipped off and on every such tick. The gauge also counted standing ticks (digging or placing on a path, forward up) as walking.
+  - **Fix:** a physicsTick listener put first marks the pathfinder's part of the tick, and a sprint-off asked for inside it is ignored while `sprintWanted` holds (on a path, forward down, on the ground, food above 6, out of water, not sneaking). Combat, the ledge guard and the water and escape tasks set sprint outside that window and still go through. The gauge now counts forward-down ticks only.
+- **A stale chest window no longer hangs an equip** (`guardEquip` closes a container window before any equip, logging `Window: closed a stale ... window left open before an equip`):
+  - **What happened:** normal1 had two silent 9-10 min stalls, the store's log chop and then a wood gather. Each ended on the job time limit and was followed by `closed a stale minecraft:generic_9x3 window`. The equip in between clicked against the open chest window and never settled.
+- **Placing against a container sneaks** (worker `guardPlace`, `INTERACTIVE`):
+  - **What happened:** a block placed against a chest, furnace, table, barrel, door and so on is a right-click on it, and without sneak that opens it. This is the likely source of the round-66 chest window (the store placed its second chest beside the first).
+  - **Fix:** placements against one now hold sneak and let it go after.
+
+**Not changed yet**
+- **Night-mine climb home:** fails, though the second box now gets the skip.
+- **Spare tools:** hard1 and hard2 ended with wooden tools after `keeping the spare ... (no room to throw it within 12)`.
+- **normal1's broken iron pick:** the bot went 21 min without a pick, because the 18-min store stall sat in the gap.
+- **Air pocket and flooded furnace:** still not exercised.

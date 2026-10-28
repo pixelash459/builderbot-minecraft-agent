@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Autopilot,FOOD_HEADINGS} from '../src/autopilot.js';
-import {sprintAssist,ledgeGuard,SPRINT_FOOD} from '../src/worker.js';
+import {sprintAssist,ledgeGuard,SPRINT_FOOD,installSprintHold,newGait,gaitTick,guardPlace} from '../src/worker.js';
+import {EventEmitter} from 'node:events';
 
 // Round 66: the round-65 soak on seed 20261027.
 test('round 66: with no graze biome the food search keeps one heading, and turns when set aside',()=>{
@@ -24,4 +25,36 @@ test('round 66: a pathfinder walk on the ground runs; not hungry, in water, snea
   t=mk(o);assert.equal(sprintAssist(t.bot),false,JSON.stringify(o));assert.equal(t.ctl.sprint,false,JSON.stringify(o));
  }
  assert.equal(SPRINT_FOOD,6);
+});
+test('round 67: the pathfinder own sprint-off is held back while running is wanted; combat and the ledge guard still let go',()=>{
+ const ctl={forward:true,sprint:true,sneak:false},writes=[];
+ const bot=Object.assign(new EventEmitter(),{food:20,entity:{onGround:true,isInWater:false},pathfinder:{isMoving:()=>true},
+  getControlState:k=>!!ctl[k],setControlState:(k,v)=>{if(ctl[k]!==v&&k==='sprint')writes.push(v);ctl[k]=v;}});
+ installSprintHold(bot);
+ bot.on('physicsTick',()=>{bot.setControlState('sprint',false);}); // the pathfinder's monitorMovement verdict
+ bot.on('physicsTick',()=>{bot.__pathTick=false;sprintAssist(bot);});  // the worker's listener
+ for(let i=0;i<20;i++)bot.emit('physicsTick');
+ assert.equal(ctl.sprint,true);assert.deepEqual(writes,[],'no off/on packet pairs');
+ bot.setControlState('sprint',false); // outside the pathfinder's part of the tick: combat, the ledge guard
+ assert.equal(ctl.sprint,false);
+ ctl.sprint=true;bot.food=SPRINT_FOOD;bot.emit('physicsTick');
+ assert.equal(ctl.sprint,false,'hungry: the pathfinder walk stands');
+});
+test('round 67: the gait gauge counts walking ticks only (forward down), not standing to dig',()=>{
+ const g=newGait();let fwd=true;
+ const bot={food:20,entity:{onGround:true},pathfinder:{isMoving:()=>true},getControlState:k=>k==='forward'?fwd:k==='sprint'&&fwd};
+ for(let i=0;i<100;i++){fwd=i%2===0;gaitTick(bot,g,i*50);}
+ assert.equal(g.walk,50);assert.equal(g.sprint,50);
+});
+test('round 67: a block placed against a chest sneaks (no window opened); against stone it does not',async()=>{
+ const ctl={},log=[];
+ const bot={getControlState:k=>!!ctl[k],setControlState:(k,v)=>{ctl[k]=v;log.push(k+'='+v);},
+  placeBlock:async ref=>{log.push('place on '+ref.name+' sneak='+!!ctl.sneak);}};
+ guardPlace(bot);
+ await bot.placeBlock({name:'chest'},{x:1,y:0,z:0});
+ assert.deepEqual(log,['sneak=true','place on chest sneak=true','sneak=false']);
+ log.length=0;await bot.placeBlock({name:'stone'},{x:0,y:1,z:0});
+ assert.deepEqual(log,['place on stone sneak=false']);
+ log.length=0;await bot.placeBlock({name:'crafting_table'},{x:0,y:1,z:0});
+ assert.ok(log.includes('place on crafting_table sneak=true'));
 });

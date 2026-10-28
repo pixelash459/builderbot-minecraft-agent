@@ -32,6 +32,15 @@ export function guardEquip(bot){
  const raw=bot.__rawEquip=bot.equip.bind(bot);
  bot.equip=async(item,dest,...rest)=>{
   if(bot.__meal&&(dest==null||dest==='hand'))await Promise.race([bot.__meal,sleep(EAT_GUARD_MS)]);
+  // Round 67 (round-66 normal1: two silent 9-10 min stalls, each ended by the job time limit and
+  // followed by `closed a stale minecraft:generic_9x3 window` - a chest window left open by the
+  // store's chest placing, and an equip that clicked against it never settled): a container
+  // window open when an equip starts is closed first. Equips never belong inside one.
+  if(bot.currentWindow){
+   const w=bot.currentWindow;
+   try{bot.closeWindow(w);}catch{}
+   try{bot.__windowLog&&bot.__windowLog('Window: closed a stale '+(w.type||'container')+' window left open before an equip');}catch{}
+  }
   // Round 63: `invalid operation` is mineflayer's click assert - an inventory slot clicked
   // against a container window still open. Close it and equip once more.
   try{return await raw(item,dest,...rest);}

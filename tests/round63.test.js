@@ -13,14 +13,18 @@ test('round 63: before the target is locked, the job entity names the prey',()=>
  w.bot.entities[4]={id:4,name:'zombie',type:'hostile',position:new Vec3(5,64,0)};
  assert.equal(w.harmlessFight({entityFilter:'pig'}),false,'a zombie within 10');
 });
-test('round 63: an equip refused by a stale container window closes it and retries once',async()=>{
+test('round 63/67: a stale container window is closed before the equip; an invalid operation still retries once',async()=>{
  let calls=0;const logs=[];
  const bot={currentWindow:{type:'minecraft:furnace'},closeWindow(w){if(this.currentWindow===w)this.currentWindow=null;},
-  equip:async()=>{calls++;if(bot.currentWindow)throw Error('invalid operation');},__windowLog:m=>logs.push(m)};
+  equip:async()=>{calls++;if(bot.currentWindow)return new Promise(()=>{});},__windowLog:m=>logs.push(m)};
  guardEquip(bot);
  await bot.equip({name:'dirt'},'hand');
- assert.equal(calls,2);assert.equal(bot.currentWindow,null);
- assert.ok(/closed a stale minecraft:furnace window/.test(logs[0]),logs[0]);
+ assert.equal(calls,1,'closed first: the equip does not hang');assert.equal(bot.currentWindow,null);
+ assert.ok(/closed a stale minecraft:furnace window left open before an equip/.test(logs[0]),logs[0]);
+ let n=0;const late={currentWindow:null,closeWindow(w){if(this.currentWindow===w)this.currentWindow=null;},__windowLog(){},
+  equip:async()=>{n++;if(n===1){late.currentWindow={type:'minecraft:chest'};throw Error('invalid operation');}}};
+ guardEquip(late);await late.equip({name:'dirt'},'hand');
+ assert.equal(n,2,'a window that opened mid-equip: closed and retried');
  const plain={currentWindow:null,equip:async()=>{throw Error('invalid operation');}};
  guardEquip(plain);
  await assert.rejects(plain.equip({name:'dirt'},'hand'),/invalid operation/,'no window: the error stands');

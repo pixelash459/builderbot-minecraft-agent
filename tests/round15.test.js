@@ -577,7 +577,7 @@ test('round 46: job walks sprint (the normal movements allow it, like the explor
 import {newGait,gaitTick,GAIT_LOG_MS} from '../src/worker.js';
 test('round 47: the sprint share of pathfinder walking is logged every 5 min',()=>{
  const g=newGait();let sprint=true;
- const bot={food:18,entity:{onGround:true},pathfinder:{isMoving:()=>true},getControlState:k=>k==='sprint'&&sprint};
+ const bot={food:18,entity:{onGround:true},pathfinder:{isMoving:()=>true},getControlState:k=>k==='forward'||(k==='sprint'&&sprint)};
  let t=0;assert.equal(gaitTick(bot,g,t),null);
  for(let i=0;i<99;i++){sprint=i%4!==0;t+=50;gaitTick(bot,g,t);}
  const line=gaitTick(bot,g,GAIT_LOG_MS+1);
