@@ -2352,6 +2352,10 @@ The round-65 soak on seed 20261027 (spawn [-23, 66, 124], hard anchor [-72, 69, 
   - **What happened:** hard1 (8 set-asides, food 0, health 0.5) and hard2 (food 0) explored for food in 32-block legs, each in a fresh random direction. That random walk stayed within about 80 blocks, and no animal came in range.
   - **Fix:** with no graze biome in sight, the search keeps one heading leg after leg, and turns 90 degrees when the step is set aside. A graze biome direction still wins.
 
+- **Running, not walking** (worker `sprintAssist`, `SPRINT_FOOD` 6; user request):
+  - **What happened:** the user still saw the bot walk. Round 65's gait lines read 13-64% sprint on most legs with food 20. The pathfinder sprints only where its physics simulation finds a straight sprintable line over the next nodes, which forest and rolling ground rarely give.
+  - **Fix:** on every physics tick after the pathfinder's, a path walk on the ground with food above 6, out of water and not sneaking, gets the sprint key. `ledgeGuard` still lets it go beside a 4+ drop. Watch the `Movement: sprinting N%` lines (expect 85%+ with food above 6).
+
 **Not changed yet**
 - **Night-mine climb home:** fails on the flat probe (`Pillar: stopped at y=-61 (no solid block under the feet: air)`, then the tunnel climb).
 - **Air pocket and flooded furnace:** not exercised in two soaks.

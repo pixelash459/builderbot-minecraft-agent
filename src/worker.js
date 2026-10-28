@@ -227,6 +227,21 @@ export function ledgeGuard(bot){
  return true;
 }
 export const LEDGE_BACK_MS=400,LEDGE_AWAY={forward:'back',back:'forward',left:'right',right:'left'};
+// Round 66 (the user, 2026-10-28: the bot still walks, never runs - round 65's gait lines read
+// 13-64% sprint on most legs with food 20): the pathfinder sprints only where its physics
+// simulation says the next nodes are a straight sprintable line, which forest and rolling ground
+// rarely are. Walking a path on the ground with food above SPRINT_FOOD (the vanilla sprint
+// floor), out of water and not sneaking, the sprint key goes down. Runs after the pathfinder's
+// tick listener and before ledgeGuard, which still lets it go beside a LEDGE_DROP+ drop.
+export const SPRINT_FOOD=6;
+export function sprintAssist(bot){
+ const e=bot&&bot.entity;
+ if(!e||!bot.pathfinder?.isMoving?.()||typeof bot.getControlState!=='function')return false;
+ if(!bot.getControlState('forward')||bot.getControlState('sprint')||bot.getControlState('sneak'))return false;
+ if(!e.onGround||e.isInWater||e.isInLava||(bot.food??20)<=SPRINT_FOOD)return false;
+ bot.setControlState('sprint',true);
+ return true;
+}
 // Round 47 (the user saw the bot walk, never run, after round 46 turned sprinting on): every
 // GAIT_LOG_MS, the share of pathfinder walking ticks with the sprint key down.
 export const GAIT_LOG_MS=5*60000;
@@ -757,7 +772,7 @@ export class Worker extends EventEmitter {
   const bot=this.bot=mineflayer.createBot({...this.config.server,hideErrors:true});
   installMovementFix(bot);installWeatherFix(bot);this.trackMeals(bot);guardEquip(bot);installProvoked(bot,m=>this.log(m));bot.__windowLog=m=>this.log(m);
   bot.loadPlugin(pathfinder);bot.loadPlugin(toolPackage.plugin);
-  bot.once('spawn',()=>{this.ready=true;installToolWear(bot);if(!bot._earnHook){bot._earnHook=true;bot.on('playerCollect',(collector,collected)=>{try{if(collector!==bot.entity)return;const it=collected?.getDroppedItem?.();if(it)this.earn(it.name,it.count);}catch{}});}if(!bot.inventory._lossWatch){bot.inventory._lossWatch=true;watchToolLoss(bot,m=>this.log(m));}const movement=this.movements=this.normalMovements(bot);bot.pathfinder.setMovements(movement);bot.pathfinder.searchRadius=128;if(!bot._ledgeGuard){bot._ledgeGuard=true;let last=0;const fall={};const gait=newGait();bot.on('physicsTick',()=>{try{const g=gaitTick(bot,gait,Date.now());if(g)this.log(g);if(ledgeGuard(bot)&&Date.now()-last>5000){last=Date.now();this.log('Ledge guard: stopped at '+bot.entity.position.floored()+' (a '+LEDGE_DROP+'+ drop ahead)');}const f=fallWatch(bot,fall);if(f)this.log('Fall: dropping from '+new Vec3(f.from.x,f.from.y,f.from.z).floored()+' (job '+((this.jobs||[]).find(j=>j.status==='running')?.spec?.type||'none')+', pathing '+!!bot.pathfinder?.isMoving?.()+', sprint '+!!bot.getControlState?.('sprint')+')');}catch{}});}bot.pathfinder.LOSWhenPlacingBlocks=false;bot.pathfinder.thinkTimeout=10000;/* round 27: 5 s timed out every night-mine climb home (`Took to long to decide path to goal!`) *//* round 25: its returningPos is never cleared by a reset and wedged all pathing */// in blocks: bounds searches for unreachable goals; legit paths may still cost up to goal distance + 128
+  bot.once('spawn',()=>{this.ready=true;installToolWear(bot);if(!bot._earnHook){bot._earnHook=true;bot.on('playerCollect',(collector,collected)=>{try{if(collector!==bot.entity)return;const it=collected?.getDroppedItem?.();if(it)this.earn(it.name,it.count);}catch{}});}if(!bot.inventory._lossWatch){bot.inventory._lossWatch=true;watchToolLoss(bot,m=>this.log(m));}const movement=this.movements=this.normalMovements(bot);bot.pathfinder.setMovements(movement);bot.pathfinder.searchRadius=128;if(!bot._ledgeGuard){bot._ledgeGuard=true;let last=0;const fall={};const gait=newGait();bot.on('physicsTick',()=>{try{sprintAssist(bot);const g=gaitTick(bot,gait,Date.now());if(g)this.log(g);if(ledgeGuard(bot)&&Date.now()-last>5000){last=Date.now();this.log('Ledge guard: stopped at '+bot.entity.position.floored()+' (a '+LEDGE_DROP+'+ drop ahead)');}const f=fallWatch(bot,fall);if(f)this.log('Fall: dropping from '+new Vec3(f.from.x,f.from.y,f.from.z).floored()+' (job '+((this.jobs||[]).find(j=>j.status==='running')?.spec?.type||'none')+', pathing '+!!bot.pathfinder?.isMoving?.()+', sprint '+!!bot.getControlState?.('sprint')+')');}catch{}});}bot.pathfinder.LOSWhenPlacingBlocks=false;bot.pathfinder.thinkTimeout=10000;/* round 27: 5 s timed out every night-mine climb home (`Took to long to decide path to goal!`) *//* round 25: its returningPos is never cleared by a reset and wedged all pathing */// in blocks: bounds searches for unreachable goals; legit paths may still cost up to goal distance + 128
   if(!this.trackersTimer){ // tracker refresh + preemption resume + idle armour, port of the reflex cadence
    this.loopWatch.start();
    this.trackersTimer=setInterval(()=>this.loopWatch.timeTick('cadence',()=>{
