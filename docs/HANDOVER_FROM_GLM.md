@@ -2400,3 +2400,34 @@ The round-66 soak on seed 20261027 (spawn [-41, 65, 136], hard anchor [-48, 67, 
   - **How a soak uses it:** with `SOAK_WORLD=<that folder>`, each soak copies it fresh into `agent-soak-world` instead of generating from `SOAK_SEED`, so the pristine copy is never played on. Anchors are scouted from that world's own spawn. The harness refuses a folder under `crafty/` (a live server world).
   - **Its world settings:** keep_inventory off, mobs, monsters and mob griefing on, natural time; the soak still sets its own rules per anchor.
 - **Built-block dig log** (worker `installDigWatch`, `builtLooking`, `BUILT_HINT`): logging only. Every block the bot breaks that looks built is logged with its position and job as `Dig: broke <block> at P (looks built; job X)`; this covers planks, slabs, stairs, glass, wool, bricks, fences, doors, storage, light, redstone and decoration. A log with no leaves within 3 is logged as `(no leaves within 3; job X)`.
+
+## Round 68 (2026-10-29)
+
+The round-67 soak ran on the copy of the group's Nitrous world (spawn [705, 63, -438]; hard anchor [711, 71, -425], normal anchor [712, 71, -427], both beside the spawn).
+
+**Results**
+- **Player builds:** not one `Dig: broke` line; nothing that looks built was broken. The bot found a group bed and chest at (891, 108, -478)/(888, 108, -471) and another bed at (728, 71, -525). It set home there but put nothing in, took nothing out, and could not path to the second bed to sleep.
+- **Running works:** 98-100% sprint with food above 6, on every run (round 66: 35-60%).
+- **Progress:** only normal1 progressed (iron pick at 572 s). The other five never got past wood, and 13 deaths followed: 4 starved, 5 drowned (the spawn sits by water with drowned at night), 3 mobs, 1 burned.
+- **Root cause:** the nearest wood is a build of stripped logs south-east of the spawn. The any-log gather took `stripped_spruce_log` / `stripped_oak_log`, and the plank name kept the prefix, so it crafted `stripped_spruce_planks` and got `Unknown item`, again and again (`wood failed 3 times` 10-29 per run). With no sword:
+  - Food fights hit 7f's `never fight unarmed` / `pickaxe only when cornered`, with 49 `avoid` lines against a single cow.
+  - The bot starved. At night it died to mobs.
+
+**Fixes**
+- **Stripped logs are not trees** (worker gather any-log match). When one is held, `planksFor` names its species' planks.
+- **Food fights use what is held, or the hand:**
+  - A fight job on harmless prey passes `allowHand`.
+  - The controller's passive-animal hand rule now also covers `pickaxe only when cornered`.
+- **Drowning backstop** (worker `sinkGuard`, `SINK_MS` 8 s):
+  - **What happened:** normal3 drowned in a natural lake 16 deep at 691, 48, -550 with no WorldSurvival line at all.
+  - **Fix:** a head under water for 8 s holds jump whatever runs, and logs once `Water: head under for N s ... with no swim-up` with the air, isInWater, the job and the chain.
+- **No sprint-on at food 6 or less** (`installSprintHold`):
+  - **What happened:** normal3, starving, logged 154 PACKET_RATE lines from the key flipping.
+- **The soak resets the bot's world memory** (`tests/soak.py`):
+  - **What happened:** `data/storage.json` still held round 66's chests from another world.
+  - **Fix:** storage, autopilot home and ledger start empty with every soak's world. The old files are kept as `.prev`.
+
+**Not changed yet**
+- **Water at spawn:** respawns at night beside the spawn water meet drowned.
+- **Paths into builds:** the sleep job could not path to the group bed.
+- **Night-mine climb home:** unchanged.

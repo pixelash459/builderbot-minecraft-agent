@@ -1059,7 +1059,11 @@ export class CombatController{
    tactic=this.tactic={...tactic,crit:false,sweep:false,reason:'style=plain: '+tactic.reason};
   // Hunting a passive animal: the bare hand is a legal tool (7f hunts) - never while
   // holding a block or food. The FightTask unequips through the same gated equip path.
-  if(this.tactic.style==='avoid'&&tactic.reason==='never fight unarmed (7f)'&&t.type!=='hostile'&&this.opts.allowHand){
+  // Round 68 (round-67 Nitrous-copy soak, hard run: `Combat: avoid sheep` twice, `Fight timed out;
+  // sheep is still standing` and `cow is still standing` three times, then `starved to death` at
+  // 862,94,-430 - a pickaxe the only tool, and 7f's `pickaxe only when cornered` applied to the
+  // sheep too): the pickaxe rule is about hostiles; a passive animal is fought with what is held.
+  if(this.tactic.style==='avoid'&&(tactic.reason==='never fight unarmed (7f)'||tactic.reason==='pickaxe only when cornered (7f)')&&t.type!=='hostile'&&this.opts.allowHand){
    if(holdsBlockOrFood(bot)){
     this._setState('unequip');
     this._lowerShield();

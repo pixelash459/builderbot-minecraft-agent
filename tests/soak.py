@@ -903,6 +903,16 @@ def main():
     world=(ROOT/'test-server'/'agent-soak-world')
     if world.exists():
         shutil.rmtree(world);print('removed the old agent-soak-world'+('' if WORLD_COPY else ' (regenerating from seed)'),flush=True)
+    # Round 68 (round-67: data/storage.json still held round 66's chests at 211,78,240 - another
+    # world): the bot's world memory starts empty with the world (the storage index, the
+    # autopilot's home and the earned ledger), kept aside as .prev for reading.
+    for name,empty in (('storage.json','{"chests": []}'),('autopilot.json','{}'),('ledger.json','{}')):
+        f=ROOT/'data'/name
+        try:
+            if f.exists():shutil.copyfile(f,f.with_name(name+'.prev'))
+            f.write_text(empty,encoding='utf-8')
+        except Exception as e:print('could not reset data/'+name+': '+str(e)[:80],flush=True)
+    print('reset the bot world memory (storage, home, ledger)',flush=True)
     if WORLD_COPY:
         src=pathlib.Path(WORLD_COPY).resolve()
         if not (src/'level.dat').exists():raise RuntimeError('SOAK_WORLD has no level.dat: '+WORLD_COPY)

@@ -251,6 +251,10 @@ export function installSprintHold(bot){
  const raw=bot.__rawSetControl=bot.setControlState.bind(bot);
  bot.setControlState=(name,value)=>{
   if(name==='sprint'&&value===false&&bot.__pathTick&&sprintWanted(bot))return;
+  // Round 68 (round-67 normal3, food 0: 154 PACKET_RATE lines, the last packet entity_action - the
+  // pathfinder asked for sprint every tick and the flee tasks let go of it): no sprint-on at or
+  // under SPRINT_FOOD, where the game refuses a sprint anyway.
+  if(name==='sprint'&&value===true&&(bot.food??20)<=SPRINT_FOOD)return;
   return raw(name,value);
  };
  if(typeof bot.prependListener==='function')bot.prependListener('physicsTick',()=>{bot.__pathTick=true;});
@@ -294,6 +298,28 @@ export function installDigWatch(bot,log,jobOf){
  bot.on('diggingCompleted',block=>{
   try{const why=builtLooking(bot,block);if(why)log('Dig: broke '+block.name+' at '+block.position+' ('+why+'; job '+(jobOf()||'none')+')');}catch{}
  });
+}
+// Round 68 (round-67 Nitrous copy, hard run: drowned at 691,48,-550 on the floor of a natural
+// lake 16 deep - open water to the sky - with no WorldSurvival line at all in the ~30 s under;
+// the autopilot kept submitting crafts that failed at once, so nothing held a key): a backstop
+// beside the chains. The head in water for SINK_MS straight holds jump (a swim up) until it is
+// out, and logs once what the bot saw (air, isInWater, the job, the active chain).
+export const SINK_MS=8000;
+export function sinkGuard(bot,st,now){
+ const e=bot&&bot.entity;if(!e||!e.position||typeof bot.blockAt!=='function')return null;
+ const head=bot.blockAt(e.position.offset(0,1.62,0));
+ const wet=!!head&&(/^(water|bubble_column|seagrass|tall_seagrass|kelp|kelp_plant)$/.test(head.name)||head.properties?.waterlogged===true||head.properties?.waterlogged==='true');
+ if(!wet){
+  if(st.held){try{bot.setControlState('jump',false);}catch{}}
+  st.since=null;st.held=false;st.logged=false;return null;
+ }
+ if(st.since==null)st.since=now;
+ if(now-st.since<SINK_MS)return null;
+ if(!bot.getControlState?.('jump')){try{bot.setControlState('jump',true);}catch{}}
+ st.held=true;
+ if(st.logged)return null;
+ st.logged=true;
+ return 'Water: head under for '+Math.round((now-st.since)/1000)+' s at '+e.position.floored()+' with no swim-up; holding jump (air '+(bot.oxygenLevel??'?')+', isInWater '+!!e.isInWater+')';
 }
 export const SPRINT_FOOD=6;
 export function sprintAssist(bot){
@@ -835,7 +861,7 @@ export class Worker extends EventEmitter {
   const bot=this.bot=mineflayer.createBot({...this.config.server,hideErrors:true});
   installMovementFix(bot);installWeatherFix(bot);this.trackMeals(bot);guardEquip(bot);guardPlace(bot);installDigWatch(bot,m=>this.log(m),()=>(this.jobs||[]).find(j=>j.status==='running')?.spec?.type);installProvoked(bot,m=>this.log(m));bot.__windowLog=m=>this.log(m);
   bot.loadPlugin(pathfinder);bot.loadPlugin(toolPackage.plugin);
-  bot.once('spawn',()=>{this.ready=true;installToolWear(bot);if(!bot._earnHook){bot._earnHook=true;bot.on('playerCollect',(collector,collected)=>{try{if(collector!==bot.entity)return;const it=collected?.getDroppedItem?.();if(it)this.earn(it.name,it.count);}catch{}});}if(!bot.inventory._lossWatch){bot.inventory._lossWatch=true;watchToolLoss(bot,m=>this.log(m));}const movement=this.movements=this.normalMovements(bot);bot.pathfinder.setMovements(movement);bot.pathfinder.searchRadius=128;if(!bot._ledgeGuard){bot._ledgeGuard=true;let last=0;const fall={};const gait=newGait();installSprintHold(bot);bot.on('physicsTick',()=>{bot.__pathTick=false;try{sprintAssist(bot);const g=gaitTick(bot,gait,Date.now());if(g)this.log(g);if(ledgeGuard(bot)&&Date.now()-last>5000){last=Date.now();this.log('Ledge guard: stopped at '+bot.entity.position.floored()+' (a '+LEDGE_DROP+'+ drop ahead)');}const f=fallWatch(bot,fall);if(f)this.log('Fall: dropping from '+new Vec3(f.from.x,f.from.y,f.from.z).floored()+' (job '+((this.jobs||[]).find(j=>j.status==='running')?.spec?.type||'none')+', pathing '+!!bot.pathfinder?.isMoving?.()+', sprint '+!!bot.getControlState?.('sprint')+')');}catch{}});}bot.pathfinder.LOSWhenPlacingBlocks=false;bot.pathfinder.thinkTimeout=10000;/* round 27: 5 s timed out every night-mine climb home (`Took to long to decide path to goal!`) *//* round 25: its returningPos is never cleared by a reset and wedged all pathing */// in blocks: bounds searches for unreachable goals; legit paths may still cost up to goal distance + 128
+  bot.once('spawn',()=>{this.ready=true;installToolWear(bot);if(!bot._earnHook){bot._earnHook=true;bot.on('playerCollect',(collector,collected)=>{try{if(collector!==bot.entity)return;const it=collected?.getDroppedItem?.();if(it)this.earn(it.name,it.count);}catch{}});}if(!bot.inventory._lossWatch){bot.inventory._lossWatch=true;watchToolLoss(bot,m=>this.log(m));}const movement=this.movements=this.normalMovements(bot);bot.pathfinder.setMovements(movement);bot.pathfinder.searchRadius=128;if(!bot._ledgeGuard){bot._ledgeGuard=true;let last=0;const fall={};const gait=newGait();installSprintHold(bot);const sink={};bot.on('physicsTick',()=>{bot.__pathTick=false;try{const sk=sinkGuard(bot,sink,Date.now());if(sk)this.log(sk+' (job '+((this.jobs||[]).find(j=>j.status==='running')?.spec?.type||'none')+', chain '+(this.taskRunner?.active?.name||this.taskRunner?.current?.name||'?')+')');}catch{}try{sprintAssist(bot);const g=gaitTick(bot,gait,Date.now());if(g)this.log(g);if(ledgeGuard(bot)&&Date.now()-last>5000){last=Date.now();this.log('Ledge guard: stopped at '+bot.entity.position.floored()+' (a '+LEDGE_DROP+'+ drop ahead)');}const f=fallWatch(bot,fall);if(f)this.log('Fall: dropping from '+new Vec3(f.from.x,f.from.y,f.from.z).floored()+' (job '+((this.jobs||[]).find(j=>j.status==='running')?.spec?.type||'none')+', pathing '+!!bot.pathfinder?.isMoving?.()+', sprint '+!!bot.getControlState?.('sprint')+')');}catch{}});}bot.pathfinder.LOSWhenPlacingBlocks=false;bot.pathfinder.thinkTimeout=10000;/* round 27: 5 s timed out every night-mine climb home (`Took to long to decide path to goal!`) *//* round 25: its returningPos is never cleared by a reset and wedged all pathing */// in blocks: bounds searches for unreachable goals; legit paths may still cost up to goal distance + 128
   if(!this.trackersTimer){ // tracker refresh + preemption resume + idle armour, port of the reflex cadence
    this.loopWatch.start();
    this.trackersTimer=setInterval(()=>this.loopWatch.timeTick('cadence',()=>{
@@ -1681,6 +1707,8 @@ export class Worker extends EventEmitter {
      // A named enderman fight is provoked by definition (7c: never provoked by looking).
      provoked:s.entity==='enderman'||undefined,
      spareRetreat:t=>this.harmlessTarget(t),
+     // Round 68: a fight on harmless prey (the food step's) strikes with the hand when no weapon.
+     allowHand:HARMLESS_PREY.has(s.entity)||undefined,
      // The ablation harness toggles primitives per fight (tests/combat_ablation.py).
      primitives:s.primitives||undefined}}),
    {timeoutMs:Math.min(s.maxSeconds??30,120)*1000});
@@ -2748,7 +2776,8 @@ export class Worker extends EventEmitter {
    // An ore job takes both strata: iron_ore also matches deepslate_iron_ore (same drop), so
    // the scan from the iron step's staircase does not skip the ore below y=0.
    const deep=!anyLog&&/_ore$/.test(s.block)&&!s.block.startsWith('deepslate_')?b.registry.blocksByName['deepslate_'+s.block]?.id:undefined;
-   const match=anyLog?Object.values(b.registry.blocksByName).filter(bl=>/_log$/.test(bl.name)).map(bl=>bl.id):deep!==undefined?[id,deep]:id;
+   // Round 68: a stripped log is axe work - a build's beam or wall, never a tree (round-67 Nitrous copy).
+   const match=anyLog?Object.values(b.registry.blocksByName).filter(bl=>/_log$/.test(bl.name)&&!bl.name.startsWith('stripped_')).map(bl=>bl.id):deep!==undefined?[id,deep]:id;
    const isMatch=bl=>Array.isArray(match)?match.includes(bl.type):bl.type===match;
    const at3=(x,y,z)=>b.blockAt(new Vec3(x,y,z));
    // One searchIfMissing leg (3 per job). belowFoots (soak ladder jobs): short search hops -

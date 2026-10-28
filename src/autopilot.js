@@ -107,7 +107,7 @@ export function duskKitJob(counts,ctx={}){
  if(STEPS[0].done(c,ctx)&&c('iron_pickaxe')<1&&c('iron_ingot')>=3){
   if(c('stick')>=2)return {type:'craft',item:'iron_pickaxe',count:1,keepTable:true};
   if(ctx.planksTotal>=2)return {type:'craft',item:'stick',count:2};
-  if(ctx.logsTotal>=1)return {type:'craft',item:(ctx.heldLog||'oak_log').replace('_log','_planks'),count:4};
+  if(ctx.logsTotal>=1)return {type:'craft',item:planksFor(ctx.heldLog),count:4};
  }
  if(!STEPS[0].done(c,ctx)||STEPS[1].done(c,ctx))return null;
  const left=STONE_KIT.filter(([item])=>c(item)<1),piece=left[0];
@@ -115,7 +115,7 @@ export function duskKitJob(counts,ctx={}){
   if(c('stick')>=KIT_STICKS[piece[0]])return {type:'craft',item:piece[0],count:1,keepTable:true};
   const sticks=left.reduce((a,[item])=>a+KIT_STICKS[item],0)-c('stick');
   if(ctx.planksTotal>=2)return {type:'craft',item:'stick',count:Math.max(1,sticks)};
-  if(ctx.logsTotal>=1)return {type:'craft',item:(ctx.heldLog||'oak_log').replace('_log','_planks'),count:4};
+  if(ctx.logsTotal>=1)return {type:'craft',item:planksFor(ctx.heldLog),count:4};
  }
  const furnace=c('furnace')>=1||!!ctx.worldFurnace;
  return !furnace&&c('cobblestone')>=8?{type:'craft',item:'furnace',count:1,keepTable:true,collectTable:!piece}:null;
@@ -189,7 +189,7 @@ export function bedJob(c,ctx){
  const planks=3+(c('crafting_table')>=1||ctx.worldTable?0:4);
  if(c(wool)>=3){
   if(ctx.planksTotal<planks){
-   if(ctx.logsTotal>=1)return {type:'craft',item:(ctx.heldLog||'oak_log').replace('_log','_planks'),count:planks-ctx.planksTotal};
+   if(ctx.logsTotal>=1)return {type:'craft',item:planksFor(ctx.heldLog),count:planks-ctx.planksTotal};
    return {type:'gather',block:'log',count:Math.ceil((planks-ctx.planksTotal)/4),radius:32,belowFoots:true};
   }
   return {type:'craft',item:wool.replace('_wool','_bed'),count:1};
@@ -317,7 +317,7 @@ function spareStonePick(c,ctx,{anyStone=false}={}){
  if(c('stick')>=2)return table||ctx.planksTotal>=4?{type:'craft',item:'stone_pickaxe',count:1}:null;
  if(!table)return null;
  if(ctx.planksTotal>=2)return {type:'craft',item:'stick',count:2};
- if(ctx.logsTotal>=1)return {type:'craft',item:(ctx.heldLog||'oak_log').replace('_log','_planks'),count:4};
+ if(ctx.logsTotal>=1)return {type:'craft',item:planksFor(ctx.heldLog),count:4};
  return null; // no wood: not worth a log hunt
 }
 // Smelt raw iron with coal: a coal item smelts 8, so a short coal dig (coal ore is the most
@@ -334,7 +334,7 @@ const DIAMOND_GEAR=[['diamond_sword',2],['diamond_axe',3],['diamond_helmet',5],[
 const planksJob=(c,ctx,need)=>{
  if(ctx.planksTotal>=need)return null;
  if(ctx.logsTotal<2)return {type:'gather',block:'log',count:4,radius:32,searchIfMissing:true,belowFoots:true,surface:true};
- return {type:'craft',item:(ctx.heldLog||'oak_log').replace('_log','_planks'),count:need-ctx.planksTotal};
+ return {type:'craft',item:planksFor(ctx.heldLog),count:need-ctx.planksTotal};
 };
 // COMBAT_SPEC 7a repair-by-replacement: a nearly-broken item with no fresh spare is re-crafted
 // in the best tier the inventory can pay for before it breaks mid-fight. The counts map marks
@@ -595,7 +595,7 @@ export const STEPS=[
   // route to through forest terrain ('No path to the goal' x7, soak 20261013-020850, 0
   // logs in all 3 runs), while radius 32 gathered logs 3-4 in the earlier soaks. Reaching
   // groves beyond 32 blocks needs wood-aware explore, not a longer grab (next session).
-  const plank=((ctx.heldLog||'oak_log').replace('_log','_planks'));
+  const plank=(planksFor(ctx.heldLog));
   const gather3=()=>({type:'gather',block:'log',count:3,radius:32,searchIfMissing:true,belowFoots:true,surface:true});
   const KIT=11;
   // 0. Planks for the whole kit: convert held logs; when short even after that, gather 3.
@@ -621,7 +621,7 @@ export const STEPS=[
   return null;
  }},
  {name:'stone',done:(c,ctx)=>(c('furnace')>=1||!!ctx?.worldFurnace)&&c('stone_pickaxe')>=1&&(c('stone_axe')>=1||skipped(ctx,'stone_axe'))&&c('stone_sword')>=1&&(c('stone_shovel')>=1||skipped(ctx,'stone_shovel')),next(c,ctx){
-  const plank=((ctx.heldLog||'oak_log').replace('_log','_planks'));
+  const plank=(planksFor(ctx.heldLog));
   // Planks from held logs are a 2x2 craft (seconds, no table): keep a few for the sticks.
   if(ctx.planksTotal<8&&ctx.logsTotal>=2)return {type:'craft',item:plank,count:8};
   // Each piece is crafted as soon as its cobble is held, in kit order (pickaxe, then the
@@ -798,6 +798,10 @@ export const STEPS=[
 
 // Pure step selection for tests and the tick: first unmet step and its next job. Logs and
 // planks are counted across all species; planks are crafted from whichever log is held.
+// Round 68 (round-67 Nitrous copy: `craft stripped_spruce_planks` 174 times, `Unknown item` - a
+// stripped log from a build was the log held, and '_log' -> '_planks' kept the prefix): any log,
+// stripped or not, crafts its species' planks.
+export const planksFor=log=>(log||'oak_log').replace(/^stripped_/,'').replace(/_(log|wood)$/,'_planks');
 const woodTotals=(counts,ctx)=>{
  ctx.logsTotal=ctx.logsTotal??Object.keys(counts).filter(n=>/_log$/.test(n)).reduce((a,n)=>a+counts[n],0);
  ctx.planksTotal=ctx.planksTotal??Object.keys(counts).filter(n=>/_planks$/.test(n)).reduce((a,n)=>a+counts[n],0);
