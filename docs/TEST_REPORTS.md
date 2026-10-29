@@ -13134,3 +13134,53 @@ Chest spots: cobblestone occupied, poppy cleared and the chest verified.
 Shelter hole: the knocked-out block was back in 4.0 s. The night mine still could not climb home, and it sealed a second box.
 
 After the probe the world is `level-name=agent-test-world`, `level-type=minecraft:flat`, `difficulty=peaceful`, `server-ip=0.0.0.0`. The model stayed off and port 8081 stayed closed. The source folder `test-server/nitrous-copy-20261029` was not edited. Its directory mtime is still 2026-10-29T01:19:43+05:30, the same as before the soak.
+
+## 2026-10-29 06:02 IST – 2026-10-29 06:31 IST — round 68 soak on the Nitrous world copy (bot code `482531b`)
+
+This soak is the round-68 bot code `482531b` (`Round 68: skip stripped logs as trees and name planks from any log, hunt food bare-handed, swim up after 8 s under water, no sprint when hungry, and reset the bot's world memory each soak`), whose parent is `a8cc4e7` (`Record the round 67 soak on the Nitrous world copy and the obstruction probe.`). HEAD for the run is `482531b`. No combat and no integration. Units on this PC before the soak: 694 pass, 0 fail (round 67 live was 690 pass / 0 fail; this is 4 more, and 0 fail). Model off. `logs/supervisor.log` first line is `model server disabled (config.model.enabled=false): skipping llama-server, saving ~6.5 GB commit`. Port 8081 stayed closed. `SOAK_SEED` was cleared (the process saw it unset). `SOAK_NIGHT_SKIP` was unset (the process saw it unset; the harness default is 150 s). The source folder was not opened and was not edited. Its directory mtime is still 2026-10-29 01:19:43 IST.
+
+`reset the bot world memory (storage, home, ledger)`
+
+`soak world copy D:\Usefu Shi\Epic\SGSMP\minecraft-agent\test-server\nitrous-copy-20261029 (anchors scouted from spawn)`
+
+`copied the soak world from D:\Usefu Shi\Epic\SGSMP\minecraft-agent\test-server\nitrous-copy-20261029`
+
+The log says a world copy, not soak seed 20261027. Spawn was not set by hand.
+
+`scout base: the spawn at [698, 63, -437]`
+
+`scout: HARD anchor confirmed (gather completed, canopy light 0) at [705, 71, -424]`
+
+There is no `scout: NORMAL anchor confirmed` line. The scout failed and the six runs did not start.
+
+`run scout vitals: NOT CONFIRMED`
+
+`RuntimeError: anchor scout failed: no open-sky spot with reachable logs found - refusing unmeasurable anchors`
+
+The hard anchor was confirmed on the first gather at the spawn. After that the stdout has seven `run scout vitals: ok (health 20, food 20)` lines and then the `NOT CONFIRMED` line, which is the eight outward legs, and then the raise. No second soak was started. A seed was not substituted.
+
+Round 67 on this same copy, bot `f238884`, scouted spawn `[705, 63, -438]`, hard `[711, 71, -425]` (canopy light 15), normal `[712, 71, -427]` (sky 14). This spawn is 7 blocks west and 1 south of that spawn, same y. This hard anchor is 6 blocks west and 1 south of that hard anchor, same y, and the light on the confirm line is 0. Round 67's normal anchor, two blocks from its hard anchor in daylight, was not confirmed this time. Rounds 64, 65, and 66 were seed `20261027`, a different world.
+
+The harness window is `2026-10-29T00:32:00Z` to `2026-10-29T01:01:14Z` (06:02 IST to 06:31 IST), 1754 s. There is no `SOAK DONE` line. The result was not promoted. No valid run, no `tod_end`, no rung table. The obstruction probe was not run.
+
+The only connection lines in the appended logs are the restart while the world copy was coming up (`ECONNREFUSED` at 00:32:16Z, `Disconnected by user` at 00:32:13Z and 00:33:49Z) and, when the scout stopped, `BuilderBot lost connection: Disconnected` and `BuilderBot left the game` at 06:31:00 IST. `logs/dashboard-uncaught.log` was not appended (mtime still 2026-10-16, length still 2576174). No kick. No `SG-1` line and no other player joined or left. This run did not kick, teleport, or name SG-1 or any player.
+
+`data/storage.json` was rewritten at 06:02 IST by the reset, not left as the round-66 file:
+
+```
+{"chests": []}
+```
+
+`data/ledger.json` was rewritten during the scout at 06:29 IST:
+
+```
+{"oak_log":3,"dirt":9}
+```
+
+No `Store:` line. No chest placed. The keep limits were not reached because the six runs never started.
+
+### Obstructions
+
+The probe was not run. The scout failed, so there is no new table and `data/obstruction-results.json` was not updated. Round 66 and round 67 both completed 9 of 11: `cobble_box_bare` failed on the tool message, `chest_spot_blocked` failed occupied by cobblestone, `shelter_hole` resealed in 4.0 s, and round 67 `opened_after` was 28.3 s. This round does not add a result for walls, sealed cells, the pit, chest spots, or the shelter hole.
+
+After the scout failure the harness restored the flat world and started the services again. The world is `level-name=agent-test-world`, `level-type=minecraft:flat`, `difficulty=peaceful`, `server-ip=0.0.0.0`. The model stayed off and port 8081 stayed closed. The source folder `test-server/nitrous-copy-20261029` was not edited. Its directory mtime is still 2026-10-29 01:19:43 IST.
