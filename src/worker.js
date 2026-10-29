@@ -308,7 +308,13 @@ export const SINK_MS=8000;
 export function sinkGuard(bot,st,now){
  const e=bot&&bot.entity;if(!e||!e.position||typeof bot.blockAt!=='function')return null;
  const head=bot.blockAt(e.position.offset(0,1.62,0));
- const wet=!!head&&(/^(water|bubble_column|seagrass|tall_seagrass|kelp|kelp_plant)$/.test(head.name)||head.properties?.waterlogged===true||head.properties?.waterlogged==='true');
+ const seen=!!head&&(/^(water|bubble_column|seagrass|tall_seagrass|kelp|kelp_plant)$/.test(head.name)||head.properties?.waterlogged===true||head.properties?.waterlogged==='true');
+ // Round 69: a falling air reading is a head under water the client cannot see (round-68 scout).
+ const air=typeof bot.oxygenLevel==='number'?bot.oxygenLevel:null;
+ if(air!=null&&st.lastAir!=null&&air<st.lastAir)st.dropAt=now;
+ if(air!=null)st.lastAir=air;
+ const falling=st.dropAt!=null&&now-st.dropAt<3000&&air!=null&&air<20;
+ const wet=seen||falling;
  if(!wet){
   if(st.held){try{bot.setControlState('jump',false);}catch{}}
   st.since=null;st.held=false;st.logged=false;return null;
@@ -319,7 +325,7 @@ export function sinkGuard(bot,st,now){
  st.held=true;
  if(st.logged)return null;
  st.logged=true;
- return 'Water: head under for '+Math.round((now-st.since)/1000)+' s at '+e.position.floored()+' with no swim-up; holding jump (air '+(bot.oxygenLevel??'?')+', isInWater '+!!e.isInWater+')';
+ return 'Water: head under for '+Math.round((now-st.since)/1000)+' s at '+e.position.floored()+' with no swim-up; holding jump (air '+(bot.oxygenLevel??'?')+', isInWater '+!!e.isInWater+(seen?'':', head block '+(head?.name||'?')+' - the water is not seen, the air is falling')+')';
 }
 export const SPRINT_FOOD=6;
 export function sprintAssist(bot){

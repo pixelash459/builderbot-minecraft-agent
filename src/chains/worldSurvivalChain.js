@@ -122,10 +122,19 @@ export class WorldSurvivalChain extends SingleTaskChain{
   const at=dy=>(bot.blockAt&&e.position&&bot.blockAt(e.position.offset(0,dy,0)))||null;
   const head=at(1.4),feet=at(0.1);
   const wet=bl=>!!bl&&(WET.test(bl.name)||bl.properties?.waterlogged===true||bl.properties?.waterlogged==='true');
-  const touchingWater=e.isInWater===true||wet(head)||wet(feet);
-  const breathing=!!head&&/^(air|cave_air|void_air)$/.test(head.name)&&e.isInWater!==true;
   const air=airOf(bot);
   const now=Date.now();
+  // Round 69 (round-68 scout on the Nitrous copy: five `drowning (air 1)` lines, each the first
+  // drowning line of its dive - the latch never saw water at the head or feet while the air ran
+  // from 8 down to 1, and the sink guard saw none either): the air only falls with the eyes in
+  // water, so a falling reading is water even when the blocks the client holds say otherwise.
+  if(typeof this._lastAir==='number'&&air<this._lastAir)this._airDropAt=now;
+  const airFalling=!!this._airDropAt&&now-this._airDropAt<AIR_FALL_MS&&air<20;
+  const seen=e.isInWater===true||wet(head)||wet(feet);
+  if(airFalling&&!seen&&!this._unseenLogged){this._unseenLogged=true;const w=ctx&&ctx.worker;if(w&&w.log)try{w.log('WorldSurvival: air falling (air '+air+') with no water seen at the head ('+(head?.name||'?')+') or feet ('+(feet?.name||'?')+') at '+(e.position?.floored?.()||'?')+'; treating it as water');}catch{}}
+  if(seen||!airFalling)this._unseenLogged=false;
+  const touchingWater=seen||airFalling;
+  const breathing=!!head&&/^(air|cave_air|void_air)$/.test(head.name)&&e.isInWater!==true;
   if(wet(head)){if(!this._headWetSince)this._headWetSince=now;}else this._headWetSince=0;
   // Round 24 (round-23 normal3: 9.3 min of `swimming up` at y=-45, the air reading live and
   // moving): the backstop is for a reading that never comes - it fires only when the air value
@@ -219,7 +228,7 @@ export class WorldSurvivalChain extends SingleTaskChain{
   return !!b&&b.name==='nether_portal';
  }
 }
-const WET=/^(water|bubble_column|seagrass|tall_seagrass|kelp|kelp_plant)$/,HEAD_WET_MS=8000,DROWN_AIR=8,DRY_HOLD_MS=1500,SILENT_HURT_MS=4000,SILENT_HOSTILE=24,SILENT_FALL_MS=2000,BREATHING_MS=30000;
+const AIR_FALL_MS=3000,WET=/^(water|bubble_column|seagrass|tall_seagrass|kelp|kelp_plant)$/,HEAD_WET_MS=8000,DROWN_AIR=8,DRY_HOLD_MS=1500,SILENT_HURT_MS=4000,SILENT_HOSTILE=24,SILENT_FALL_MS=2000,BREATHING_MS=30000;
 // Round 24: a reading above 20 is the raw air supply in ticks (0-300; the round-23 report saw
 // 10-400): scaled to the 0-20 bubbles every threshold here uses.
 const airOf=bot=>{const a=typeof bot.oxygenLevel==='number'?bot.oxygenLevel:(typeof bot.oxygen==='number'?bot.oxygen:20);return a>20?Math.min(20,a/15):a;};

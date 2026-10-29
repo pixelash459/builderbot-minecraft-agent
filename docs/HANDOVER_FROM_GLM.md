@@ -2431,3 +2431,25 @@ The round-67 soak ran on the copy of the group's Nitrous world (spawn [705, 63, 
 - **Water at spawn:** respawns at night beside the spawn water meet drowned.
 - **Paths into builds:** the sleep job could not path to the group bed.
 - **Night-mine climb home:** unchanged.
+
+## Round 69 (2026-10-29)
+
+The round-68 soak on the Nitrous world copy (bot `482531b`) never started a run. The scout confirmed the hard anchor at [705, 71, -424] beside the spawn [698, 63, -437]. It found no normal anchor in eight explore legs and raised `no open-sky spot with reachable logs found`. No deaths, no kick, no player touched.
+
+**What the scout log shows**
+- **Every leg ended in water:** five legs' gather or explore jobs ended in a swim-up and `Reflex: the ... job led into a hazard; cancelled, not resumed`.
+- **The drowning latch fired late:** each dive's first drowning line was `WorldSurvival: drowning (air 1)` (the first at air 8). The latch needs water at the head or feet, and the client saw none while the air ran from 8 to 1. The round-68 sink guard (head in water for 8 s) saw no water either, so `Water: head under` never logged.
+- **The copy keeps its own mobs:** `spawn_mobs false` stops new ones only. The scout's kill at the spawn took one skeleton, and a flee at 00:35 listed about 30 hostiles.
+- **Round 67's normal anchor was not tried:** round 67 confirmed [712, 71, -427] on this same copy, but the scout only walked outward.
+
+**Fixes**
+- **Falling air is water** (WorldSurvival `_handleDrowning`, `AIR_FALL_MS` 3 s). Air only falls with the eyes under water, so a falling reading latches the swim-up even when the client sees no water. It logs once: `WorldSurvival: air falling (air A) with no water seen at the head (X) or feet (Y) at P; treating it as water`. That line names the blocks the client holds there, which is the next clue to why the water is not seen.
+- **The sink guard counts falling air too** (worker `sinkGuard`). Its line adds `head block X - the water is not seen, the air is falling` when that is the trigger.
+- **Scout tries earlier anchors first** (`tests/soak.py` `prior_anchors`): the anchors confirmed by an earlier soak on the same world (matched on the results' `world` field), newest first, before the outward legs. They are still verified (open sky 12+, a completed gather). On this copy that is [712, 71, -427].
+- **Scout clears the copy's mobs on every leg** (`scout_clear`): hostiles within 96 are killed on each outward leg when `SOAK_WORLD` is set. The scout only; the runs are unchanged.
+
+**Not changed yet**
+- **Why the client sees no water there:** the new `air falling` line will name the head and feet blocks.
+- **Water at spawn:** respawns at night beside the spawn water meet drowned.
+- **Paths into builds:** the sleep job could not path to the group bed.
+- **Night-mine climb home:** unchanged.

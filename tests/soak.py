@@ -663,6 +663,24 @@ def probe_spot():
     return {'logs':logs.get('count',0),'log_at':logs.get('at'),'light':o.get('light'),
             'tod':o.get('timeOfDay'),'pos':[round(o['position'][k]) for k in ('x','y','z')]}
 
+SCOUT_MOBS=('zombie','husk','drowned','zombie_villager','skeleton','stray','bogged','creeper','spider','cave_spider','witch','phantom','pillager')
+def scout_clear(radius=64):
+    for mob in SCOUT_MOBS:
+        command('execute as BuilderBot at @s run kill @e[type=minecraft:%s,distance=..%d]'%(mob,radius))
+# Round 69 (round-68 scout on the Nitrous copy: no normal anchor in eight explore legs - each
+# leg's gather or explore ended in water, a drowning swim-up and `led into a hazard; cancelled`
+# - while round 67 had confirmed [712, 71, -427] on the same copy): the anchors an earlier soak
+# confirmed on this same world are tried first, newest first. Still verified like any guess.
+def prior_anchors(kind='normal'):
+    want=WORLD_COPY or ('seed '+SEED)
+    out=[]
+    for path in sorted((ROOT/'data').glob('soak-results*.json'),key=lambda q:q.stat().st_mtime,reverse=True):
+        try:d=json.loads(path.read_text(encoding='utf-8'))
+        except Exception:continue
+        a=d.get('anchors') if isinstance(d,dict) and d.get('world')==want else None
+        spot=a.get(kind) if isinstance(a,dict) else None
+        if isinstance(spot,list) and len(spot)==3 and tuple(spot) not in out:out.append(tuple(spot))
+    return tuple(out[:3])
 def scout_anchors(base):
     # (review) Fail-closed anchor scout on the regenerated seed.
     # The observe survey's strided scan misses sparse dark-oak trunks (measured: logs=0 at
@@ -693,8 +711,7 @@ def scout_anchors(base):
     # belowFoots matches the soak wood step (logs at standing height). Without it the job
     # locks onto the canopy top and spends the whole budget on "Cannot reach".
     command('tp BuilderBot %d %d %d'%(base[0],base[1],base[2]));time.sleep(3)
-    for mob in ('zombie','husk','drowned','zombie_villager','skeleton','stray','bogged','creeper','spider','cave_spider','witch','phantom','pillager'):
-        command('execute as BuilderBot at @s run kill @e[type=minecraft:%s,distance=..64]'%mob)
+    scout_clear()
     o=api('observe');base_light=o.get('light')
     created=api('jobs',{'type':'gather','block':'log','count':3,'radius':32,'searchIfMissing':True,'belowFoots':True})
     t0=time.time();done=None
@@ -717,6 +734,8 @@ def scout_anchors(base):
                 try:
                     reset_vitals(scratch);hold_day();next_day=time.time()+45
                     command('effect give BuilderBot minecraft:resistance 300 2 true')
+                    # Round 69: the copy's own mobs (spawn_mobs false stops new ones only).
+                    if WORLD_COPY:scout_clear(96)
                     created=api('jobs',{'type':'explore','direction':dirn,'distance':dist})
                     t0=time.time()
                     while time.time()-t0<240:
@@ -750,13 +769,13 @@ def scout_anchors(base):
     # seed (open sky, and a 1-log gather finished at the first). Still verified below:
     # light >= 12 and a completed gather, or the point is rejected. Count 1 / radius 24
     # is the gather that finished here; a radius-48 job locked onto a buried spruce.
-    for guess in (((310,132,30),(332,129,30)) if MEASURED else ()):
+    for guess in (((310,132,30),(332,129,30)) if MEASURED else prior_anchors('normal')):
+        if not MEASURED:print('scout: trying the normal anchor an earlier soak confirmed on this world at '+json.dumps(list(guess)),flush=True)
         try:
             reset_vitals(scratch);hold_day()
             command('effect give BuilderBot minecraft:resistance 300 2 true')
             command('tp BuilderBot %d %d %d'%guess);time.sleep(2)
-            for mob in ('zombie','husk','drowned','zombie_villager','skeleton','stray','bogged','creeper','spider','cave_spider','witch','phantom','pillager'):
-                command('execute as BuilderBot at @s run kill @e[type=minecraft:%s,distance=..64]'%mob)
+            scout_clear()
             o=api('observe')
             if (o.get('light') or 0)<12:
                 print('scout surface '+json.dumps(guess)+' light '+str(o.get('light'))+' - not open sky',flush=True)
@@ -789,6 +808,8 @@ def scout_anchors(base):
                 try:
                     reset_vitals(scratch);hold_day();next_day=time.time()+45
                     command('effect give BuilderBot minecraft:resistance 300 2 true')
+                    # Round 69: the copy's own mobs (spawn_mobs false stops new ones only).
+                    if WORLD_COPY:scout_clear(96)
                     created=api('jobs',{'type':'explore','direction':dirn,'distance':dist})
                     t0=time.time()
                     while time.time()-t0<240:
