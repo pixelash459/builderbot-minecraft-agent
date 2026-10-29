@@ -2453,3 +2453,33 @@ The round-68 soak on the Nitrous world copy (bot `482531b`) never started a run.
 - **Water at spawn:** respawns at night beside the spawn water meet drowned.
 - **Paths into builds:** the sleep job could not path to the group bed.
 - **Night-mine climb home:** unchanged.
+
+## Round 70 (2026-10-29)
+
+The round-69 soak on the Nitrous world copy (bot `0adb70f`) ran all six runs clean.
+- **Scout:** it retried round 67's normal anchor [712, 71, -427] first and confirmed it.
+- **Iron:** iron picks on 3 of 6, all three normal runs (round 67: 1 of 6). Two deaths (round 67: 13).
+- **Builds:** no `Dig: broke` line.
+- **The three hard runs** never got wood: `No path to the goal!` over and over at night among the copy's mob crowds.
+
+**The air reading was never the bot's**
+- **What the log showed:** `air falling` 908 times, almost all on dry land:
+  - Air 19.93 (a fraction).
+  - Air 8 for 15 s in a dry tunnel at y=39.
+  - Air -1 for seconds beside the spawn at full health, with no `losing health` line.
+- **Cause:** mineflayer's `entity_metadata` handler (`entities.js`, `metas.air_supply`) copies the air of EVERY entity into `bot.oxygenLevel`. That includes fish, squid and drowned, and a dolphin's 4800 ticks, which came out as 320 and then 19.93 through `airOf`.
+- **What it did:** round 69's falling-air rule turned those readings into 435 `preempted by Misc World Survival Chain` swim-ups on land.
+- **It is older than round 69:** every air-based rule since the start read whichever mob last changed its air, which is likely the "stale" and "never comes" readings of rounds 21, 24, 49 and 56.
+
+**Fixes**
+- **The bot reads its own air** (worker `installOwnAir`):
+  - `bot.oxygenLevel` is now a property fed only by the bot's own entity's `air_supply` (ticks / 15, 0-20). mineflayer's writes are ignored.
+  - It reads 20 at every spawn. This replaces the old spawn-time `oxygenLevel=20`.
+- **A fall is two levels within 3 s** (`airFall`, `AIR_FALL_DROP` 2, used by the WorldSurvival latch and by `sinkGuard`). The latch and guard need more than one step of noise. Under water the air drops a level every 0.75 s.
+- **No-path jobs say where they were going:** after `Job: No path to the goal!` the worker logs `Job: no path for <type> <block> from P; last goal <Goal x,y,z within r> (N s ago)`, taken from the pathfinder's `goal_updated` event. This is for the hard runs' wood.
+- **The roof dig names the roof block**, and a failed dig logs `WorldSurvival: the roof dig at P failed (<block>, held X): <error>`. This is for normal3's drowning under the roof at 837, 102, -446, in a build at y=100.
+
+**Not changed yet**
+- **Hard runs without wood:** the new no-path line comes first.
+- **Paths into builds and its beds:** the bot met a group chest at 823, 101, -452 (a table place on it was refused) and was stranded twice on that y=100 build.
+- **Night-mine climb home:** still not climbing home in the shelter-hole probe.

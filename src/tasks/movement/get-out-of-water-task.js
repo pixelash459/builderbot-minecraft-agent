@@ -124,9 +124,11 @@ export class GetOutOfWaterTask extends Task {
     const lavaNear=[[1,0,0],[-1,0,0],[0,0,1],[0,0,-1],[0,1,0]].some(([dx,dy,dz])=>/lava/.test(bot.blockAt(up.roof.position.offset(dx,dy,dz))?.name||''));
     if(!lavaNear&&typeof bot.dig==='function'){
      if(this.navPromise){move.cancel(ctx);this.navPromise=null;}
-     this.digging=true;const w=ctx?.worker;try{w?.log?.('WorldSurvival: roof over the water at '+up.roof.position+' (air '+air+'); digging it');}catch{}
+     this.digging=true;const w=ctx?.worker;try{w?.log?.('WorldSurvival: roof over the water at '+up.roof.position+' (air '+air+', '+up.roof.name+'); digging it');}catch{}
      // Round 61: the roof is dug with the best tool held, not whatever is in hand.
-     Promise.resolve(bot.tool?.equipForBlock?.(up.roof)).catch(()=>{}).then(()=>bot.dig(up.roof,true)).catch(()=>{}).finally(()=>{this.digging=false;});
+     // Round 70 (round-69 normal3 drowned under a roof at 837,102,-446 dug four times, in a build at
+     // y=100): the block's name above, and a dig that fails says why.
+     Promise.resolve(bot.tool?.equipForBlock?.(up.roof)).catch(()=>{}).then(()=>bot.dig(up.roof,true)).catch(e=>{try{w?.log?.('WorldSurvival: the roof dig at '+up.roof.position+' failed ('+up.roof.name+', held '+(bot.heldItem?.name||'hand')+'): '+String(e?.message||e).slice(0,120));}catch{}}).finally(()=>{this.digging=false;});
      return null;
     }
    }

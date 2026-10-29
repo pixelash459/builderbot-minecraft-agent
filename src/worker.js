@@ -21,6 +21,7 @@ import {buildChain,BREED_FOOD} from './howto.js';
 import * as combat from './combat.js';
 import {TaskRunner} from './tasks/runner.js';
 import {defaultChains} from './chains/index.js';
+import {airFall} from './chains/worldSurvivalChain.js';
 import {FightTask} from './chains/fightTask.js';
 import {createTrackers} from './trackers/index.js';
 import {createMoveApi,setDefaultMoveContext} from './tasks/movement/move.js';
@@ -246,6 +247,35 @@ export function sprintWanted(bot){
  if(!bot.getControlState('forward')||bot.getControlState('sneak'))return false;
  return !!e.onGround&&!e.isInWater&&!e.isInLava&&(bot.food??20)>SPRINT_FOOD;
 }
+// Round 70 (round-69 soak: 908 `air falling` lines on dry land - air 19.93, 8 for 15 s in a dry
+// tunnel, -1 for seconds at the spawn with full health and no `losing health` line): mineflayer's
+// entity_metadata handler copies EVERY entity's air_supply into bot.oxygenLevel - fish, squid,
+// drowned, a dolphin's 4800 (the 19.93s) - so the reading was whichever mob last changed its air.
+// The bot's own air is read here from the bot's own metadata only, and mineflayer's writes are
+// ignored. Full at every spawn (the server sends the air only when it changes).
+// Round 70 (round-69 hard runs: no wood on 3 of 3, `No path to the goal!` 39 times with nothing
+// saying where to): the last goal the pathfinder was given, for the job's failure line.
+export function goalText(goal){
+ if(!goal)return 'none';
+ const at=['x','y','z'].every(k=>Number.isFinite(goal[k]))?' '+Math.floor(goal.x)+','+Math.floor(goal.y)+','+Math.floor(goal.z):'';
+ const near=Number.isFinite(goal.rangeSq)?' within '+Math.round(Math.sqrt(goal.rangeSq)):'';
+ return (goal.constructor?.name||'goal')+at+near;
+}
+export function installOwnAir(bot){
+ if(!bot||bot.__ownAir)return;
+ bot.__ownAir=true;
+ let air=20;
+ Object.defineProperty(bot,'oxygenLevel',{configurable:true,enumerable:true,get:()=>air,set:()=>{}});
+ bot._client?.on?.('entity_metadata',packet=>{
+  if(!bot.entity||packet.entityId!==bot.entity.id)return;
+  const keys=bot.registry?.entitiesByName?.player?.metadataKeys;
+  for(const m of packet.metadata||[]){
+   const name=keys?keys[m.key]:(m.key===1?'air_supply':null);
+   if(name==='air_supply'&&typeof m.value==='number')air=Math.round(m.value/15);
+  }
+ });
+ bot.on('spawn',()=>{air=20;});
+}
 export function installSprintHold(bot){
  if(!bot||bot.__rawSetControl||typeof bot.setControlState!=='function')return;
  const raw=bot.__rawSetControl=bot.setControlState.bind(bot);
@@ -310,10 +340,10 @@ export function sinkGuard(bot,st,now){
  const head=bot.blockAt(e.position.offset(0,1.62,0));
  const seen=!!head&&(/^(water|bubble_column|seagrass|tall_seagrass|kelp|kelp_plant)$/.test(head.name)||head.properties?.waterlogged===true||head.properties?.waterlogged==='true');
  // Round 69: a falling air reading is a head under water the client cannot see (round-68 scout).
- const air=typeof bot.oxygenLevel==='number'?bot.oxygenLevel:null;
- if(air!=null&&st.lastAir!=null&&air<st.lastAir)st.dropAt=now;
- if(air!=null)st.lastAir=air;
- const falling=st.dropAt!=null&&now-st.dropAt<3000&&air!=null&&air<20;
+ // Round 70: two levels down within 3 s, not any step (the reading mixes two scales).
+ const raw=typeof bot.oxygenLevel==='number'?bot.oxygenLevel:null;
+ const air=raw==null?null:(raw>20?raw/15:raw);
+ const falling=airFall(st.air||(st.air={}),air,now);
  const wet=seen||falling;
  if(!wet){
   if(st.held){try{bot.setControlState('jump',false);}catch{}}
@@ -904,7 +934,8 @@ export class Worker extends EventEmitter {
   this.taskRunner.start();
   if(!this.autopilotTimer)this.autopilotTimer=setInterval(()=>{try{this.loopWatch.timeTick('autopilot',()=>this.autopilot.tick(),()=>'state '+this.autopilot.state);}catch{}},1000);this.log('Connected to Minecraft');this.pump();});
   // Servers send air metadata only when it changes; mineflayer never sees the initial value, which is always full at spawn.
-  bot.on('spawn',()=>{bot.oxygenLevel=20;});
+  installOwnAir(bot);
+  bot.on('goal_updated',goal=>{if(goal)this.lastGoal={goal,at:Date.now()};});
   // Closing a container copies ITS copy of the player slots back over bot.inventory
   // (mineflayer copyInventory). Anything that changed the real inventory while the window
   // was open and was not echoed into that window (console /clear, a death, a plugin) is
@@ -996,7 +1027,7 @@ export class Worker extends EventEmitter {
    if(!/^Fought:/.test(job.message))job.message='Completed and verified';
    else job.message='Completed and verified; '+job.message;
    this.log(`Completed ${job.spec.type}`);}
-  catch(e){if(job.status==='running'){job.status='failed';job.message=e.message;for(const next of this.jobs)if(next.status==='queued'){next.status='paused';next.message='Paused because an earlier job failed';}}this.log('Job: '+e.message);if(e.stack)console.error(e.stack);}
+  catch(e){if(job.status==='running'){job.status='failed';job.message=e.message;for(const next of this.jobs)if(next.status==='queued'){next.status='paused';next.message='Paused because an earlier job failed';}}this.log('Job: '+e.message);if(/No path to the goal/.test(e.message||''))try{const p=this.bot?.entity?.position;this.log('Job: no path for '+job.spec?.type+(job.spec?.block||job.spec?.item?' '+(job.spec.block||job.spec.item):'')+' from '+(p?p.floored():'?')+'; last goal '+goalText(this.lastGoal?.goal)+(this.lastGoal?' ('+Math.round((Date.now()-this.lastGoal.at)/1000)+' s ago)':''));}catch{}if(e.stack)console.error(e.stack);}
   finally{this.interruptReject=null;clearInterval(watchdog);this.survivalJob=false;if(token===this.epoch)this.bot?.clearControlStates();this.save();this.busy=false;setTimeout(()=>this.pump(),100);}
  }
  update(job,progress,message){job.progress=progress;job.message=message;this.save();}

@@ -128,8 +128,7 @@ export class WorldSurvivalChain extends SingleTaskChain{
   // drowning line of its dive - the latch never saw water at the head or feet while the air ran
   // from 8 down to 1, and the sink guard saw none either): the air only falls with the eyes in
   // water, so a falling reading is water even when the blocks the client holds say otherwise.
-  if(typeof this._lastAir==='number'&&air<this._lastAir)this._airDropAt=now;
-  const airFalling=!!this._airDropAt&&now-this._airDropAt<AIR_FALL_MS&&air<20;
+  const airFalling=airFall(this._airTrack||(this._airTrack={}),air,now);
   const seen=e.isInWater===true||wet(head)||wet(feet);
   if(airFalling&&!seen&&!this._unseenLogged){this._unseenLogged=true;const w=ctx&&ctx.worker;if(w&&w.log)try{w.log('WorldSurvival: air falling (air '+air+') with no water seen at the head ('+(head?.name||'?')+') or feet ('+(feet?.name||'?')+') at '+(e.position?.floored?.()||'?')+'; treating it as water');}catch{}}
   if(seen||!airFalling)this._unseenLogged=false;
@@ -231,4 +230,16 @@ export class WorldSurvivalChain extends SingleTaskChain{
 const AIR_FALL_MS=3000,WET=/^(water|bubble_column|seagrass|tall_seagrass|kelp|kelp_plant)$/,HEAD_WET_MS=8000,DROWN_AIR=8,DRY_HOLD_MS=1500,SILENT_HURT_MS=4000,SILENT_HOSTILE=24,SILENT_FALL_MS=2000,BREATHING_MS=30000;
 // Round 24: a reading above 20 is the raw air supply in ticks (0-300; the round-23 report saw
 // 10-400): scaled to the 0-20 bubbles every threshold here uses.
+// Round 70 (round-69 soak: 213 `air falling` lines on dry land, air 19.93, 19, 14.4, 11.73... - the
+// reading arrives on two scales, whole 0-20 levels and ticks/15, and the spawn handler's 20, so a
+// step from one scale to the other read as a fall): a fall is AIR_FALL_DROP levels or more below
+// the highest reading of the last AIR_FALL_MS. Under water the air drops a level every 0.75 s.
+export const AIR_FALL_DROP=2;
+export function airFall(st,air,now){
+ if(typeof air!=='number')return false;
+ st.hist=(st.hist||[]).filter(h=>now-h.t<AIR_FALL_MS);
+ if(!st.hist.length||st.hist[st.hist.length-1].a!==air)st.hist.push({t:now,a:air});
+ const top=Math.max(...st.hist.map(h=>h.a));
+ return air<20&&top-air>=AIR_FALL_DROP;
+}
 const airOf=bot=>{const a=typeof bot.oxygenLevel==='number'?bot.oxygenLevel:(typeof bot.oxygen==='number'?bot.oxygen:20);return a>20?Math.min(20,a/15):a;};
