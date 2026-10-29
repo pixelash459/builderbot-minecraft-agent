@@ -27,7 +27,7 @@ test('round 69: the sink guard holds jump on falling air with a dry-looking head
  const st={};
  for(let t=0,a=20;t<=SINK_MS+2500;t+=750,a--){bot.oxygenLevel=a;var line=sinkGuard(bot,st,t)||line;}
  assert.equal(ctl.jump,true);
- assert.match(line,/head block air - the water is not seen, the air is falling/);
+ assert.match(line,/head block air at eye y \d+\.\d - the air is falling/);
  bot.oxygenLevel=20;sinkGuard(bot,st,SINK_MS+5000);
  assert.equal(ctl.jump,false,'air back up: let go');
 });

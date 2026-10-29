@@ -2483,3 +2483,38 @@ The round-69 soak on the Nitrous world copy (bot `0adb70f`) ran all six runs cle
 - **Hard runs without wood:** the new no-path line comes first.
 - **Paths into builds and its beds:** the bot met a group chest at 823, 101, -452 (a table place on it was refused) and was stranded twice on that y=100 build.
 - **Night-mine climb home:** still not climbing home in the shelter-hole probe.
+
+## Round 71 (2026-10-29)
+
+The round-70 soak on the Nitrous world copy (bot `beed76a`) ran all six runs clean.
+- **Iron:** iron picks on 4 of 6 (round 69: 3 of 6; round 67: 1 of 6), with a diamond pick on normal2 at 2349 s.
+- **Deaths:** none (round 69: 2; round 67: 13).
+- **Hard wood:** all three hard runs got wood (332 / 271 / 301 s). In round 69 none of them did.
+- **Own air:** `air falling` logged 0 times (round 69: 908). Survival-chain preempts fell to 12 (round 69: 435).
+- **Obstruction probe:** stopped by the tester after 3 scenarios, so there is no score this round.
+
+**The bot could not path out of deep water**
+- **What the log showed:** hard3 spent its last 3 minutes afloat at (742, 62, -614).
+  - Every gather and explore failed with `No path to the goal!` within a second, 26 times. The goal was `GoalXZ`.
+  - `Water: no dry stand within 6`.
+  - Two drowning swim-ups.
+- **Cause:** mineflayer-pathfinder measures a climb from the block under the feet. Under a swimmer that block is water, so the climb comes out a full block higher than it really is.
+  - Even a bank level with the water surface fails the 1.2 "too high to jump" check.
+  - The forward step needs a solid floor, and `getMoveUp` and `getMoveDown` refuse liquid.
+  - A swimmer can only leave where the water is one deep. Out of reach of such an edge, the A* search runs out of nodes, returns `noPath`, and `goto` rejects at once.
+
+**Fixes**
+- **Swim-out moves** (worker `waterExits`, installed on the normal and explore movements):
+  - The move starts from the top water cell (water below open air), or from the air cell just over the surface. It adds a climb onto a full block beside it whose top is at most 1 over the water.
+  - The cells above the landing and above the swimmer must be clear and not liquid. Lava is never climbed out of.
+  - Cost is `SWIM_OUT_COST` 2 plus the liquid cost.
+  - The pathfinder already holds jump in water. The physics lifts a swimmer that pushes into a ledge.
+  - A test runs the real A* from the middle of a pool. It returns `noPath` with the stock movements and `success` with the fix.
+- **`leaveWater` scans 12 out** (`LEAVE_WATER_R`, was 6), with 20 s to step out (was 12).
+- **The sink-guard line names the eye height.** It reads `head block air at eye y 63.0, in water - the air is falling`. The round-70 hard3 lines had said "the water is not seen" next to `isInWater true`. Now that the air is the bot's own, those lines mean the server put the eyes under water while the client's block at the eye was air.
+
+**Not changed yet**
+- **Night-mine climb home:** hard1 came up the tunnel to (818, 87, -528), one diagonal from its box. It then spent the 10 s think timeout on `Took to long to decide path`, and the fallback sealed a new box where it stood.
+- **Hard runs are short:** hard1 and hard2 spent about 7 of their 21 minutes in the night box, and neither reached iron.
+- **Paths into builds and beds:** no new data this round.
+- **Obstruction probe:** `cobble_box_bare` and `chest_spot_blocked` still need a full run.

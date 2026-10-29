@@ -1,4 +1,5 @@
 import mineflayer from 'mineflayer';
+import {createRequire} from 'node:module';
 import pathfinderPackage from 'mineflayer-pathfinder';
 import toolPackage from 'mineflayer-tool';
 import {Vec3} from 'vec3';
@@ -38,6 +39,38 @@ const {pathfinder,Movements,goals}=pathfinderPackage;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const pos=p=>new Vec3(p.x,p.y,p.z);
 const empty=b=>b && ['air','cave_air','void_air'].includes(b.name);
+const PfMove=createRequire(import.meta.url)('mineflayer-pathfinder/lib/move.js');
+// Round 71 (round-70 hard3: the last 3 min afloat at (742, 62, -614), every gather and explore
+// `No path to the goal!` within a second, `no dry stand within 6`): the pathfinder measures a
+// climb from the block under the feet, and under a swimmer that is water - so even a bank level
+// with the surface is "too high", and a bot out of reach of a shallow edge cannot path out at
+// all. Add the climb out: from the top water cell (or the air cell just over it) onto a full
+// block beside it whose top is at most 1 over the water, with the cells above both clear. The
+// pathfinder holds jump in water and the physics lifts a swimmer that pushes into a ledge.
+export const SWIM_OUT_COST=2,LEAVE_WATER_R=12;
+export function waterExits(movement){
+ if(movement._waterExits)return movement;movement._waterExits=true;
+ const jump=movement.getMoveJumpUp.bind(movement);
+ movement.getMoveJumpUp=(node,dir,neighbors)=>{
+  const before=neighbors.length;jump(node,dir,neighbors);
+  if(neighbors.length>before)return;
+  const at=(x,dy,z)=>movement.getBlock(node,x,dy,z),water=b=>b?.name==='water';
+  const here=at(0,0,0);let s;
+  if(water(here)&&!at(0,1,0).liquid)s=0;else if(!here.liquid&&here.safe&&water(at(0,-1,0)))s=-1;else return;
+  for(let k=-s;k<=1;k++){
+   const t=s+k,bank=at(dir.x,t,dir.z);
+   if(!bank.physical||bank.height>node.y+t+1)continue;
+   const feet=at(dir.x,t+1,dir.z),head=at(dir.x,t+2,dir.z);
+   if(!feet.safe||feet.liquid||!head.safe||head.liquid)continue;
+   for(let dy=Math.max(s+1,1);dy<=t+2;dy++)if(!at(0,dy,0).safe)return;
+   const cost=SWIM_OUT_COST+(movement.liquidCost||0)+movement.exclusionStep(feet)+movement.getNumEntitiesAt(feet.position,0,0,0)*movement.entityCost;
+   if(cost>100)return;
+   neighbors.push(new PfMove(feet.position.x,feet.position.y,feet.position.z,node.remainingBlocks,cost,[],[]));
+   return;
+  }
+ };
+ return movement;
+}
 // Diagonal steps past a solid corner wedge the bot on 26.3 (it stops moving); require both sides clear.
 function guardDiagonals(movement){
  const diagonal=movement.getMoveDiagonal.bind(movement);
@@ -355,7 +388,7 @@ export function sinkGuard(bot,st,now){
  st.held=true;
  if(st.logged)return null;
  st.logged=true;
- return 'Water: head under for '+Math.round((now-st.since)/1000)+' s at '+e.position.floored()+' with no swim-up; holding jump (air '+(bot.oxygenLevel??'?')+', isInWater '+!!e.isInWater+(seen?'':', head block '+(head?.name||'?')+' - the water is not seen, the air is falling')+')';
+ return 'Water: head under for '+Math.round((now-st.since)/1000)+' s at '+e.position.floored()+' with no swim-up; holding jump (air '+(bot.oxygenLevel??'?')+', isInWater '+!!e.isInWater+(seen?'':', head block '+(head?.name||'?')+' at eye y '+(e.position.y+1.62).toFixed(1)+(e.isInWater?', in water':'')+' - the air is falling')+')';
 }
 export const SPRINT_FOOD=6;
 export function sprintAssist(bot){
@@ -1154,7 +1187,7 @@ export class Worker extends EventEmitter {
   // ledge guard (round 31) lets go of the sprint key beside any 5+ drop.
   const movement=new Movements(bot);movement.canDig=false;movement.allow1by1towers=false;movement.allowParkour=false;movement.allowSprinting=true;movement.canOpenDoors=false;movement.maxDropDown=3;
   this.applyMobAvoidance(movement,bot);this.avoidHazards(movement,bot);
-  return guardDiagonals(movement);
+  return waterExits(guardDiagonals(movement));
  }
  exploreMovements(){
   if(this.exploreMoves)return this.exploreMoves;
@@ -1185,7 +1218,7 @@ export class Worker extends EventEmitter {
    if(!floor)return;
    for(let i=neighbors.length-1;i>=before;i--){const move=neighbors[i];if(move.toBreak.some(p=>p.x===floor.position.x&&p.y===floor.position.y&&p.z===floor.position.z))neighbors.splice(i,1);}
   };
-  return this.exploreMoves=guardDiagonals(m);
+  return this.exploreMoves=waterExits(guardDiagonals(m));
  }
  async exploreLeg(token,spec){
   const b=this.bot,dirs={north:[0,-1],south:[0,1],east:[1,0],west:[-1,0]};
@@ -4167,14 +4200,15 @@ export class Worker extends EventEmitter {
   const wetCell=bl=>!!bl&&/water|bubble_column|seagrass|kelp/.test(bl.name);
   if(!wetCell(at(f))&&!wetCell(at(f.offset(0,1,0))))return;
   let best=null,bd=Infinity;
-  for(let dx=-6;dx<=6;dx++)for(let dz=-6;dz<=6;dz++)for(let dy=-2;dy<=3;dy++){
+  // Round 71: 12 out, not 6 - with the swim-out moves a far bank is reachable (round-70 hard3).
+  for(let dx=-LEAVE_WATER_R;dx<=LEAVE_WATER_R;dx++)for(let dz=-LEAVE_WATER_R;dz<=LEAVE_WATER_R;dz++)for(let dy=-2;dy<=3;dy++){
    const p=f.offset(dx,dy,dz),feet=at(p),head=at(p.offset(0,1,0)),floor=at(p.offset(0,-1,0));
    if(!feet||!head||!floor||feet.boundingBox==='block'||head.boundingBox==='block'||floor.boundingBox!=='block')continue;
    if(wetCell(feet)||wetCell(head)||/lava/.test(feet.name))continue;
    const d=Math.abs(dx)+Math.abs(dz)+Math.abs(dy);if(d<bd){bd=d;best=p;}
   }
-  if(!best){this.log('Water: no dry stand within 6 of '+f);return;}
-  try{await this.navigate(new goals.GoalBlock(best.x,best.y,best.z),token,12);this.log('Water: stepped out to '+best);}
+  if(!best){this.log('Water: no dry stand within '+LEAVE_WATER_R+' of '+f);return;}
+  try{await this.navigate(new goals.GoalBlock(best.x,best.y,best.z),token,20);this.log('Water: stepped out to '+best);}
   catch(e){this.check(token);this.log('Water: could not step out ('+String(e.message).slice(0,60)+')');}
  }
  async dropPocket(token){
