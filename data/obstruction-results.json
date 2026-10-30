@@ -1,5 +1,5 @@
 {
- "at": "2026-10-30T15:20:31",
+ "at": "2026-10-30T23:01:05",
  "results": [
   {
    "scenario": "cobble_wall",
@@ -100,15 +100,15 @@
    },
    "status": "complete",
    "message": "Completed and verified",
-   "seconds": 6.1,
+   "seconds": 6.0,
    "end_pos": [
     2309,
     -60,
     0
    ],
    "lines": [
-    "09:46:53.905 Navigation: no path with mob avoidance at (2300, -60, 0); trying without it",
-    "09:46:57.444 Boxed in at (2300, -60, 0): dug 1 steps up east to (2301, -59, 0)"
+    "17:27:25.634 Navigation: no path with mob avoidance at (2300, -60, 0); trying without it",
+    "17:27:29.281 Boxed in at (2300, -60, 0): dug 1 steps up east to (2301, -59, 0)"
    ],
    "repeated_errors": {}
   },
@@ -130,16 +130,16 @@
    },
    "status": "complete",
    "message": "Completed and verified",
-   "seconds": 34.2,
+   "seconds": 34.3,
    "end_pos": [
     2409,
     -60,
     0
    ],
    "lines": [
-    "09:47:08.302 Navigation: no path with mob avoidance at (2400, -60, 0); trying without it",
-    "09:47:08.363 Boxed in: no tool for cobblestone at (2400, -58, 0); digging it by hand (it drops nothing)",
-    "09:47:40.085 Boxed in at (2400, -60, 0): dug 1 steps up east to (2401, -59, 0)"
+    "17:27:39.914 Navigation: no path with mob avoidance at (2400, -60, 0); trying without it",
+    "17:27:39.975 Boxed in: no tool for cobblestone at (2400, -58, 0); digging it by hand (it drops nothing)",
+    "17:28:11.821 Boxed in at (2400, -60, 0): dug 1 steps up east to (2401, -59, 0)"
    ],
    "repeated_errors": {}
   },
@@ -168,8 +168,8 @@
     0
    ],
    "lines": [
-    "09:47:50.921 Navigation: no path with mob avoidance at (2500, -60, 0); trying without it",
-    "09:47:55.071 Boxed in at (2500, -60, 0): dug 1 steps up east to (2501, -59, 0)"
+    "17:28:22.437 Navigation: no path with mob avoidance at (2500, -60, 0); trying without it",
+    "17:28:26.645 Boxed in at (2500, -60, 0): dug 1 steps up east to (2501, -59, 0)"
    ],
    "repeated_errors": {}
   },
@@ -198,8 +198,8 @@
     0
    ],
    "lines": [
-    "09:48:05.259 Navigation: no path with mob avoidance at (2600, -60, 0); trying without it",
-    "09:48:08.482 Boxed in at (2600, -60, 0): dug 1 steps up east to (2601, -59, 0)"
+    "17:28:36.848 Navigation: no path with mob avoidance at (2600, -60, 0); trying without it",
+    "17:28:40.111 Boxed in at (2600, -60, 0): dug 1 steps up east to (2601, -59, 0)"
    ],
    "repeated_errors": {}
   },
@@ -228,8 +228,8 @@
     0
    ],
    "lines": [
-    "09:48:21.608 Navigation: no path with mob avoidance at (2700, -63, 0); trying without it",
-    "09:48:29.632 Boxed in at (2700, -63, 0): dug 3 steps up east to (2703, -60, 0)"
+    "17:28:53.152 Navigation: no path with mob avoidance at (2700, -63, 0); trying without it",
+    "17:29:01.243 Boxed in at (2700, -63, 0): dug 3 steps up east to (2703, -60, 0)"
    ],
    "repeated_errors": {}
   },
@@ -259,7 +259,7 @@
     0
    ],
    "lines": [
-    "09:48:39.952 Job: Cannot place at (2802, -60, 0): occupied by cobblestone"
+    "17:29:11.425 Job: Cannot place at (2802, -60, 0): occupied by cobblestone"
    ],
    "repeated_errors": {}
   },
@@ -290,7 +290,7 @@
     0
    ],
    "lines": [
-    "09:48:50.252 Place: broke the poppy at (2902, -60, 0) first"
+    "17:29:21.757 Place: broke the poppy at (2902, -60, 0) first"
    ],
    "repeated_errors": {}
   },
@@ -302,36 +302,30 @@
     -60,
     0
    ],
-   "sealed_after": 62.0,
-   "hole": [
-    3001,
-    -60,
-    -1
-   ],
-   "resealed_after": 4.0,
-   "status": "complete",
-   "message": "Completed and verified",
-   "opened_after": 20.2,
+   "sealed_after": null,
+   "status": "not sealed",
+   "message": "Could not seal the shelter: 1 open cells, first at 3000,-62,0; night pillar instead",
    "end_pos": [
-    3001,
-    -60,
-    -3
+    3000,
+    -62,
+    0
    ],
    "lines": [
-    "09:49:00.107 Reflex: Mob Defense engaging",
-    "09:49:18.795 Shelter: sealed at (3000, -60, 0) (25 blocks placed)",
-    "09:49:30.949 Navigation: no path with mob avoidance at (3000, -62, 0); trying without it",
-    "09:49:36.551 Navigation: no path with mob avoidance at (3001, -62, 0); trying without it",
-    "09:49:39.377 Navigation: no path with mob avoidance at (3002, -62, 0); trying without it",
-    "09:49:39.426 Tunnel climb: step 3001,-63,0 failed (No path to the goal!); digging through natural fill",
-    "09:49:39.492 Navigation: no path with mob avoidance at (3002, -62, 0); trying without it",
-    "09:49:51.218 Navigation: no path with mob avoidance at (3000, -60, -1); trying without it",
-    "09:49:51.313 Shelter: not in the box at (3000, -60, 0) (the night mine could not climb home; bot at (3000, -60, -1)); sealing where it stands",
-    "09:49:51.316 Shelter: moved from 3000,-60,0 to (3000, -60, -1); building a new box here",
-    "09:49:59.046 Shelter: sealed at (3000, -60, -1) (11 blocks placed)",
-    "09:50:07.323 Shelter: re-sealing 1 open cell(s)",
-    "09:50:11.427 Shelter: dawn (tod 1000); staying sealed until the morning is light and clear",
-    "09:50:11.428 Shelter: morning (tod 1000, nearest hostile none); opening up"
+    "17:29:31.696 Reflex: Mob Defense engaging",
+    "17:29:50.525 Shelter: sealed at (3000, -60, 0) (25 blocks placed)",
+    "17:30:02.030 Navigation: no path with mob avoidance at (3000, -62, 0); trying without it",
+    "17:30:07.631 Navigation: no path with mob avoidance at (3001, -62, 0); trying without it",
+    "17:30:10.509 Navigation: no path with mob avoidance at (3002, -62, 0); trying without it",
+    "17:30:10.571 Tunnel climb: step 3001,-63,0 failed (No path to the goal!); digging through natural fill",
+    "17:30:10.622 Navigation: no path with mob avoidance at (3002, -62, 0); trying without it",
+    "17:30:22.991 Navigation: no path with mob avoidance at (3000, -60, -1); trying without it",
+    "17:30:23.455 Pillar: stopped at y=-61 (no solid block under the feet: air)",
+    "17:30:23.455 Shelter: not in the box at (3000, -60, 0) (the night mine could not climb home; bot at (3000, -61, 0)); sealing where it stands",
+    "17:30:23.457 Shelter: moved from 3000,-60,0 to (3000, -61, 0); building a new box here",
+    "17:30:50.466 Shelter: open cells 3000,-62,0=air (bot at 3000.50,0.70)",
+    "17:30:50.466 Shelter: Could not seal the shelter: 1 open cells, first at 3000,-62,0; night pillar instead",
+    "17:30:50.466 Job: Could not seal the shelter: 1 open cells, first at 3000,-62,0; night pillar instead",
+    "17:30:50.530 Reflex: Mob Defense engaging"
    ],
    "repeated_errors": {}
   }
