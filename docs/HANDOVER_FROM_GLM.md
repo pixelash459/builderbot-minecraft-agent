@@ -2628,3 +2628,36 @@ The round-72 soak on the Nitrous world copy (bot `3fc0f73`) ran all six runs cle
 **Not changed yet**
 - **The hard runs' skeleton deaths:** both bots were unarmed or just out of a cave. Read again with the longer runs.
 - **`chest_spot_blocked`:** the expected refusal.
+
+## Round 75 (2026-10-30)
+
+**Round-74 soak results** (Nitrous world copy, `17daa4e`, the first soak with 2400 s hard runs)
+- **Iron:** 3 of 6 again (all normals), no diamond pick. hard2 placed the first hard-run furnace of this series (1054 s); still no hard iron pick.
+- **Deaths:** 5, none in water: hard1 a creeper, hard2 a spider and a zombie, hard3 a skeleton and a zombie. Three were within 3 minutes of a box opening or a cave-roof climb.
+- **Water:** `searching 320` 3 times (round 73: 56). Job no-paths 2, none in water (round 73: 16). No swim-round and no flooded-table line fired.
+- **Obstruction probe:** 9 of 11. `shelter_hole` did not seal (round 73: complete). `chest_spot_blocked` is the expected refusal.
+
+**Diagnosis: the stalls in Mob Defense holds** (from `logs/dashboard.log` and the samples)
+- **hard1:** at dawn, after sleeping, it logged `fleeing ... (still recovering)` at 6.3 health with the bar at 6 and no food held. The hold (`KeepDistanceTask`) paused the cow hunt and then stood at (708, 63, -526) for 10 minutes with no log line at all, until the night job replaced it. Regeneration needs a bar of 18, so it could never reach the hold's 14 health. The collect job queued behind it never ran.
+- **hard2:** after the second night it logged `fleeing ... (vulnerable)` at 17 health with no armour. The run-away kept going while any hostile stayed within 30, and a mob cave below always had one. The bot stood at (813, 84, -551) for the last 3.5 minutes of the run.
+
+**Diagnosis: the step into the box**
+- hard3 and the probe's `shelter_hole` logged `stepping in` and then `pillaring up the sump` and `Pillar: stopped ... (no solid block under the feet: air)` in the same millisecond.
+- The cell's floor is the night mine's open sump, so the step in dropped the bot down it, and the pillar checked the ground while the bot was still falling.
+- In the probe, the replacement box went up round the falling bot and could not seal its floor (`1 open cells, first at 3000,-62,0`).
+- hard3's first night mine ended at the box's corner, diagonal to the cell, so no step-in ran.
+
+**Diagnosis: a false tool loss**
+- hard3's `Tool left the inventory: stone_sword (125 uses left)` came in the same millisecond as `Combat: equip skeleton`, and the next sample still held the sword.
+- An equip empties the old slot before the new one fills, so it is not a loss.
+
+**Fixes**
+- **The recovering hold needs a way to heal:** a bar of 18+ or safe food held (`canHeal`). Otherwise the hold doesn't start and the paused job runs.
+- **A run-away or keep-distance hold that hasn't moved the bot** 3 blocks in 20 s, with nothing within 8 in sight, stands down for 60 s. It logs `Reflex: the <task> held 20 s without moving the bot (...); standing down for 60 s` and the paused job resumes. A hostile within 8 in sight ends the stand-down at once. Creeper flees and fights are not affected.
+- **The night mine home lands first:** after the step in and before reading the sump, the bot waits up to 2 s to be on the ground (`LAND_WAIT_MS`), then pillars up from the sump's bottom.
+- **From the box's corner** the bot steps in through a side cell that is open at feet and head, logging `Night mine: one step from the shelter at P (through C); stepping in`. If both sides are wall, it doesn't step in.
+- **The tool-loss check waits 250 ms** (`TOOL_LOSS_SETTLE_MS`) before deciding the tool has gone.
+
+**Not changed yet**
+- **The deaths after a box opening or a cave-roof climb** (hard2 spider and zombie, hard3 skeleton): read again once the holds no longer stall.
+- **`chest_spot_blocked`:** the expected refusal.

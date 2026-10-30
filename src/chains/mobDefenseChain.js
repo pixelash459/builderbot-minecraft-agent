@@ -16,6 +16,7 @@ import {nightRefuge,pillarRoom,DAY_CROWD} from '../night.js';
 import {dayTicks} from '../daytime.js';
 import {FightTask} from './fightTask.js';
 import {creeperSwell} from '../creeper.js';
+import {UNSAFE_FOOD} from './foodChain.js';
 // MobDefenseChain.java constants.
 const CREEPER_KEEP_DISTANCE=10;
 export const CREEPER_PERSIST=20;
@@ -35,6 +36,18 @@ const fireTouching=bot=>{
 // Seconds before a holding night pillar climbs again after `streak` failed climbs in a row
 // (0: knocked off a perch - straight back up).
 export const pillarBackoff=streak=>streak<=1?3:Math.min(60,3*2**(streak-1));
+// Round 75 (round-74 hard1: `fleeing ... (still recovering)` at 6.3 health with the bar at 6 and
+// no food held, then 10 minutes standing at (708, 63, -526) - regeneration needs a bar of 18,
+// and the cow hunt that would have fed it was the job the hold had paused): the recovering hold
+// is only for a bot that can heal - a bar of 18+ or something to eat.
+export const canHeal=bot=>(bot.food|0)>=18||inventoryItems(bot).some(i=>{const m=bot.registry?.foodsByName?.[i.name];return !!(m&&m.foodPoints>0)&&!UNSAFE_FOOD.has(i.name);});
+// Round 75 (round-74 hard1 above, and hard2: `fleeing ... (vulnerable)` at 17 health, armour 0,
+// and 3.5 minutes at (813, 84, -551) to the end of the run, a mob cave below keeping one hostile
+// within 30): a run-away or keep-distance hold that has not moved the bot FLEE_STALL_BLOCKS in
+// FLEE_STALL_S, with nothing within 8 in sight, stands down for FLEE_STALL_OFF s and the paused
+// job resumes. A hostile within 8 in sight ends the stand-down at once.
+export const FLEE_STALL_S=20,FLEE_STALL_BLOCKS=3,FLEE_STALL_OFF=60;
+const HOLDS=new Set(['RunAwayFromHostilesTask','KeepDistanceTask']);
 export class MobDefenseChain extends SingleTaskChain{
  constructor({food=null,mlg=null}={}){
   super('Mob Defense');
@@ -54,9 +67,24 @@ export class MobDefenseChain extends SingleTaskChain{
   if(ctx&&ctx.worker&&ctx.worker.log)try{ctx.worker.log(message);}catch{}
  }
  priority(bot,ctx){
-  const p=this._priorityInner(bot,ctx);
+  let p=this._priorityInner(bot,ctx);
+  if(p>=0&&this._holdStood(bot,ctx))p=-1;
   this._cachedLastPriority=p;this._cachedAt=Date.now();
   return p;
+ }
+ _holdStood(bot,ctx){
+  const r=this.root;
+  if(!r||!HOLDS.has(r.name)){this._hold=null;return false;}
+  const now=this.now(),me=bot.entity.position;
+  if(getHostiles(bot,ctx).some(e=>withinRange(e,bot,SAFE_KEEP_DISTANCE)&&canSee(bot,e,SAFE_KEEP_DISTANCE))){this._hold=null;this._holdOffUntil=0;return false;}
+  if(now<(this._holdOffUntil||0)){this._runAwayTask=null;return true;}
+  const h=this._hold;
+  if(!h||now-h.seen>2||Math.hypot(me.x-h.x,me.z-h.z)>FLEE_STALL_BLOCKS){this._hold={x:me.x,z:me.z,at:now,seen:now};return false;}
+  h.seen=now;
+  if(now-h.at<FLEE_STALL_S)return false;
+  this._hold=null;this._holdOffUntil=now+FLEE_STALL_OFF;this._runAwayTask=null;this._fleeTag=null;
+  if(ctx&&ctx.worker&&ctx.worker.log)try{ctx.worker.log('Reflex: the '+r.name+' held '+FLEE_STALL_S+' s without moving the bot (health '+Math.round(bot.health)+', food '+(bot.food|0)+', nothing within '+SAFE_KEEP_DISTANCE+' in sight); standing down for '+FLEE_STALL_OFF+' s');}catch{}
+  return true;
  }
  // Fighting or fleeing as of this tick. A gate that skipped priority() leaves a stale cache,
  // which must not read as a fight forever (FoodChain defers meals on it).
@@ -184,7 +212,7 @@ export class MobDefenseChain extends SingleTaskChain{
   }
   // 7f: after a dangerous encounter, eat to full and return to the task only at health >= 14.
   // Only when the fight policy still forbids fighting: a winnable fight comes first.
-  if(!policy.allowed&&hostiles.length&&this._dangerUntil>this.now()&&bot.health<14){
+  if(!policy.allowed&&hostiles.length&&this._dangerUntil>this.now()&&bot.health<14&&canHeal(bot)){
    // Keep distance FROM the hostiles: with none nearby the band must stay inactive (its
    // task otherwise wanders the bot - e.g. out of a drowning pool it should sit in).
    this._fleeLog(ctx,'recovering','Reflex: fleeing '+hostiles.map(e=>e.name).join(',')+' (still recovering)');

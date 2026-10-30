@@ -17,6 +17,7 @@ export const EAT_RETRY_MS=5000; // a failed meal waits this long before the next
 // with 8-10 cooked food held: no attempt at all after the meal became due.
 export const MEAL_WATCHDOG_MS=12000;
 const UNSAFE=new Set(['spider_eye','poisonous_potato','pufferfish']);
+export const UNSAFE_FOOD=UNSAFE;
 export class FoodChain extends SingleTaskChain{
  constructor({mobDefense=null,mlg=null}={}){
   super('Food');

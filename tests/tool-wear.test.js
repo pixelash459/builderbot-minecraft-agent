@@ -57,7 +57,7 @@ test('installToolWear routes equipForBlock and the pathfinder digger through the
 test('a tool leaving the inventory is logged with its uses left; a move or wear is not',()=>{
  const inv=new EventEmitter();let items=[];inv.items=()=>items;
  const b={inventory:inv,health:20,registry:{itemsByName:{}}};
- const logs=[];watchToolLoss(b,m=>logs.push(m));
+ const logs=[];watchToolLoss(b,m=>logs.push(m),{settleMs:0});
  const pick=item('iron_pickaxe',249,36);
  inv.emit('updateSlot',36,pick,null);
  assert.deepEqual(logs,['Tool left the inventory: iron_pickaxe (1 uses left, broke)']);

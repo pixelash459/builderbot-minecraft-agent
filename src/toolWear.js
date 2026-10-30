@@ -77,16 +77,25 @@ export function installToolWear(bot){
   bot.pathfinder._conserve=true;
  }
 }
-export function watchToolLoss(bot,log){
+// Round 75 (round-74 hard3: `Combat: equip skeleton` then `Tool left the inventory: stone_sword
+// (125 uses left)` in the same millisecond, and the sword still held 20 s later): an equip empties
+// the old slot before the new one fills, so the check waits TOOL_LOSS_SETTLE_MS.
+export const TOOL_LOSS_SETTLE_MS=250;
+export function watchToolLoss(bot,log,{settleMs=TOOL_LOSS_SETTLE_MS}={}){
  const inv=bot.inventory;
  if(!inv||typeof inv.on!=='function')return;
  inv.on('updateSlot',(slot,oldItem,newItem)=>{
   if(!oldItem||!TOOL.test(oldItem.name||''))return;
   if(newItem&&newItem.name===oldItem.name)return; // wear, a move within the slot
   if(!(bot.health>0))return; // the death drop is logged as a death
-  // A move to another slot (equip, sort) is not a loss: the stack is still held somewhere.
-  if(inv.items().some(i=>i.name===oldItem.name&&i.slot!==slot&&(i.durabilityUsed||0)===(oldItem.durabilityUsed||0)))return;
-  const left=usesLeft(oldItem,bot.registry);
-  log('Tool left the inventory: '+oldItem.name+' ('+(left===Infinity?'?':left)+' uses left'+(left<=1?', broke':'')+')');
+  const judge=()=>{
+   if(!(bot.health>0))return;
+   // A move to another slot (equip, sort) is not a loss: the stack is still held somewhere.
+   if(inv.items().some(i=>i.name===oldItem.name&&(i.slot!==slot||settleMs>0)&&(i.durabilityUsed||0)===(oldItem.durabilityUsed||0)))return;
+   const left=usesLeft(oldItem,bot.registry);
+   log('Tool left the inventory: '+oldItem.name+' ('+(left===Infinity?'?':left)+' uses left'+(left<=1?', broke':'')+')');
+  };
+  if(settleMs>0){const t=setTimeout(judge,settleMs);if(t.unref)t.unref();}
+  else judge();
  });
 }

@@ -128,7 +128,7 @@ export function searchHeading(from,points){
 }
 // Tunnel settle: rounds of re-digging a step while sand/gravel keeps falling into it, and the
 // wait for a falling block to land before the cells are read again.
-export const TUNNEL_SETTLE_ROUNDS=12;export const TUNNEL_FALL_MS=450;export const TUNNEL_WALK_MS=2500;export const TRUNK_PILLAR=4;export const SHELTER_AWAY_MS=3000;
+export const TUNNEL_SETTLE_ROUNDS=12;export const TUNNEL_FALL_MS=450;export const TUNNEL_WALK_MS=2500;export const LAND_WAIT_MS=2000;export const TRUNK_PILLAR=4;export const SHELTER_AWAY_MS=3000;
 // A tunnel opens a block with no harvest tool when a bare hand breaks it this fast (hardness
 // 0.5: 2.5 s by hand). The passage needs no drop: snow blocks (0.2) stopped a normal-anchor
 // dig-down at 16:42Z, round 3, with 'needs a suitable tool'.
@@ -2044,6 +2044,13 @@ export class Worker extends EventEmitter {
  async nightMineReturn(mine,token,origin){
   const b=this.bot,feet=()=>b.entity.position.floored();
   const home=()=>feet().equals(origin);
+  // Round 75 (round-74 hard3 and the probe's shelter_hole: `stepping in`, then `pillaring up the
+  // sump from y=80` and `Pillar: stopped at y=80 (no solid block under the feet: air)` in the same
+  // millisecond - the cell's floor is the open sump, the step in dropped the bot down it and the
+  // pillar ran mid-fall; the probe's replacement box went up round the falling bot and could not
+  // seal its floor): the bot lands before the sump is read.
+  const land=async()=>{const until=Date.now()+LAND_WAIT_MS;while(b.entity.onGround===false&&Date.now()<until){await sleep(50);this.check(token);}};
+  const open=c=>{const bl=b.blockAt(c);return !!bl&&bl.boundingBox==='empty'&&!isFluid(bl);};
   try{await this.climbTunnel(mine,token);if(this.strandedTunnel?.job===mine.id)this.strandedTunnel=null;}
   catch(e){this.check(token);this.log('Night mine: climb back failed: '+e.message);}
   if(home())return true;
@@ -2056,16 +2063,28 @@ export class Worker extends EventEmitter {
   // bot at (812, 87, -531), the box is at (811, 87, -531)` - one step from the cell at its level,
   // the hand walk found no tunnel point within 2 and gave up at once; the new box went up one
   // over, in the box's own wall): beside the cell, step in.
-  {const p=feet();if(p.y===origin.y&&Math.abs(p.x-origin.x)+Math.abs(p.z-origin.z)===1){
-   this.log('Night mine: one step from the shelter at '+p+'; stepping in');
-   await this.walkTunnelBack([origin],token);
-   if(home())return true;
-  }}
+  // Round 75 (round-74 hard3: `could not climb back into (816, 100, -468)`, the bot at
+  // (817, 100, -469) - the corner, not a step): from a corner, through an open side cell.
+  {const p=feet(),dx=Math.abs(origin.x-p.x),dz=Math.abs(origin.z-p.z);
+   let path=null;
+   if(p.y===origin.y&&dx+dz===1)path=[origin];
+   else if(p.y===origin.y&&dx===1&&dz===1){
+    const side=[new Vec3(p.x,origin.y,origin.z),new Vec3(origin.x,origin.y,p.z)].find(c=>open(c)&&open(c.offset(0,1,0)));
+    if(side)path=[origin,side];
+   }
+   if(path){
+    this.log('Night mine: one step from the shelter at '+p+(path.length>1?' (through '+path[1]+')':'')+'; stepping in');
+    await this.walkTunnelBack(path,token);
+    await land();
+    if(home())return true;
+   }
+  }
   const inSump=()=>{const p=feet();return p.x===origin.x&&p.z===origin.z&&p.y<origin.y&&p.y>=origin.y-3;};
   if(!inSump()){
    this.log('Night mine: walking the tunnel back by hand from '+feet());
    await this.walkTunnelBack(mine.tunnel,token);
   }
+  await land();
   if(inSump()){
    this.log('Night mine: pillaring up the sump from y='+feet().y);
    await this.pillarUp(origin.y,token);
