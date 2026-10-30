@@ -2559,3 +2559,39 @@ The round-71 soak on the Nitrous world copy (bot `c88bd69`) ran all six runs cle
 - **`chest_spot_blocked`:** the bot refuses to break a cobblestone block it didn't place to put a chest there, which is right. The probe should count that refusal as a pass.
 - **Night-mine climb home:** still fails in `shelter_hole`, and the fallback reseals where the bot stands.
 - **Hard runs:** short on time; hard2 and hard3 never reached a furnace.
+
+## Round 73 (2026-10-30)
+
+The round-72 soak on the Nitrous world copy (bot `3fc0f73`) ran all six runs clean.
+- **Iron:** iron picks on 3 of 6, all three normals, at 572 / 723 / 1145 s. No diamond pick.
+- **Hard wood:** 302 / 512 / 603 s.
+- **Deaths:** three. hard2 and hard3 were slain by drowned in the lake beside the spawn; hard3 was shot by a skeleton 35 s after opening its morning box.
+- **Water:** `Water: stepped out to` 4 times, `could not step out` 0 (round 71: 0 / 2).
+- **Obstruction probe:** 9 of 11. `cobble_box_bare` now digs by hand but still times out; `chest_spot_blocked` is the expected refusal.
+
+**The drowned deaths: a search budget, not the terrain**
+- **What the log showed:** hard2 swam east across the lake from (749, 65, -419) to (795, 59, -433) over two minutes. Twenty gathers and explores in a row failed with `Job: No path to the goal!`, then a drowned killed it. hard3 did the same in the same lake.
+- **The terrain check:** I read the lake from a copy of the world's region file and ran the real A* (with `waterExits`) on it. With no search limit, every direction from the four spots where the bots swam has a path.
+- **The cause:** `searchRadius` 128 caps a search's cost at the straight line plus 128. A water block costs `LIQUID_COST` 4 more, and a block near a mob up to `STEP_COST_CAP` 40 more. With the bot's own settings the same replay fails 5 of 40 searches on the water cost alone; with drowned in the lake almost every one fails. Such a search ends `noPath` with a partial path, so `goto` rejects. The round-22 retry without mob avoidance only ran on an empty path, so it never got a chance.
+
+**Fixes**
+- **`navigate` catches the stock `No path to the goal!` rejection:**
+  - With mob avoidance on, it paths once more without it (`navigateNoAvoid`, now shared with the empty-path case).
+  - From the water (`inWater`: a water, seagrass or kelp cell at the feet or head) it paths once more with `WATER_SEARCH_RADIUS` 320, then puts the budget back. It logs `Navigation: no path from the water at P within the search budget; searching 320`. With 320, all 40 replay searches on the real lake succeed.
+- **A job that fails for no path while the bot swims makes the next job step out first** (`leaveWater`, within `WET_NOPATH_MS` 30 s), the same as after a drowning.
+- **Skeletons hold the morning box** (`DAY_HOSTILE`: creeper, skeleton, stray, bogged):
+  - hard3 opened at tod 3000 with the nearest hostile 10.3 away and about 37 hostiles around, and was shot 2 s after the box came down.
+  - A shaded skeleton within 16 now holds the box until tod 6000, then within 6, as a creeper does.
+  - The inner walls wait for it too: `Shelter: a skeleton D away; keeping the walls up`.
+- **The stair-out never cleared its own headroom:**
+  - A step up lifts the head into the cell over it, which is the box's roof. That's why `cobble_box_bare` dug the four sides by hand and never rose. With a pickaxe, `cobble_box_pick` also logged `no way to stair out`; it only escaped through the pathfinder's own digging.
+  - The stair-out now clears that cell first. It won't if sand, gravel or a fluid sits over it, or if it's bedrock.
+- **The stair-out counted its steps wrong:** a first step onto an open side broke out with the count still 0 and was taken as no step. The next direction then dug on from the new stand. It now counts the steps taken.
+- **The night-mine climb home** (the probe's `shelter_hole`, and hard1's `could not climb back` this soak):
+  - The bot stood one block over the first tunnel cell and asked the pathfinder for that filled cell.
+  - The navigate's stranded fallback then built a 3-block pillar and lifted it out of the tunnel beside the box.
+  - `climbTunnel` now skips a cell the bot stands on. While it runs, the stranded stair-out, drop and pillar fallbacks stay off; it has its own dig-through-fill retry.
+
+**Not changed yet**
+- **Hard runs:** short on time; hard2 and hard3 never reached a furnace.
+- **`chest_spot_blocked`:** the expected refusal, as before.

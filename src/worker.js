@@ -133,6 +133,15 @@ export const TUNNEL_SETTLE_ROUNDS=12;export const TUNNEL_FALL_MS=450;export cons
 // 0.5: 2.5 s by hand). The passage needs no drop: snow blocks (0.2) stopped a normal-anchor
 // dig-down at 16:42Z, round 3, with 'needs a suitable tool'.
 export const HAND_CLEAR_HARDNESS=0.5,BOXED_HAND_HARDNESS=2;
+// Round 73: the search budget from the water (see navigate) and how long a job's no-path from
+// the water makes the next job step out first.
+export const WATER_SEARCH_RADIUS=320,WET_NOPATH_MS=30000;
+// Round 73 (round-72 hard3: shot by a skeleton 35 s after a tod-3000 opening, nearest hostile
+// 10.3): the hostiles that stand all day - creepers never burn, shaded skeletons neither.
+export const DAY_HOSTILE=/^(creeper|skeleton|stray|bogged)$/;
+// A feet or head cell of water (seagrass and kelp are water too).
+export const wetCell=bl=>!!bl&&/water|bubble_column|seagrass|kelp/.test(bl.name);
+export function inWater(bot){const f=bot?.entity?.position?.floored?.();return !!f&&(wetCell(bot.blockAt(f))||wetCell(bot.blockAt(f.offset(0,1,0))));}
 // The smelt job takes its output every this many items.
 export const SMELT_TAKE=8;
 // Habit 6: junk the bot dropped is left lying for this long (no sweep walks back to it).
@@ -1072,7 +1081,7 @@ export class Worker extends EventEmitter {
    if(!/^Fought:/.test(job.message))job.message='Completed and verified';
    else job.message='Completed and verified; '+job.message;
    this.log(`Completed ${job.spec.type}`);}
-  catch(e){if(job.status==='running'){job.status='failed';job.message=e.message;for(const next of this.jobs)if(next.status==='queued'){next.status='paused';next.message='Paused because an earlier job failed';}}this.log('Job: '+e.message);if(/No path to the goal/.test(e.message||''))try{const p=this.bot?.entity?.position;this.log('Job: no path for '+job.spec?.type+(job.spec?.block||job.spec?.item?' '+(job.spec.block||job.spec.item):'')+' from '+(p?p.floored():'?')+'; last goal '+goalText(this.lastGoal?.goal)+(this.lastGoal?' ('+Math.round((Date.now()-this.lastGoal.at)/1000)+' s ago)':''));}catch{}if(e.stack)console.error(e.stack);}
+  catch(e){if(job.status==='running'){job.status='failed';job.message=e.message;for(const next of this.jobs)if(next.status==='queued'){next.status='paused';next.message='Paused because an earlier job failed';}}this.log('Job: '+e.message);if(/No path to the goal/.test(e.message||''))try{const p=this.bot?.entity?.position;if(inWater(this.bot))this.wetNoPathAt=Date.now();this.log('Job: no path for '+job.spec?.type+(job.spec?.block||job.spec?.item?' '+(job.spec.block||job.spec.item):'')+' from '+(p?p.floored():'?')+'; last goal '+goalText(this.lastGoal?.goal)+(this.lastGoal?' ('+Math.round((Date.now()-this.lastGoal.at)/1000)+' s ago)':''));}catch{}if(e.stack)console.error(e.stack);}
   finally{this.interruptReject=null;clearInterval(watchdog);this.survivalJob=false;if(token===this.epoch)this.bot?.clearControlStates();this.save();this.busy=false;setTimeout(()=>this.pump(),100);}
  }
  update(job,progress,message){job.progress=progress;job.message=message;this.save();}
@@ -1082,7 +1091,7 @@ export class Worker extends EventEmitter {
   const reached=()=>bot.entity?.onGround&&goal.isEnd(bot.entity.position.floored());
   if(reached())return;
   if(!this._noAvoid)try{this.applyMobAvoidance(bot.pathfinder.movements,bot);}catch{}
-  let timer,monitor,last='none';
+  let timer,monitor,last='none',noPath=null;
   const onPath=r=>{last=`${r.status}, ${r.path.length} steps, ${r.visitedNodes} nodes`;};bot.on('path_update',onPath);
   let track=trackProgress(bot.entity.position,Date.now());
   try{await Promise.race([bot.pathfinder.goto(goal),new Promise((resolve,reject)=>{monitor=setInterval(()=>{
@@ -1093,7 +1102,22 @@ export class Worker extends EventEmitter {
    if(bot.targetDigBlock){track=trackProgress(bot.entity.position,Date.now());return;}
    track=trackProgress(bot.entity.position,Date.now(),track);
    if(track.stuck)reject(new Error('Navigation made no progress at '+bot.entity.position.floored()+' (last path: '+last+')'));
-  },250);}),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error(`Navigation timed out at ${bot.entity.position.floored()} (onGround ${bot.entity.onGround}, last path: ${last})`)),seconds*1000);})]);this.check(token);
+  },250);}),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error(`Navigation timed out at ${bot.entity.position.floored()} (onGround ${bot.entity.onGround}, last path: ${last})`)),seconds*1000);})]).catch(e=>{if(!/^No path to the goal!$/.test(e?.message||''))throw e;noPath=e;});this.check(token);
+   // Round 73 (round-72 hard2 and hard3: two minutes of `no path for gather log` swimming the
+   // lake by the spawn, then slain by drowned): a search over its cost budget (searchRadius past
+   // the straight line; LIQUID_COST more a water block, up to STEP_COST_CAP more by a mob)
+   // rejects with a partial path, never the empty one below. Path again with mob avoidance off,
+   // then from the water once with WATER_SEARCH_RADIUS.
+   if(noPath){
+    const mv=bot.pathfinder.movements;
+    if(mv?._mobAvoidHook&&Array.isArray(mv.exclusionAreasStep)&&!this._noAvoid)return await this.navigateNoAvoid(goal,token,seconds);
+    if(!this._wideSearch&&inWater(bot)&&(bot.pathfinder.searchRadius??-1)>=0&&bot.pathfinder.searchRadius<WATER_SEARCH_RADIUS){
+     const was=bot.pathfinder.searchRadius;this._wideSearch=true;bot.pathfinder.searchRadius=WATER_SEARCH_RADIUS;
+     this.log('Navigation: no path from the water at '+bot.entity.position.floored()+' within the search budget; searching '+WATER_SEARCH_RADIUS);
+     try{return await this.navigate(goal,token,seconds);}finally{bot.pathfinder.searchRadius=was;this._wideSearch=false;}
+    }
+    throw noPath;
+   }
    // Round 21: goto() resolves on an EMPTY path (nothing found) as if it had arrived.
    if(!goal.isEnd(bot.entity.position.floored())&&!reached()){
     // Round 22 (round-21 hard2/hard3 stood 8 min on `noPath, 0 steps, 1 nodes` on open ground
@@ -1101,21 +1125,19 @@ export class Worker extends EventEmitter {
     // passed the search's cost cap, so not even the first step was tried. Path again once
     // with avoidance off before treating the bot as boxed in.
     const mv=bot.pathfinder.movements;
-    if(mv?._mobAvoidHook&&Array.isArray(mv.exclusionAreasStep)&&!this._noAvoid){
-     this._noAvoid=true;mv.exclusionAreasStep=mv.exclusionAreasStep.filter(fn=>fn!==mv._mobAvoidHook);mv._mobAvoidHook=null;
-     this.log('Navigation: no path with mob avoidance at '+bot.entity.position.floored()+'; trying without it');
-     try{return await this.navigate(goal,token,seconds);}finally{this._noAvoid=false;}
-    }
+    if(mv?._mobAvoidHook&&Array.isArray(mv.exclusionAreasStep)&&!this._noAvoid)return await this.navigateNoAvoid(goal,token,seconds);
     // Round 22: a search that could not leave its first node is a bot boxed in (a pit it dug,
     // a sealed cell): stair out once toward the goal, then path again.
-    if(/ [12] nodes/.test(last)&&!this._staired){
+    // Round 73: not from a tunnel climb (climbTunnel has its own fallback); the round-72 probe's
+    // night mine pillared 3 up out of its tunnel here and never got home.
+    if(/ [12] nodes/.test(last)&&!this._staired&&!this._ownFallback){
      this._staired=true;
      try{if(await this.stairOut(token,goal))return await this.navigate(goal,token,seconds);}finally{this._staired=false;}
     }
     // Round 44 (round-43 normal2: 153 iron gathers and 75 explores, all `empty path at (369, 137,
     // 35) ... 3 nodes` - a stand with a 3+ drop into a cave on every side, the whole run): with
     // health to spare, path once more allowing drops of up to STRANDED_DROP (3 damage at most).
-    if(/ [0-3] nodes/.test(last)&&!this._deepDrop&&mv&&(bot.health??0)>=STRANDED_HEALTH&&(mv.maxDropDown??3)<STRANDED_DROP){
+    if(/ [0-3] nodes/.test(last)&&!this._deepDrop&&!this._ownFallback&&mv&&(bot.health??0)>=STRANDED_HEALTH&&(mv.maxDropDown??3)<STRANDED_DROP){
      // Round 45 (round-44 normal: `stranded ... allowing drops of up to 6` and still 1 node - a food
      // explore's surfaceFloor sat at the bot's own y and refused every cell below it): the floor
      // drops with it for this one try.
@@ -1144,6 +1166,13 @@ export class Worker extends EventEmitter {
     throw new Error('No path to the goal! (empty path at '+bot.entity.position.floored()+', last path: '+last+')');
    }}
   finally{bot.off('path_update',onPath);clearTimeout(timer);clearInterval(monitor);if(token===this.epoch){bot.pathfinder.setGoal(null);unstickDigging(bot);bot.clearControlStates();}}
+ }
+ // Round 22: path once more with the mob-avoidance step cost off (it can price out every step).
+ async navigateNoAvoid(goal,token,seconds){
+  const bot=this.bot,mv=bot.pathfinder.movements;
+  this._noAvoid=true;mv.exclusionAreasStep=mv.exclusionAreasStep.filter(fn=>fn!==mv._mobAvoidHook);mv._mobAvoidHook=null;
+  this.log('Navigation: no path with mob avoidance at '+bot.entity.position.floored()+'; trying without it');
+  try{return await this.navigate(goal,token,seconds);}finally{this._noAvoid=false;}
  }
  async walk(target,token,range=2,seconds=45){await this.navigate(new goals.GoalNear(target.x,target.y,target.z,range),token,seconds);}
  // Research 4: pathfinder mob avoidance while unarmed or low - creepers are hard-avoided
@@ -2121,17 +2150,19 @@ export class Worker extends EventEmitter {
  // the job's own deadline is SHELTER_EXIT_MARGIN_MS away (a timed-out job leaves the box up).
  shelterExitSafe(){
   if(Number.isFinite(this.deadline)&&this.deadline-Date.now()<SHELTER_EXIT_MARGIN_MS)return true;
-  return leaveRefuge(dayTicks(this.bot),this.nearestHostile(),this.nearestHostile('creeper'));
+  return leaveRefuge(dayTicks(this.bot),this.nearestHostile(),this.nearestHostile(DAY_HOSTILE));
  }
  hostilesWithin(r){
   const b=this.bot,me=b.entity&&b.entity.position;if(!me)return 0;
   return Object.values(b.entities||{}).filter(e=>e&&e!==b.entity&&(e.type==='hostile'||provoked(b,e))&&e.position&&e.isValid!==false&&e.position.distanceTo(me)<=r).length;
  }
- nearestHostile(name){
+ nearestHostile(name){return this.nearestOf(name).d;}
+ // The nearest hostile (or provoked) mob, by name or a name pattern: {d, name}.
+ nearestOf(name){
   const b=this.bot,me=b.entity&&b.entity.position;
-  if(!me)return Infinity;
-  let best=Infinity;
-  for(const e of Object.values(b.entities||{}))if(e&&e!==b.entity&&(e.type==='hostile'||provoked(b,e))&&e.position&&e.isValid!==false&&(!name||e.name===name))best=Math.min(best,e.position.distanceTo(me));
+  let best={d:Infinity,name:null};
+  if(!me)return best;
+  for(const e of Object.values(b.entities||{}))if(e&&e!==b.entity&&(e.type==='hostile'||provoked(b,e))&&e.position&&e.isValid!==false&&(!name||(name instanceof RegExp?name.test(e.name||''):e.name===name))){const d=e.position.distanceTo(me);if(d<best.d)best={d,name:e.name};}
   return best;
  }
  // Shelter blocks held beyond the stone kit's cobble reserve (all of them with reserve=true).
@@ -2385,13 +2416,14 @@ export class Worker extends EventEmitter {
  }
  // Round 72: before the walls come down, wait (sealed) while a creeper is within REFUGE_CLEAR,
  // at most CREEPER_WAIT_MS.
+ // Round 73: a skeleton (any DAY_HOSTILE) holds the walls as a creeper does.
  async waitCreeperClear(token){
-  const until=Date.now()+CREEPER_WAIT_MS;let logged=false;
-  for(let d=this.nearestHostile('creeper');d<=REFUGE_CLEAR&&Date.now()<until;d=this.nearestHostile('creeper')){
-   if(!logged){logged=true;this.log('Shelter: a creeper '+d.toFixed(1)+' away; keeping the walls up');}
+  const until=Date.now()+CREEPER_WAIT_MS;let held=null;
+  for(let n=this.nearestOf(DAY_HOSTILE);n.d<=REFUGE_CLEAR&&Date.now()<until;n=this.nearestOf(DAY_HOSTILE)){
+   if(!held){held=n.name;this.log('Shelter: a '+n.name+' '+n.d.toFixed(1)+' away; keeping the walls up');}
    await sleep(250);this.check(token);
   }
-  if(logged)this.log('Shelter: creeper '+(Number.isFinite(this.nearestHostile('creeper'))?this.nearestHostile('creeper').toFixed(1)+' away':'gone')+'; opening the walls');
+  if(held){const n=this.nearestOf(DAY_HOSTILE);this.log('Shelter: '+(Number.isFinite(n.d)?n.name+' '+n.d.toFixed(1)+' away':held+' gone')+'; opening the walls');}
  }
  // Phase 6b: obtain - plan the full chain with the howto tree, then run it as ordinary
  // verified jobs. The step list and index are persisted, so a restart resumes mid-chain.
@@ -2798,7 +2830,9 @@ export class Worker extends EventEmitter {
   // drowning escape first steps out to a dry stand.
   // Round 38 (round-37 soak: an iron gather submitted 20 times in 30 s, each walking back into the
   // same water and cancelled as a hazard): any job started right after a drowning escape too.
-  if(job.leaveWaterFirst||Date.now()-(this.lastDrownAt||0)<DROWN_RECENT_MS){job.leaveWaterFirst=false;await this.leaveWater(token);this.check(token);}
+  // Round 73 (round-72 hard2: 20 gathers and explores in a row failed `no path` from the lake):
+  // a job that failed for no path while the bot swam makes the next one step out first.
+  if(job.leaveWaterFirst||Date.now()-(this.lastDrownAt||0)<DROWN_RECENT_MS||Date.now()-(this.wetNoPathAt||0)<WET_NOPATH_MS){job.leaveWaterFirst=false;this.wetNoPathAt=0;await this.leaveWater(token);this.check(token);}
   // Surface work never starts down a tunnel another job was stopped in: climb it first.
   if(STRANDED_CLIMB.has(spec.type)){
    const points=this.takeStrandedTunnel();
@@ -3560,6 +3594,7 @@ export class Worker extends EventEmitter {
   // the tunnel: stop climbing there rather than chase the next step from further away.
   b.pathfinder.searchRadius=CLIMB_DETOUR;
   let failed=false; // the lost check starts after a failed step (a strip mine ends off the staircase)
+  const ownWas=this._ownFallback;this._ownFallback=true;
   try{
    for(let i=tunnel.length-1;i>=0;i--){
     this.check(token);
@@ -3567,6 +3602,9 @@ export class Worker extends EventEmitter {
     if(failed&&b.entity.position.distanceTo(new Vec3(point.x+.5,point.y,point.z+.5))>CLIMB_LOST)throw Error('Left the tunnel at '+b.entity.position.floored()+' ('+point.x+','+point.y+','+point.z+' is out of reach)');
     // A diagonal 1-up step is 1.41 away, so the skip threshold must stay below that.
     if(b.entity.position.floored().distanceTo(new Vec3(point.x,point.y,point.z))<=0.9)continue;
+    // Round 73 (the round-72 probe's night mine: `step 3002,-63,0 failed` from (3002, -62, 0)): the
+    // bot standing on the cell, one over it, is past it - that cell is filled.
+    {const f=b.entity.position.floored();if(f.x===point.x&&f.z===point.z&&f.y===point.y+1)continue;}
     try{await this.navigate(goal,token,10);}
     catch(e){
      this.check(token);
@@ -3582,7 +3620,7 @@ export class Worker extends EventEmitter {
      finally{if(token===this.epoch)b.pathfinder.setMovements(this.movements);}
     }
    }
-  }finally{b.pathfinder.searchRadius=prevRadius;if(token===this.epoch)b.pathfinder.setMovements(previous);}
+  }finally{this._ownFallback=ownWas;b.pathfinder.searchRadius=prevRadius;if(token===this.epoch)b.pathfinder.setMovements(previous);}
  }
  // Pick the first recipe variant whose ingredients the inventory actually satisfies, and
  // rewrite planks-family ingredients to the held species: minecraft-data lists one variant
@@ -4173,14 +4211,27 @@ export class Worker extends EventEmitter {
   for(const [x,z] of dirs){
    const k=x+','+z;if(seen.has(k)||(!x&&!z))continue;seen.add(k);
    const d=new Vec3(x,0,z),job={tunnel:[],handDig:true};let n=0;
-   for(;n<STAIR_OUT;n++){
+   // Round 73: n counts the steps taken - a first step onto an open side broke out with n 0 and
+   // was taken for no step at all (the next direction then dug on from the new stand).
+   while(n<STAIR_OUT){
     this.check(token);
-    try{await this.tunnelStep(job,token,d,1,false,undefined,true);}
+    // Round 73 (the probe's cobble_box_bare dug 4 sides by hand and never rose; every stair-out
+    // before it, pickaxe or not, said `no way to stair out`): a step up lifts the head into the
+    // cell over it, and the box's roof is there. Clear it first, unless what is above would fall.
+    try{
+     const top=b.entity.position.floored().offset(0,2,0),roof=b.blockAt(top),over=b.blockAt(top.offset(0,1,0));
+     if(roof?.boundingBox==='block'){
+      if(roof.name==='bedrock'||isGravity(over)||isFluid(over))throw Error('Tunnel stopped: '+(roof.name==='bedrock'?'bedrock':over.name)+' over the head at '+top);
+      await this.clearCells(token,[top],undefined,true,job);
+     }
+     await this.tunnelStep(job,token,d,1,false,undefined,true);
+    }
     catch(e){this.check(token);if(/^Tunnel stopped|stalled/.test(e.message))break;throw e;}
+    n++;
     const f=b.entity.position.floored(),open=[[1,0],[-1,0],[0,1],[0,-1]].some(([ox,oz])=>{const a=b.blockAt(f.offset(ox,0,oz)),h=b.blockAt(f.offset(ox,1,oz));return a&&h&&a.boundingBox!=='block'&&h.boundingBox!=='block'&&!(ox===-x&&oz===-z);});
     if(open)break;
    }
-   if(n){this.log('Boxed in at '+start+': dug '+(n+1>STAIR_OUT?STAIR_OUT:n+1)+' steps up '+(x?(x>0?'east':'west'):(z>0?'south':'north'))+' to '+b.entity.position.floored());return true;}
+   if(n){this.log('Boxed in at '+start+': dug '+n+' steps up '+(x?(x>0?'east':'west'):(z>0?'south':'north'))+' to '+b.entity.position.floored());return true;}
   }
   this.log('Boxed in at '+start+': no way to stair out');
   return false;
@@ -4231,7 +4282,6 @@ export class Worker extends EventEmitter {
  }
  async leaveWater(token){
   const b=this.bot,at=p=>b.blockAt(p),f=b.entity.position.floored();
-  const wetCell=bl=>!!bl&&/water|bubble_column|seagrass|kelp/.test(bl.name);
   if(!wetCell(at(f))&&!wetCell(at(f.offset(0,1,0))))return;
   let best=null,bd=Infinity;
   // Round 71: 12 out, not 6 - with the swim-out moves a far bank is reachable (round-70 hard3).

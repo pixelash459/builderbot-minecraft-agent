@@ -24,6 +24,7 @@ export const stillNight=tod=>tod!=null&&(tod>=DUSK_PREP||tod<MORNING_SAFE);
 // Round 72 (round-71 hard2: opened at tod 3000 with the nearest hostile 10.9 away - the late
 // rule let it go - and a creeper reached the bot 20 s later, blown up): a creeper does not burn
 // by day, so one within REFUGE_CLEAR holds the refuge until CREEPER_LATE, then within REFUGE_WALL.
+// Round 73: `creeper` is the nearest day hostile (the caller adds shaded skeletons).
 export const CREEPER_LATE=6000;
 export function leaveRefuge(tod,nearest=Infinity,creeper=Infinity){
  if(tod==null)return true; // no clock: nothing to wait for
