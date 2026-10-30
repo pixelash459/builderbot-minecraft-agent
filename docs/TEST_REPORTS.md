@@ -13714,3 +13714,238 @@ shelter_hole         complete      18.2s  Completed and verified
 Same 9 of 11 as rounds 66, 67, and 69. `cobble_box_bare` still fails on the tool message. `chest_spot_blocked` still fails occupied by cobblestone. `resealed_after` is still 4.0 s. `opened_after` 18.2 s (round 69 was 20.1 s). Pit 10.1 s (round 69 was 6.0 s). `repeated_errors` empty on every scenario.
 
 After the probe the world is `level-name=agent-test-world`, `level-type=minecraft:flat` / flat, `difficulty=peaceful`, `server-ip=0.0.0.0`. The model stayed off and port 8081 stayed closed. The source folder `test-server/nitrous-copy-20261029` was not edited. Its directory mtime is still 2026-10-29 01:19:43 IST.
+
+## 2026-10-30 03:06 IST – 2026-10-30 06:18 IST — round 71 soak on the Nitrous world copy (bot code `c88bd69`)
+
+This soak is the round-71 bot code `c88bd69` (`Round 71: let the pathfinder climb out of deep water onto a bank at most 1 over the surface, scan 12 out for a dry stand, and name the eye height on the sink-guard line`). HEAD for the run is `f9c140e` (docs-only descendant of `c88bd69`; bot code under test is `c88bd69`). No combat and no integration. Units on this PC before the soak: 705 pass, 0 fail (round 70 live was 699 pass / 0 fail; this is 6 more, and 0 fail). Model off. `logs/supervisor.log` first line is `model server disabled (config.model.enabled=false): skipping llama-server, saving ~6.5 GB commit`. Port 8081 stayed closed. `SOAK_SEED` was unset (the launch printed `SOAK_SEED=[]` and `NIGHT_SKIP_UNSET`; `SOAK_NIGHT_SKIP` was not set; the harness default is 150 s). The source folder was not opened and was not edited. Its directory mtime is still 2026-10-29 01:19:43 IST.
+
+`reset the bot world memory (storage, home, ledger)`
+
+`soak world copy D:\Usefu Shi\Epic\SGSMP\minecraft-agent\test-server\nitrous-copy-20261029 (anchors scouted from spawn)`
+
+`copied the soak world from D:\Usefu Shi\Epic\SGSMP\minecraft-agent\test-server\nitrous-copy-20261029`
+
+The log says a world copy, not a soak seed. Spawn was not set by hand.
+
+`scout base: the spawn at [694, 64, -437]`
+
+`scout: HARD anchor confirmed (gather completed, canopy light 15) at [705, 71, -425]`
+
+`scout: NORMAL anchor confirmed (open sky 15, gather completed) at [722, 71, -424]`
+
+There was **no** `scout: trying the normal anchor an earlier soak confirmed on this world at ...` line this soak. The scout confirmed a new normal at `[722, 71, -424]` (sky 15) without printing a prior-anchor retry. Round 70 had tried `[712, 71, -427]` first and confirmed it.
+
+Round 67 on this copy, bot `f238884`, scouted spawn `[705, 63, -438]`, hard `[711, 71, -425]` (canopy light 15), normal `[712, 71, -427]` (sky 14). Round 69, bot `0adb70f`, scouted spawn `[698, 63, -437]`, hard `[704, 71, -423]` canopy light 0, normal `[712, 71, -427]` sky 14. Round 70, bot `beed76a`, scouted spawn `[699, 67, -432]`, hard `[704, 71, -423]` canopy light 15, normal `[712, 71, -427]` sky 14. This hard anchor `[705, 71, -425]` matches round 67's hard block; canopy light 15. Spawn this scout is `[694, 64, -437]`. The normal anchor is new at `[722, 71, -424]`, not the round-67/69/70 point. Rounds 64, 65, and 66 were seed `20261027`, a different world.
+
+The harness window is `2026-10-29T21:36:32Z` to `2026-10-30T00:48:03Z` (03:06 IST to 06:18 IST on 2026-10-30), 11491 s. Six valid runs, `tod_end` day/day/day/dusk/day/day. `errors` is empty on every run. The harness printed `clean triple promoted to data/soak-results.json` and `SOAK DONE (clean)`. Harness deaths are 0/0/0/0/1/0 (1 total). Round 70 on this copy was iron on 4 of 6, 0 deaths, hard wood 332/271/301. Round 67 on this copy was iron on 1 of 6 and 13 harness deaths. This copy reached iron on 3 of 6, a diamond pick on normal3, hard wood times 241/362/874, and died once (hard2).
+
+### Rungs
+
+```
+run       | wood | stone pick | furnace | iron pick | torches | armour worn | bed  | diamonds | diamond pick | food                       | deaths
+normal1a1 | 151  | 181        | 271     | 512       | 19      | 3 at 1266   | -    | 0        | -            | ate 3                      | 0
+normal2a2 | 241  | 331        | 422     | 783       | 16      | 4 at 1536   | -    | 0        | -            | ate 3                      | 0
+normal3a3 | 241  | 452        | 542     | 843       | 16      | 2 at 1506   | 1717 | 3        | 2379         | ate 3                      | 0
+hard1a1   | 241  | 301        | 391     | -         | 8       | 0           | -    | 0        | -            | ate 1                      | 0
+hard2a2   | 362  | 452        | -       | -         | 0       | 0           | -    | 0        | -            | no food held (food min 6)  | 1
+hard3a3   | 874  | 934        | -       | -         | 1       | 0           | -    | 0        | -            | no food held (food min 12) | 0
+```
+
+Iron picks were reached on 3 of 6 (normal1 at 512 s, ore peak 7, ingot peak 8; normal2 at 783 s, ore peak 5, ingot peak 8; normal3 at 843 s, ore peak 3, ingot peak 6). Round 70: 4 of 6. Round 67: 1 of 6. Diamond peak 3 and a diamond pick on normal3 at 2379 s (round 70: diamond pick on normal2 at 2349 s). A bed was crafted on normal3 at 1717 s. Hard wood times 241/362/874 (round 70: 332/271/301; round 69: never). hard2's wood_at is 362 but `wood=False` at the end after the death wiped the bag. Food mins 15/14/15/15/6/12. Night skips 0/0/0/1/1/1.
+
+### NEW swimming out (round 71)
+
+Every `Water: head under` line in the soak window, quoted whole (none of them used the new `head block ... at eye y ...` ending; all say `isInWater true` without naming eye height):
+
+`2026-10-29T22:00:11.620Z Water: head under for 8 s at (710, 58, -477) with no swim-up; holding jump (air 9, isInWater true) (job none, chain User Tasks)`
+
+`2026-10-29T22:45:17.514Z Water: head under for 8 s at (779, 54, -515) with no swim-up; holding jump (air 10, isInWater true) (job craft, chain User Tasks)`
+
+`2026-10-29T22:45:28.919Z Water: head under for 8 s at (779, 54, -515) with no swim-up; holding jump (air 10, isInWater true) (job craft, chain User Tasks)`
+
+`2026-10-29T22:45:44.521Z Water: head under for 8 s at (778, 53, -515) with no swim-up; holding jump (air 9, isInWater true) (job craft, chain User Tasks)`
+
+`2026-10-30T00:21:54.821Z Water: head under for 8 s at (763, 57, -435) with no swim-up; holding jump (air 10, isInWater true) (job none, chain Mob Defense)`
+
+`2026-10-30T00:23:16.321Z Water: head under for 8 s at (761, 59, -437) with no swim-up; holding jump (air 9, isInWater true) (job none, chain Mob Defense)`
+
+`2026-10-30T00:23:28.775Z Water: head under for 8 s at (756, 59, -446) with no swim-up; holding jump (air 10, isInWater true) (job none, chain Mob Defense)`
+
+`Water: stepped out to P`: **0** lines.
+
+`Water: could not step out`:
+
+`2026-10-29T22:45:47.986Z Water: could not step out (The goal was changed before it could be completed!)`
+
+`2026-10-29T22:46:08.953Z Water: could not step out (Navigation timed out at (779, 55, -515) (onGround false, las)`
+
+`no dry stand within 12`: **0** lines (also no `no dry stand within 6`).
+
+#### 30+ s water stretches
+
+1. **normal2 at (779, 54/-55, -515), ~51 s** (22:45:17Z–22:46:08Z). Job `craft` on User Tasks, then drowning swim-up. Errors: two `could not step out` (goal changed; navigation timed out still `onGround false`). Ended still wet at (779, 55, -515); no `stepped out to` bank line; first dry stand not logged.
+
+2. **hard2 near spawn water (763/761/756, 57–59, -435/-437/-446), ~95 s** (00:21:54Z–00:23:29Z) after the death resume. Chain Mob Defense / flee crowds with drowned in the list. Three head-under + three drowning swim-ups. Then `2026-10-30T00:23:34.871Z Fall: dropping from (749, 66, -449) (job none, pathing false, sprint true)`. No `stepped out to` line. No-path while this water stretch was latched: 5 (see below).
+
+No other 30+ s water stretch. normal1's single head-under at (710, 58, -477) did not chain into a long stretch.
+
+### No-path counts (incl. in water)
+
+`Job: no path for ...` total **58** (normal2 3, normal3 8, hard1 1, hard2 14, hard3 32). Round 70 hard3 had 26 no-path in its last 3 min afloat; this soak's hard3 had 32 no-path mostly on land gather/explore GoalXZ, not a deep-water park.
+
+While a head-under/drowning latch was active (hard2 only): **5** no-path lines, all GoalXZ gather/explore near (759–763, 62–66, -439/-446).
+
+Grouped by run + job + goal (GoalNear buckets within 3):
+
+- hard3 `gather log` GoalXZ: 24
+- hard2 `gather log` GoalXZ: 10
+- hard3 `explore` GoalXZ: 8
+- normal3 `gather log` GoalXZ: 6
+- hard2 `explore` GoalXZ: 4
+- normal3 `explore` GoalXZ: 2
+- normal2 `goto` GoalNear ~801,63,-513: 2
+- normal2 `use bucket` GoalNear ~777,54,-513: 1
+- hard1 `gather iron_ore` GoalXZ: 1
+
+### Falling air and drowning (round-70 again)
+
+`WorldSurvival: air falling` logged **0** times (round 70: 0; round 69: 908). Grep: window filter on `logs/dashboard.log` for substring `WorldSurvival: air falling` between `2026-10-29T21:36:00Z` and `2026-10-30T00:48:00Z`.
+
+`WorldSurvival: drowning (air N)` logged 4 times (1 on normal2, 3 on hard2). Every first drowning line is air 8 with an immediate `open water N up` swim.
+
+`Job: Reflex: preempted by Misc World Survival Chain` logged **1** time (normal2 only; round 70 completed report: 4; round 69: 435). The three lines at that moment were Pause trace / Reflex / Job Reflex; only one is the Job: form.
+
+No roof dig line. No `the roof dig at ... failed` line.
+
+### Round-69 scout retry and food fights
+
+No prior-anchor `trying the normal anchor...` line (round 70 had one and confirmed it). Food fights are melee on sheep/pig/cow/chicken; examples:
+
+`2026-10-29T21:47:51.043Z Fight result: cow tactic=melee hits=3 ... result=finished`
+
+`2026-10-29T22:08:38.669Z Fight result: sheep tactic=melee hits=3 ... result=finished`
+
+`2026-10-29T23:58:44.422Z Fight result: pig tactic=melee hits=2 ... result=finished`
+
+One late `Fight result: sheep ... result=stopped` on hard3. No `avoid never fight unarmed` / unarmed avoid vs prey.
+
+### Round-68 checklist
+
+No `Unknown item` line. No gather target named `stripped_*`. Plank crafts name real planks (`oak_planks`, `cherry_planks`) with log gathers. `wood failed 3 times` counts: normal1 0, normal2 0, normal3 3, hard1 1, hard2 5, hard3 12 (round 70: 0/0/3/1/2/9; round 67: 0/29/26/10/14/16). No unarmed avoid vs prey. `Water: head under` quoted above; no swim-up on those sink-guard lines until the separate drowning latch. One death (hard2), not in water: see Deaths.
+
+### Builds
+
+No `Dig: broke` line. Home chests **placed** (not found): `Autopilot: home chest placed at 788,79,-598` (normal1) and `853,90,-555` (normal3). No found-furnace / found-bed / crop line. Shelter seals:
+
+`2026-10-29T23:52:26.850Z Shelter: sealed at (794, 78, -569) (10 blocks placed)`
+
+`2026-10-30T00:04:20.320Z Shelter: sealed at (740, 61, -595) (4 blocks placed)`
+
+`2026-10-30T00:14:44.063Z Shelter: sealed at (817, 88, -570) (22 blocks placed)`
+
+`2026-10-30T00:36:43.656Z Shelter: sealed at (869, 99, -434) (15 blocks placed)`
+
+`Navigation: stranded` / `Boxed in` several times (stair digs). hard1: `Job: Could not climb toward the surface from y=90` after morning-in-a-cave, then a second seal. Spawn/anchors vs builds: hard `[705,71,-425]`, normal `[722,71,-424]`; placed chests are farther south-west on higher ground.
+
+### Running
+
+`Movement: sprinting` weighted share with food>6: normal1 100% (372 s), normal2 99.2% (333 s), normal3 100% (341 s), hard1 100% (151 s), hard2 99.7% (130 s), hard3 97.4% (207 s). No food≤6 sprint line. Fall/Ledge:
+
+`2026-10-29T23:58:05.275Z Ledge guard: stopped at (746, 76, -583) (a 5+ drop ahead)`
+
+`2026-10-30T00:23:34.871Z Fall: dropping from (749, 66, -449) (job none, pathing false, sprint true)`
+
+`2026-10-30T00:25:38.672Z Fall: dropping from (759, 78, -599) (job gather, pathing true, sprint true)`
+
+#### PACKET_RATE (counted once)
+
+Grep used (soak window only):
+
+```
+python: read logs/dashboard.log; keep lines whose leading ISO timestamp is in
+[2026-10-29T21:36:00Z, 2026-10-30T00:48:00Z]; count lines containing the literal substring PACKET_RATE.
+```
+
+Equivalent: `Select-String -Path logs/dashboard.log -Pattern 'PACKET_RATE'` then drop rows outside that window.
+
+Result: **0** matches total. Per run: normal1 0, normal2 0, normal3 0, hard1 0, hard2 0, hard3 0. Round 70's two overlapping write-ups disagreed (0 vs ~26); the completed round-70 section counted 1/8/9/2/5/1 from its own window. This soak's window count is 0. No kick.
+
+### Windows / placing / store
+
+No stale-window close line. Store:
+
+`2026-10-29T23:25:16.338Z Store: no chest for stone (no free spot on the storage row)`
+
+`2026-10-29T23:25:16.339Z Store: put away nothing (0 storage chests)`
+
+No 8+ min silent job called out. Inventory/cobble set-asides (5 min) several times on normal2. Bed set aside 10 min twice (`no sheep after 3 search legs`).
+
+### Food search
+
+Animals fought: cow, chicken, sheep, pig (melee). Food mins 15/14/15/15/6/12. hard2/hard3 ended with no food held. End health from last samples stayed 20 on the three normals and hard1/hard3; hard2 was 15.8 after the death resume. No food-0 sample.
+
+### Harness
+
+No `head in a wall`. No `suffocated`. No setup fill error. Interventions: hard1 night skip; hard2 night skip + resume after death; hard3 night skip.
+
+### Pickaxes / tunnel / underground
+
+`Tunnel needs a suitable tool` twice on normal1 for deepslate (`22:18:38Z`, `22:18:43Z`). Stone/iron picks crafted on the iron runs. Spare wooden tools kept when nowhere to throw; several `Craft: dropped the wooden_*` then `came back` / keeping 5 min. No long underground sit with an 8-minute dashboard gap called out.
+
+### Water (round 64 checklist)
+
+No air-pocket swim line. No roof dig. No flooded-furnace leave. Drowning lines are the four above. No drowning death.
+
+### Spare tools, pillars, retreats, ice, night, drops, storage
+
+Spare tools kept when nowhere to throw. `Job: Dropped cobblestone came back into the inventory` several times. No `retreated from`. No ice stand line. No Threat / warden / lava line. Mob caves:
+
+`2026-10-29T23:50:42.694Z Autopilot: a mob cave (14 hostiles within 24 at (794, 77, -569) (sky 0, surface 90)); its ores set aside for 20 min, climbing out`
+
+`2026-10-30T00:13:04.515Z Autopilot: a mob cave (7 hostiles within 24 at (819, 81, -561) (sky 0, surface 90); leaving); its ores set aside for 20 min, climbing out`
+
+Night-box sealed_s from harness night skips: hard1 160 s (~2.7 min), hard2 161 s (~2.7 min), hard3 150 s (~2.5 min). hard1 also sealed a second box at (740, 61, -595) near run end after failing the climb from the first cave seal. hard2 died ~23 s after opening the (817, 88, -570) box (`Shelter: morning ... opening up` at 00:19:05Z, death at 00:19:28Z).
+
+`data/storage.json` after the reset / at end of soak: `{"chests": []}`. Ledger at end of soak before the probe held a small stone/cobble residue from play (not re-quoted here beyond the Store lines).
+
+### Deaths
+
+One harness death, hard2:
+
+`2026-10-30T00:19:05.521Z Shelter: morning (tod 3000, nearest hostile 10.9); opening up`
+
+`2026-10-30T00:19:25.170Z Reflex: fleeing creeper (never melee a creeper)`
+
+`2026-10-30T00:19:28.287Z Bot died at 820, 87, -570 (killed by zombie)`
+
+Harness `death_causes` also records `System chat: BuilderBot was blown up by Creeper`. Not in water; not right after a swim. 2 min before: still sealed / dawn stay / morning open at the night box.
+
+### Disconnects and uncaught
+
+`logs/dashboard-uncaught.log`: **0** new timestamped lines in the soak window. Disconnects are the soak's own service restarts (`Disconnected by user` / `ECONNREFUSED` while the world copy came up, and `Server closed` at stop). No kick. Job text repeated 10+: `Job: No path to the goal!` 57 times (counted, not each quoted). `Navigation: no path with mob avoidance` counted not quoted: scout 158, normal1 108, normal2 81, normal3 141, hard1 74, hard2 101, hard3 92 (total 755).
+
+### Verdict
+
+All 6 runs valid, IST 03:06–06:18 on 2026-10-30, duration 11491 s, `SOAK DONE (clean)`, promoted. Iron 3 of 6 (round 70: 4; round 67: 1). Deaths 1 (round 70: 0; round 67: 13). Hard wood 241/362/874 (round 70: 332/271/301). Air falling 0. Misc Survival Job preempts 1. Swim-out: no `stepped out to` success line; two `could not step out` on normal2; five no-path while hard2's post-death water latch was active. PACKET_RATE 0/0/0/0/0/0 with the grep above.
+
+### Obstructions
+
+The probe ran after the flat world was restored, services up, model off (`2026-10-30T00:48:25Z`–`00:52:58Z`). All 11 scenarios to completion (round 70's incomplete write-ups stopped after 3; the completed round-70 section finished all 11). Wrote `data/obstruction-results.json` (`at: 2026-10-30T06:22:57`). Printed table:
+
+```
+cobble_wall          complete       4.0s  Completed and verified
+plank_wall_long      complete      14.1s  Completed and verified
+door_wall            complete      14.1s  Completed and verified
+cobble_box_pick      complete      12.1s  Completed and verified
+cobble_box_bare      failed         2.0s  Tunnel needs a suitable tool in the inventory for cobblestone
+plank_box            complete      12.1s  Completed and verified
+glass_box            complete      10.0s  Completed and verified
+pit                  complete      10.1s  Completed and verified
+chest_spot_blocked   failed         2.0s  Cannot place at (2802, -60, 0): occupied by cobblestone
+chest_spot_flower    complete       2.0s  Completed and verified
+shelter_hole         complete      20.1s  Completed and verified
+```
+
+Same 9 of 11 as rounds 66, 67, and 69. `cobble_box_bare` still fails on the tool message. `chest_spot_blocked` still fails occupied by cobblestone. `resealed_after` 4.0 s. `sealed_after` 64.1 s. `opened_after` 20.1 s (round 70 completed: 18.2 s; round 69: 20.1 s). Pit 10.1 s. `repeated_errors` empty on every scenario. Shelter hole still could not climb home (`the night mine could not climb home; bot at (3000, -60, -1)`), then resealed where it stood.
+
+After the probe the world is `level-name=agent-test-world`, `level-type=minecraft:flat` / flat, `difficulty=peaceful`, `server-ip=0.0.0.0`. The model stayed off and port 8081 stayed closed. The source folder `test-server/nitrous-copy-20261029` was not edited. Its directory mtime is still 2026-10-29 01:19:43 IST.
