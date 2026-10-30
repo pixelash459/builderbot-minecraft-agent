@@ -56,7 +56,8 @@ export function waterAbove(bot,max=24){
 // null. A pocket beats a roof dig: a few swum cells take a second or two.
 export const POCKET_MAX=8;
 const WATERY=/^(water|bubble_column|seagrass|tall_seagrass|kelp|kelp_plant)$/;
-export function airPocket(bot,max=POCKET_MAX){
+// Round 74: `stuck` - the head cell's column the bot could not rise in; its way up is not taken.
+export function airPocket(bot,max=POCKET_MAX,stuck=null){
  const p=bot.entity?.position;if(!p||!bot.blockAt)return null;
  const start=new Vec3(Math.floor(p.x),Math.floor(p.y+1.6),Math.floor(p.z));
  const key=v=>v.x+','+v.y+','+v.z,seen=new Set([key(start)]);
@@ -67,6 +68,7 @@ export function airPocket(bot,max=POCKET_MAX){
    const c=path[path.length-1];
    for(const[dx,dy,dz]of[[0,1,0],[1,0,0],[-1,0,0],[0,0,1],[0,0,-1]]){
     const n=c.offset(dx,dy,dz),k=key(n);
+    if(dy===1&&stuck&&n.x===stuck.x&&n.z===stuck.z)continue;
     if(seen.has(k))continue;seen.add(k);
     const bl=bot.blockAt(n);if(!bl)continue;
     if(dy===0){const body=bot.blockAt(n.offset(0,-1,0));if(!body||body.boundingBox==='block'||/lava/.test(body.name))continue;}
@@ -78,6 +80,11 @@ export function airPocket(bot,max=POCKET_MAX){
  }
  return null;
 }
+// Round 74 (round-73 normal1: `open water 2 up (air 6); swimming straight up` at (710, 60, -420),
+// then 21 s holding jump at the same y and drowned - a pit beside its crafting table): straight up
+// that has not lifted the bot NO_RISE_BLOCKS in NO_RISE_MS is given up for that column; the
+// pocket search then swims round it.
+export const NO_RISE_MS=3000,NO_RISE_BLOCKS=0.5;
 export const headUnderWater=bot=>{const p=bot.entity?.position;if(!p||!bot.blockAt)return false;const h=bot.blockAt(new Vec3(Math.floor(p.x),Math.floor(p.y+1.6),Math.floor(p.z)));return !!h&&/water|bubble_column/.test(h.name);};
 export class GetOutOfWaterTask extends Task {
  constructor({maxSeconds=30,radius=16,ctx=null}={}){
@@ -103,14 +110,23 @@ export class GetOutOfWaterTask extends Task {
   // the reading stale at 17.8): the air no longer gates it, it is only logged.
   if(headUnderWater(bot)){
    if(!this.upAt||Date.now()-this.upAt>=250){this.up=waterAbove(bot,24);this.upAt=Date.now();} // 4 scans a second at most
-   const up=this.up;
-   if(up&&up.open!=null){
+   const up=this.up,me=bot.entity.position,col={x:Math.floor(me.x),z:Math.floor(me.z)};
+   const stuckHere=this.stuck&&this.stuck.x===col.x&&this.stuck.z===col.z;
+   if(up&&up.open!=null&&!stuckHere){
+    const r=this.rise;
+    if(!r||r.x!==col.x||r.z!==col.z||me.y>=r.y+NO_RISE_BLOCKS)this.rise={x:col.x,z:col.z,y:me.y,at:Date.now()};
+    else if(Date.now()-r.at>=NO_RISE_MS){
+     this.stuck=col;this.pocketAt=0;this.pocketLogged=false;
+     const w=ctx?.worker;try{w?.log?.('WorldSurvival: no rise in '+(NO_RISE_MS/1000)+' s swimming up at '+me.floored()+' (air '+air+'); swimming round it');}catch{}
+    }
+   }
+   if(up&&up.open!=null&&!(this.stuck&&this.stuck.x===col.x&&this.stuck.z===col.z)){
     if(this.navPromise){move.cancel(ctx);this.navPromise=null;}
     move.setControls(ctx,{jump:true,forward:false,sprint:false});
     if(!this.upLogged){this.upLogged=true;const w=ctx?.worker;try{w?.log?.('WorldSurvival: open water '+up.open+' up (air '+air+'); swimming straight up');}catch{}}
     return null;
    }
-   if(!this.pocketAt||Date.now()-this.pocketAt>=250){this.pocket=airPocket(bot);this.pocketAt=Date.now();}
+   if(!this.pocketAt||Date.now()-this.pocketAt>=250){this.pocket=airPocket(bot,POCKET_MAX,this.stuck);this.pocketAt=Date.now();}
    const pk=this.pocket;
    if(pk&&!this.digging){
     if(this.navPromise){move.cancel(ctx);this.navPromise=null;}

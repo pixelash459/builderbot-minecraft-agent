@@ -1116,6 +1116,13 @@ export class Worker extends EventEmitter {
      this.log('Navigation: no path from the water at '+bot.entity.position.floored()+' within the search budget; searching '+WATER_SEARCH_RADIUS);
      try{return await this.navigate(goal,token,seconds);}finally{bot.pathfinder.searchRadius=was;this._wideSearch=false;}
     }
+    // Round 74 (round-73 normal1 drowned in the pit its own stone gather flooded at (709, 60, -420):
+    // the 320 search failed in 60 ms too - walled in, not out of budget - nine times, while the
+    // stair-out that once got it out ran only from an empty path): stair out of the water once.
+    if(inWater(bot)&&!this._staired&&!this._ownFallback){
+     this._staired=true;
+     try{if(await this.stairOut(token,goal))return await this.navigate(goal,token,seconds);}finally{this._staired=false;}
+    }
     throw noPath;
    }
    // Round 21: goto() resolves on an EMPTY path (nothing found) as if it had arrived.
@@ -2045,6 +2052,15 @@ export class Worker extends EventEmitter {
   catch(e){this.check(token);this.log('Night mine: could not climb back into '+origin+': '+e.message);}
   finally{if(token===this.epoch)b.pathfinder.setMovements(prev);}
   if(home())return true;
+  // Round 74 (round-73 hard1 and hard3, and the probe's shelter_hole: `not back in the shelter ...
+  // bot at (812, 87, -531), the box is at (811, 87, -531)` - one step from the cell at its level,
+  // the hand walk found no tunnel point within 2 and gave up at once; the new box went up one
+  // over, in the box's own wall): beside the cell, step in.
+  {const p=feet();if(p.y===origin.y&&Math.abs(p.x-origin.x)+Math.abs(p.z-origin.z)===1){
+   this.log('Night mine: one step from the shelter at '+p+'; stepping in');
+   await this.walkTunnelBack([origin],token);
+   if(home())return true;
+  }}
   const inSump=()=>{const p=feet();return p.x===origin.x&&p.z===origin.z&&p.y<origin.y&&p.y>=origin.y-3;};
   if(!inSump()){
    this.log('Night mine: walking the tunnel back by hand from '+feet());
@@ -3801,11 +3817,19 @@ export class Worker extends EventEmitter {
   const b=this.bot;
   // One table within 6 blocks serves every craft (the soak's normal1 placed one and then
   // burned 15 jobs re-placing): walk to it instead of placing a second one.
+  // Round 74 (round-73 normal1: the table it placed at (711, 60, -420) in a pit that then flooded;
+  // every craft after walked back down to it into the water, five times in 90 s, and it drowned
+  // there): a table with water against it is passed over, and a new one placed where the bot is -
+  // when the bag holds a table or the planks for one (else every craft would fail on it).
+  const spare=this.count('crafting_table')>0||!!this.usableRecipe(b,this.recipeVariants(b,b.registry.itemsByName.crafting_table.id,null),null);
+  const dry=t=>!t||!spare||!floodedAround(b,t.position);
   let existing=b.findBlock({matching:b.registry.blocksByName.crafting_table.id,maxDistance:6});
+  if(existing&&!dry(existing)){this.log('Craft: the crafting table at '+existing.position+' stands in water; placing another');existing=null;}
   if(existing){
    if(b.entity.position.distanceTo(existing.position)>3){
     try{await this.walk(existing.position,token,2,15);}catch(e){this.check(token);}
-    existing=b.findBlock({matching:b.registry.blocksByName.crafting_table.id,maxDistance:6})||existing;
+    const near=b.findBlock({matching:b.registry.blocksByName.crafting_table.id,maxDistance:6});
+    if(near&&dry(near))existing=near;
    }
    return {block:existing,created:null};
   }
@@ -3816,7 +3840,7 @@ export class Worker extends EventEmitter {
   const left=this.leftTable;
   if(left&&!this.count('crafting_table')){
    const at=new Vec3(left.x,left.y,left.z),bl=b.blockAt(at);
-   if(bl&&bl.name==='crafting_table'&&b.entity.position.distanceTo(at)<=32){
+   if(bl&&bl.name==='crafting_table'&&b.entity.position.distanceTo(at)<=32&&dry(bl)){
     try{await this.walk(at,token,3,30);}catch(e){this.check(token);}
     if(b.entity.position.distanceTo(at.offset(0.5,0.5,0.5))<=4.5)return {block:b.blockAt(at),created:null};
     this.log('Craft: could not get back to the crafting table at '+at+'; forgetting it');

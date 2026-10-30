@@ -1,7 +1,7 @@
 """Autopilot soak on a normal-terrain world (agent-soak-world, seed SOAK_SEED - default 8675309,
 mixed biomes; 12345 is the measured dark-forest world of rounds up to 49): 3 normal runs of
-40 minutes (NORMAL_SECONDS, frozen daylight) and 3 hard runs of ~21 minutes (HARD_SECONDS,
-natural time from dawn).
+40 minutes (NORMAL_SECONDS, frozen daylight) and 3 hard runs of 40 minutes (HARD_SECONDS,
+natural time from dawn; SOAK_HARD_SECONDS overrides it).
 Every run is made fair and reproducible by resetting the same five things at its start:
 dawn (time set 0), clear weather, an empty inventory, the bot teleported to the world's
 join point (the fixed canopy spawn for this seed), and full vitals - instant health plus
@@ -253,10 +253,11 @@ def run_log(run):
 # Normal runs ended at 600 s still on the food step (soak 2026-10-14 18:44), so the iron step
 # was never measured: 1200 s from the frozen-day start left it room. Round 9: the iron pickaxe
 # lands at 15-20 min, right at the 1200 s bell, so the rung after it (torches, worn armour,
-# bed, diamonds) could never be measured - normal runs are 2400 s. Hard runs stay 1250 s
-# (dawn to past the first night).
+# bed, diamonds) could never be measured - normal runs are 2400 s. Hard runs were 1250 s
+# (dawn to past the first night) until round 74: the round-71..73 hard runs ran out of time
+# before the furnace and the iron step, so they now run 2400 s too - two natural nights.
 NORMAL_SECONDS=2400
-HARD_SECONDS=1250
+HARD_SECONDS=int(os.environ.get('SOAK_HARD_SECONDS','2400'))
 IRON_KEYS=('iron_ore','ingots','iron_pick')
 def iron_sample(inv):
     # Raw iron is what an iron_ore / deepslate_iron_ore dig drops; the ore item itself only

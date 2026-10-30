@@ -53,7 +53,8 @@ assert sm['food_runs']==1 and sm['eaten']==[2,0] and sm['cooked']==[3,0] and sm[
 assert sm['food_due']==[2,0] and sm['food_failed']==[0,0] and sm['food_min']==[10,None] and sm['food_max']==[20,None] and sm['food_verdict']==['ate 2',None],sm
 assert sm['food_attempts']==[0,0] and sm['food_deferred']==[0,0],sm
 # Iron columns (round 3): normal runs are long enough to reach the iron step now.
-assert m.NORMAL_SECONDS==2400 and m.HARD_SECONDS==1250 # round 9: normal runs measure the rung after the iron pickaxe
+assert m.NORMAL_SECONDS==2400 # round 9: normal runs measure the rung after the iron pickaxe
+assert m.HARD_SECONDS==int(m.os.environ.get('SOAK_HARD_SECONDS','2400')) # round 74: hard runs reach the furnace and iron too
 assert m.iron_sample({'raw_iron':4,'iron_ingot':2,'iron_pickaxe':1})=={'iron_ore':4,'ingots':2,'iron_pick':1}
 assert m.iron_sample({})=={'iron_ore':0,'ingots':0,'iron_pick':0}
 samples=[{'t':30,'iron_ore':0,'ingots':0,'iron_pick':0},{'t':900,'iron_ore':6,'ingots':0,'iron_pick':0},

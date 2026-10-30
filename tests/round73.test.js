@@ -49,7 +49,8 @@ test('round 73: a no-path from the water searches once more with the water budge
  assert.deepEqual(dry.pathfinder.calls,[128],'on land: no second search');
  const deep=navBot(new Vec3(-25.5,61,0.5),true),el=[];
  deep.pathfinder.goto=async()=>{deep.pathfinder.calls.push(deep.pathfinder.searchRadius);throw new Error('No path to the goal!');};
- await assert.rejects(navWorker(deep,el).navigate(new pf.goals.GoalBlock(40,62,0),0,5),/No path/);
+ const wd=navWorker(deep,el);wd.stairOut=async()=>false; // round 74: then a stair-out, that cannot rise here
+ await assert.rejects(wd.navigate(new pf.goals.GoalBlock(40,62,0),0,5),/No path/);
  assert.deepEqual(deep.pathfinder.calls,[128,WATER_SEARCH_RADIUS],'once only');
 });
 test('round 73: a no-path rejection with mob avoidance on paths again without it',async()=>{

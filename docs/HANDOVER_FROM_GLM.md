@@ -2595,3 +2595,36 @@ The round-72 soak on the Nitrous world copy (bot `3fc0f73`) ran all six runs cle
 **Not changed yet**
 - **Hard runs:** short on time; hard2 and hard3 never reached a furnace.
 - **`chest_spot_blocked`:** the expected refusal, as before.
+
+## Round 74 (2026-10-30)
+
+**Round-73 soak results** (Nitrous world copy, `2769c3b`)
+- **Iron:** 3 of 6 again (all normals), no diamond pick. The hard runs reached wood and a stone pick at best; no furnace on any of them.
+- **Deaths:** 3.
+  - normal1 drowned in a pit by the spawn.
+  - hard1 was shot by a skeleton about 3 minutes after a cave morning.
+  - hard2 was shot by a skeleton while unarmed.
+- **No-path jobs:** 16 (round 72: 60), 1 of them in water.
+- **The wider water search** ran 56 times. On normal2's long river swim, every one carried the bot on.
+- **Obstruction probe:** 10 of 11. `cobble_box_bare` now digs out by hand in 34 s, and `chest_spot_blocked` is the expected refusal.
+
+**Diagnosis: normal1's drowning** (from the soak world's region file after the soak)
+- The stone gather dug a pit at x 708-712, z -421..-419 down to y 57, and water filled it to y 62. The craft job had placed its crafting table in the pit at (711, 60, -420).
+- Every craft after that walked back down to the table, into the water: five times in 90 s.
+- From the pit, every path failed in about 60 ms, the 320 search too. The bot was walled in, not over budget. The stair-out that did get it out once (06:45:49) only ran from an empty path.
+- The last swim-up said `open water 2 up` at (710, 60, -420) and then held jump for 21 s at the same y until the bot drowned.
+
+**Diagnosis: the night mine home**
+- hard1 and hard3 (and the probe's `shelter_hole`) ended the climb one block beside the shelter cell, at its level.
+- The pathfinder then failed (`Took to long to decide path to goal!`). The hand walk looked for a tunnel point within 2, found none and returned at once, so the new box went up one block over, in the old box's wall.
+
+**Fixes**
+- **A no-path from the water stairs out:** after the wider search fails, the bot stairs out once toward the goal and paths again. This doesn't run from a tunnel climb, which has its own fallback. It also covers `leaveWater`'s `could not step out`.
+- **A crafting table with water against it** (`floodedAround`, as for the furnace) is passed over. If the bag holds a table or the planks for one, a new one is placed instead, logging `Craft: the crafting table at P stands in water; placing another`. With nothing to replace it, the old one is still used, so crafts don't fail in a loop.
+- **Swimming straight up that doesn't rise** `NO_RISE_BLOCKS` 0.5 in `NO_RISE_MS` 3 s gives that column up, logging `WorldSurvival: no rise in 3 s swimming up at P (air N); swimming round it`. The air-pocket search then skips the way up from that column and swims to the next one.
+- **Beside the shelter cell at its level after a failed climb:** the bot steps in by hand, logging `Night mine: one step from the shelter at P; stepping in`.
+- **The soak's hard runs are 2400 s** (were 1250 s), the same as the normal runs, on the user's request. That is two natural nights; `SOAK_HARD_SECONDS` overrides it. A soak now takes about 4.3 h.
+
+**Not changed yet**
+- **The hard runs' skeleton deaths:** both bots were unarmed or just out of a cave. Read again with the longer runs.
+- **`chest_spot_blocked`:** the expected refusal.
