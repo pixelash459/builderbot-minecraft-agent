@@ -1,5 +1,5 @@
 {
- "at": "2026-10-30T06:22:57",
+ "at": "2026-10-30T10:05:05",
  "results": [
   {
    "scenario": "cobble_wall",
@@ -46,11 +46,11 @@
    },
    "status": "complete",
    "message": "Completed and verified",
-   "seconds": 14.1,
+   "seconds": 12.1,
    "end_pos": [
-    2108,
-    -60,
-    -1
+    2200,
+    -59,
+    0
    ],
    "lines": [],
    "repeated_errors": {}
@@ -73,7 +73,7 @@
    },
    "status": "complete",
    "message": "Completed and verified",
-   "seconds": 14.1,
+   "seconds": 12.1,
    "end_pos": [
     2208,
     -60,
@@ -107,10 +107,10 @@
     0
    ],
    "lines": [
-    "00:49:33.905 Navigation: no path with mob avoidance at (2300, -60, 0); trying without it",
-    "00:49:36.318 Navigation: stranded at (2300, -60, 0) (drops on every side); allowing drops of up to 6 and digging",
-    "00:49:42.725 Boxed in at (2300, -60, 0): no way to stair out",
-    "00:49:42.725 Navigation: stranded at (2300, -57, 1) (drops on every side); allowing drops of up to 6 and digging"
+    "04:29:42.749 Navigation: no path with mob avoidance at (2300, -60, 0); trying without it",
+    "04:29:45.121 Navigation: stranded at (2300, -60, 0) (drops on every side); allowing drops of up to 6 and digging",
+    "04:29:51.660 Boxed in at (2300, -60, 0): no way to stair out",
+    "04:29:51.660 Navigation: stranded at (2300, -57, 1) (drops on every side); allowing drops of up to 6 and digging"
    ],
    "repeated_errors": {}
   },
@@ -130,17 +130,25 @@
      "z": 0
     }
    },
-   "status": "failed",
-   "message": "Tunnel needs a suitable tool in the inventory for cobblestone",
-   "seconds": 2.0,
+   "status": "timed out",
+   "message": "Waiting",
+   "seconds": 120.9,
    "end_pos": [
     2400,
     -60,
     0
    ],
    "lines": [
-    "00:49:54.288 Navigation: no path with mob avoidance at (2400, -60, 0); trying without it",
-    "00:49:54.364 Job: Tunnel needs a suitable tool in the inventory for cobblestone"
+    "04:30:03.179 Navigation: no path with mob avoidance at (2400, -60, 0); trying without it",
+    "04:30:03.237 Boxed in: no tool for cobblestone at (2401, -58, 0); digging it by hand (it drops nothing)",
+    "04:30:23.557 Navigation: stranded at (2400, -60, 0) (drops on every side); allowing drops of up to 6 and digging",
+    "04:30:34.823 Boxed in: no tool for cobblestone at (2400, -58, 1); digging it by hand (it drops nothing)",
+    "04:30:55.643 Navigation: stranded at (2400, -60, 0) (drops on every side); allowing drops of up to 6 and digging",
+    "04:31:06.978 Boxed in: no tool for cobblestone at (2399, -58, 0); digging it by hand (it drops nothing)",
+    "04:31:27.841 Navigation: stranded at (2400, -60, 0) (drops on every side); allowing drops of up to 6 and digging",
+    "04:31:38.863 Boxed in: no tool for cobblestone at (2400, -58, -1); digging it by hand (it drops nothing)",
+    "04:31:59.651 Navigation: stranded at (2400, -60, 0) (drops on every side); allowing drops of up to 6 and digging",
+    "04:32:04.173 Job: Current job cancelled"
    ],
    "repeated_errors": {}
   },
@@ -169,10 +177,10 @@
     0
    ],
    "lines": [
-    "00:50:04.686 Navigation: no path with mob avoidance at (2500, -60, 0); trying without it",
-    "00:50:06.531 Navigation: stranded at (2500, -60, 0) (drops on every side); allowing drops of up to 6 and digging",
-    "00:50:12.977 Boxed in at (2500, -60, 0): no way to stair out",
-    "00:50:12.977 Navigation: stranded at (2500, -57, 1) (drops on every side); allowing drops of up to 6 and digging"
+    "04:32:12.524 Navigation: no path with mob avoidance at (2500, -60, 0); trying without it",
+    "04:32:14.615 Navigation: stranded at (2500, -60, 0) (drops on every side); allowing drops of up to 6 and digging",
+    "04:32:21.062 Boxed in at (2500, -60, 0): no way to stair out",
+    "04:32:21.062 Navigation: stranded at (2500, -57, 1) (drops on every side); allowing drops of up to 6 and digging"
    ],
    "repeated_errors": {}
   },
@@ -194,17 +202,17 @@
    },
    "status": "complete",
    "message": "Completed and verified",
-   "seconds": 10.0,
+   "seconds": 10.1,
    "end_pos": [
     2609,
     -60,
     0
    ],
    "lines": [
-    "00:50:25.046 Navigation: no path with mob avoidance at (2600, -60, 0); trying without it",
-    "00:50:26.273 Navigation: stranded at (2600, -60, 0) (drops on every side); allowing drops of up to 6 and digging",
-    "00:50:30.986 Boxed in at (2600, -60, 0): no way to stair out",
-    "00:50:30.986 Navigation: stranded at (2600, -57, 1) (drops on every side); allowing drops of up to 6 and digging"
+    "04:32:32.986 Navigation: no path with mob avoidance at (2600, -60, 0); trying without it",
+    "04:32:34.292 Navigation: stranded at (2600, -60, 0) (drops on every side); allowing drops of up to 6 and digging",
+    "04:32:38.885 Boxed in at (2600, -60, 0): no way to stair out",
+    "04:32:38.885 Navigation: stranded at (2600, -57, 1) (drops on every side); allowing drops of up to 6 and digging"
    ],
    "repeated_errors": {}
   },
@@ -233,8 +241,8 @@
     0
    ],
    "lines": [
-    "00:50:45.389 Navigation: no path with mob avoidance at (2700, -63, 0); trying without it",
-    "00:50:53.622 Boxed in at (2700, -63, 0): dug 3 steps up east to (2703, -60, 0)"
+    "04:32:53.364 Navigation: no path with mob avoidance at (2700, -63, 0); trying without it",
+    "04:33:01.320 Boxed in at (2700, -63, 0): dug 3 steps up east to (2703, -60, 0)"
    ],
    "repeated_errors": {}
   },
@@ -264,7 +272,8 @@
     0
    ],
    "lines": [
-    "00:51:03.760 Job: Cannot place at (2802, -60, 0): occupied by cobblestone"
+    "04:33:11.715 Job: Cannot place at (2802, -60, 0): occupied by cobblestone",
+    "04:33:11.722 Job: Cannot place at (2802, -60, 0): occupied by cobblestone"
    ],
    "repeated_errors": {}
   },
@@ -295,7 +304,7 @@
     0
    ],
    "lines": [
-    "00:51:14.055 Place: broke the poppy at (2902, -60, 0) first"
+    "04:33:21.980 Place: broke the poppy at (2902, -60, 0) first"
    ],
    "repeated_errors": {}
   },
@@ -307,7 +316,7 @@
     -60,
     0
    ],
-   "sealed_after": 64.1,
+   "sealed_after": 62.2,
    "hole": [
     3001,
     -60,
@@ -316,27 +325,27 @@
    "resealed_after": 4.0,
    "status": "complete",
    "message": "Completed and verified",
-   "opened_after": 20.1,
+   "opened_after": 22.2,
    "end_pos": [
-    3002,
+    0,
     -60,
-    -1
+    0
    ],
    "lines": [
-    "00:51:23.951 Reflex: Mob Defense engaging",
-    "00:51:42.994 Shelter: sealed at (3000, -60, 0) (25 blocks placed)",
-    "00:52:03.622 Navigation: no path with mob avoidance at (3002, -62, 0); trying without it",
-    "00:52:03.680 Navigation: stranded at (3002, -62, 0) (drops on every side); allowing drops of up to 6 and digging",
-    "00:52:03.743 Navigation: still stranded at (3002, -62, 0); pillaring up 3",
-    "00:52:07.067 Tunnel climb: step 3002,-63,0 failed (No path to the goal!); digging through natural fill",
-    "00:52:07.187 Tunnel climb: step 3001,-63,0 failed (No path to the goal!); digging through natural fill",
-    "00:52:07.309 Tunnel climb: step 3000,-62,0 failed (No path to the goal!); digging through natural fill",
-    "00:52:17.703 Shelter: not in the box at (3000, -60, 0) (the night mine could not climb home; bot at (3000, -60, -1)); sealing where it stands",
-    "00:52:17.706 Shelter: moved from 3000,-60,0 to (3000, -60, -1); building a new box here",
-    "00:52:25.545 Shelter: sealed at (3000, -60, -1) (11 blocks placed)",
-    "00:52:33.073 Shelter: re-sealing 1 open cell(s)",
-    "00:52:37.177 Shelter: dawn (tod 1000); staying sealed until the morning is light and clear",
-    "00:52:37.177 Shelter: morning (tod 1000, nearest hostile none); opening up"
+    "04:33:31.972 Reflex: Mob Defense engaging",
+    "04:33:50.670 Shelter: sealed at (3000, -60, 0) (25 blocks placed)",
+    "04:34:11.111 Navigation: no path with mob avoidance at (3002, -62, 0); trying without it",
+    "04:34:11.205 Navigation: stranded at (3002, -62, 0) (drops on every side); allowing drops of up to 6 and digging",
+    "04:34:11.267 Navigation: still stranded at (3002, -62, 0); pillaring up 3",
+    "04:34:14.703 Tunnel climb: step 3002,-63,0 failed (No path to the goal!); digging through natural fill",
+    "04:34:14.792 Tunnel climb: step 3001,-63,0 failed (No path to the goal!); digging through natural fill",
+    "04:34:14.919 Tunnel climb: step 3000,-62,0 failed (No path to the goal!); digging through natural fill",
+    "04:34:23.927 Shelter: not in the box at (3000, -60, 0) (the night mine could not climb home; bot at (3000, -60, -1)); sealing where it stands",
+    "04:34:23.930 Shelter: moved from 3000,-60,0 to (3000, -60, -1); building a new box here",
+    "04:34:31.863 Shelter: sealed at (3000, -60, -1) (11 blocks placed)",
+    "04:34:39.110 Shelter: re-sealing 1 open cell(s)",
+    "04:34:43.174 Shelter: dawn (tod 1000); staying sealed until the morning is light and clear",
+    "04:34:43.175 Shelter: morning (tod 1000, nearest hostile none); opening up"
    ],
    "repeated_errors": {}
   }
