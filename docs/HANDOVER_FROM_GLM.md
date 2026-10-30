@@ -2661,3 +2661,44 @@ The round-72 soak on the Nitrous world copy (bot `3fc0f73`) ran all six runs cle
 **Not changed yet**
 - **The deaths after a box opening or a cave-roof climb** (hard2 spider and zombie, hard3 skeleton): read again once the holds no longer stall.
 - **`chest_spot_blocked`:** the expected refusal.
+
+## Round 76 (2026-10-31)
+
+**Round-75 soak results** (Nitrous world copy, `6a194cf`)
+- **Iron:** 4 of 6 (round 74: 3), with the first hard-run iron pick of this series (hard2 at 603 s). No diamond pick. Every hard run placed a furnace (1054 / 422 / 452 s).
+- **Deaths:** 6, none in water. normal2 a skeleton. hard1 a spider, a creeper and a skeleton. hard3 lava and a skeleton.
+- **Flee holds:** 7 stand-downs, and no 3-minute recover or vulnerable stall (round 74: 10 min and 3.5 min). The one 3-minute stretch was a queued craft at full health.
+- **Night mine home:** 2 of 3 got back into the box. The third pillared from 2 below the cell and stayed there.
+- **Obstruction probe:** 9 of 11. `shelter_hole` is still not sealed. `chest_spot_blocked` is the expected refusal.
+
+**Diagnosis: the pillar up the sump**
+- **hard2's third mine:** `stepping in`, then `pillaring up the sump from y=94` and `Pillar: no rise in 3 jump-places at y=94 (... jumps +0.2 / 0.2 / 0.2, onGround true)`.
+- **The probe:** `pillaring up the sump from y=-62`, then `Pillar: stopped at y=-61 (no solid block under the feet: air)`.
+- **Cause:** the drop in leaves the bot off the column's centre. It is half in the tunnel mouth at the sump's bottom, whose roof stops each jump at 0.2, or on the rim over air.
+
+**Diagnosis: normal1's last 15 minutes**
+- **What happened:** the iron pick broke at y=38. `Ascend: y=38 -> 62 (surface 71)`: the single 24-block pillar segment ran out 9 below the surface.
+- **The loop:** from 18:47 to the end of the run it alternated `no path for gather log` and `no path for explore` at (854, 62, -447). That is 120 of the soak's 140 job no-paths.
+- **Why it never climbed:** 9 below is not "deep underground" (16), so every failure explored instead of climbing.
+
+**Diagnosis: the lava death**
+- hard3 opened its box at (823, 67, -537) and started a cow fight. 7 s later it logged `in lava; escaping at (835, 75, -540) (head lava, feet lava)`, then `tried to swim in lava`.
+- The fight steers with the keys, not the pathfinder, so nothing checked the cells ahead for lava.
+
+**Diagnosis: the false stone-sword losses**
+- Three `Tool left the inventory: stone_sword (131 uses left)` lines, each about 100 ms after `Combat: strike <passive mob>`. The next sample still held the sword.
+- The strike's wear arrives as an empty slot and then the sword one use down. Round 75's check needed the same durability.
+
+**Fixes**
+- **Fill the sump from beside the box.** Before stepping in from beside or from the corner, the bot fills the sump's two cells, bottom first, against any solid neighbour. It logs `...; filled the sump (N blocks); stepping in`, then steps onto a floor with no pillar.
+- **Centre before the sump pillar.** A bot already down the sump walks to the column's centre (up to `CENTRE_MS`, 1 s) and lands before pillaring.
+- **The ascend pillars on.** It runs up to `ASCEND_SEGMENTS` (3) segments of 24 while each one reaches its own target, logging `Ascend: pillared y=A -> B, N below the surface; pillaring on`. A segment that stops short of its target (a ceiling, no blocks) ends it.
+- **A blocked step under rock climbs out.** It applies when the bot has no sky, is more than `SHALLOW_BELOW` (4) below the wood step's surface, and has not climbed this way in the last 2 minutes. It submits an ascend instead of the explore and logs `Autopilot: <step> blocked under rock at y=Y (surface S); climbing out instead of exploring`.
+- **The lava guard.** A key-driven walk (no pathfinder, not already in lava) heading into lava stops and steps back, as the ledge guard does at a drop. Lava counts at the feet or head of the cell ahead, or up to 3 below an open floor. It logs `Lava guard: stopped at P (lava ahead at Q; job J)`.
+- **Tool loss:** the same tool up to `WEAR_SLACK` (4) uses more worn counts as the same tool.
+
+**Not changed yet**
+- **The deaths after a box opening or a cave-roof climb:** hard1 spider, and hard3 skeleton 44 s after opening. hard1's spider came 17 s after a stand-down at health 10. Read again with the lava guard in.
+- **hard3's last 4.5 minutes** standing at (717, 66, -590) on `night: no shelter; holding for morning` at food 6, after the river stretch.
+- **The 26 tool-loss lines at run boundaries** are the harness's bag clear.
+- **`chest_spot_blocked`:** the expected refusal.

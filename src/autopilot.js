@@ -68,6 +68,7 @@ export function grazeDirection(bot){
 const IRON_CORE=[['iron_pickaxe',3,2],['iron_sword',2,1],['shield',1,0]];
 // The food graze may go this far below its anchor (hills, not caves).
 const GRAZE_DEPTH=6,ASCEND_BELOW=16,DEEP_COOL_MS=20000;
+export const SHALLOW_BELOW=4,SHALLOW_ASCEND_MS=120000;
 export const FOOD_HEADINGS=['north','east','south','west'];
 export const DEEP_ASCEND_AFTER=2; // round 35: deep-underground failure rounds before climbing out
 const STONE_KIT=[['stone_pickaxe',3],['stone_sword',2],['stone_axe',3],['stone_shovel',1]];
@@ -1118,6 +1119,15 @@ export class Autopilot{
  }
  // Round 19: the bot stands more than ASCEND_BELOW under its surface anchor with no sky above
  // it (a valley under a stale anchor is not underground).
+ // Round 76 (round-75 normal1: 15 minutes of `wood failed 3 times; exploring before retry` and
+ // `no path for explore` from (854, 62, -447), 9 below the surface in rock with no pickaxe - not
+ // deep enough for deepUnderground, so every retry explored): under rock with no sky, more than
+ // SHALLOW_BELOW under the surface the wood step stood on.
+ enclosedBelowSurface(){
+  const b=this.worker.bot,p=b?.entity?.position,y=p?.y,top=this.lastSurfaceY??this.foodAnchorY;
+  if(!(Number.isFinite(y)&&Number.isFinite(top)&&y<top-SHALLOW_BELOW))return false;
+  try{const head=b.blockAt(p.offset(0,1.6,0));return !!head&&head.skyLight===0;}catch{return false;}
+ }
  deepUnderground(){
   const b=this.worker.bot,p=b?.entity?.position,y=p?.y,top=this.lastSurfaceY??this.foodAnchorY;
   if(!(Number.isFinite(y)&&Number.isFinite(top)&&y<top-ASCEND_BELOW))return false;
@@ -1462,6 +1472,13 @@ export class Autopilot{
    // the wood surfaceY there makes every path fail "left the surface" and the step retries
    // in place forever (soak 20261014-0239 normal3, 3 min backing off at y=86).
    const surface=(step==='wood'&&this.lastSurfaceY!=null)?{surface:true,surfaceY:this.lastSurfaceY}:{};
+   const now=Date.now();
+   if(this.enclosedBelowSurface()&&now-(this.shallowAscendAt||0)>=SHALLOW_ASCEND_MS){
+    this.shallowAscendAt=now;this.failures[step]=0;this.state='retry: '+step+' (climbing out)';
+    this.log('Autopilot: '+step+' blocked under rock at y='+Math.floor(b.entity.position.y)+' (surface '+this.lastSurfaceY+'); climbing out instead of exploring');
+    this.submit('escape',{type:'ascend',y:escapeY(this.lastSurfaceY)});
+    return;
+   }
    this.submit(step,{type:'explore',direction:'random',distance:step==='wood'?48:64,...surface});
    this.failures[step]=0;
    this.state='retry: '+step; // unblocked: the explore was the cooldown

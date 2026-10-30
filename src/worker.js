@@ -128,7 +128,7 @@ export function searchHeading(from,points){
 }
 // Tunnel settle: rounds of re-digging a step while sand/gravel keeps falling into it, and the
 // wait for a falling block to land before the cells are read again.
-export const TUNNEL_SETTLE_ROUNDS=12;export const TUNNEL_FALL_MS=450;export const TUNNEL_WALK_MS=2500;export const LAND_WAIT_MS=2000;export const TRUNK_PILLAR=4;export const SHELTER_AWAY_MS=3000;
+export const TUNNEL_SETTLE_ROUNDS=12;export const TUNNEL_FALL_MS=450;export const TUNNEL_WALK_MS=2500;export const LAND_WAIT_MS=2000;export const CENTRE_MS=1000;export const TRUNK_PILLAR=4;export const SHELTER_AWAY_MS=3000;
 // A tunnel opens a block with no harvest tool when a bare hand breaks it this fast (hardness
 // 0.5: 2.5 s by hand). The passage needs no drop: snow blocks (0.2) stopped a normal-anchor
 // dig-down at 16:42Z, round 3, with 'needs a suitable tool'.
@@ -238,7 +238,7 @@ export const ORE_TUNNEL=10;
 export const STORE_NEAR=32;
 export const BURROW_MOVED=3;
 // Round 40: the most an ascend pillars (and digs) in one try when no path leads up.
-export const ASCEND_PILLAR=24;
+export const ASCEND_PILLAR=24,ASCEND_SEGMENTS=3;
 // Round 37: the pathfinder's cost per water cell (its default is 1, the same as land).
 export const LIQUID_COST=4;
 export const LEDGE_DROP=5,LEDGE_LOOK=0.9;
@@ -253,6 +253,36 @@ export function dropAhead(bot){
  let drop=0;
  for(let dy=1;dy<=LEDGE_DROP;dy++){const bl=at(ahead.offset(0,-dy,0));if(!bl)return 0;if(bl.boundingBox==='block'||/water|lava/.test(bl.name))break;drop++;}
  return drop;
+}
+// Round 76 (round-75 hard3: `Shelter: morning ... opening up`, a cow fight, then `in lava; escaping
+// at (835, 75, -540) (head lava, feet lava)` 7 s later and `tried to swim in lava` - the fight
+// steers with the keys, not the pathfinder, and walked straight in): the cell a key-driven walk
+// is heading into, at the feet, the head or up to 3 below an open floor.
+export function lavaAhead(bot){
+ const e=bot&&bot.entity;if(!e||!e.velocity||!e.position)return null;
+ const vx=e.velocity.x,vz=e.velocity.z,sp=Math.hypot(vx,vz);if(sp<0.04)return null;
+ const ahead=e.position.offset(vx/sp*LEDGE_LOOK,0,vz/sp*LEDGE_LOOK).floored();
+ const at=p=>bot.blockAt(p),lava=bl=>!!bl&&/lava/.test(bl.name||'');
+ const head=at(ahead.offset(0,1,0)),feet=at(ahead);
+ if(lava(head))return head.position||ahead.offset(0,1,0);
+ if(!feet)return null;if(lava(feet))return feet.position||ahead;
+ if(feet.boundingBox==='block')return null; // a wall
+ for(let dy=1;dy<=3;dy++){const bl=at(ahead.offset(0,-dy,0));if(!bl)return null;if(lava(bl))return bl.position||ahead.offset(0,-dy,0);if(bl.boundingBox==='block'||/water/.test(bl.name||''))break;}
+ return null;
+}
+// Stops a key-driven walk (no pathfinder) into lava and steps back, as the ledge guard does at
+// a drop. Not while the bot is in lava itself: the lava escape walks through it.
+export function lavaGuard(bot){
+ const e=bot&&bot.entity;if(!e||!e.position||!bot.getControlState)return null;
+ if(bot.pathfinder?.isMoving?.())return null;
+ const f=e.position.floored(),here=[bot.blockAt(f),bot.blockAt(f.offset(0,1,0))];
+ if(here.some(bl=>bl&&/lava/.test(bl.name||'')))return null;
+ const keys=['forward','back','left','right'].filter(k=>bot.getControlState(k));if(!keys.length)return null;
+ const at=lavaAhead(bot);if(!at)return null;
+ for(const k of ['forward','back','left','right','sprint','jump'])bot.setControlState(k,false);
+ const away=LEDGE_AWAY[keys[0]];
+ if(away){bot._ledgeBack={key:away,until:Date.now()+LEDGE_BACK_MS};bot.setControlState(away,true);}
+ return at;
 }
 export function ledgeGuard(bot){
  const e=bot&&bot.entity;if(!e||!e.onGround||!e.velocity||!bot.getControlState)return false;
@@ -951,7 +981,7 @@ export class Worker extends EventEmitter {
   const bot=this.bot=mineflayer.createBot({...this.config.server,hideErrors:true});
   installMovementFix(bot);installWeatherFix(bot);this.trackMeals(bot);guardEquip(bot);guardPlace(bot);installDigWatch(bot,m=>this.log(m),()=>(this.jobs||[]).find(j=>j.status==='running')?.spec?.type);installProvoked(bot,m=>this.log(m));bot.__windowLog=m=>this.log(m);
   bot.loadPlugin(pathfinder);bot.loadPlugin(toolPackage.plugin);
-  bot.once('spawn',()=>{this.ready=true;installToolWear(bot);if(!bot._earnHook){bot._earnHook=true;bot.on('playerCollect',(collector,collected)=>{try{if(collector!==bot.entity)return;const it=collected?.getDroppedItem?.();if(it)this.earn(it.name,it.count);}catch{}});}if(!bot.inventory._lossWatch){bot.inventory._lossWatch=true;watchToolLoss(bot,m=>this.log(m));}const movement=this.movements=this.normalMovements(bot);bot.pathfinder.setMovements(movement);bot.pathfinder.searchRadius=128;if(!bot._ledgeGuard){bot._ledgeGuard=true;let last=0;const fall={};const gait=newGait();installSprintHold(bot);const sink={};bot.on('physicsTick',()=>{bot.__pathTick=false;try{const sk=sinkGuard(bot,sink,Date.now());if(sk)this.log(sk+' (job '+((this.jobs||[]).find(j=>j.status==='running')?.spec?.type||'none')+', chain '+(this.taskRunner?.active?.name||this.taskRunner?.current?.name||'?')+')');}catch{}try{sprintAssist(bot);const g=gaitTick(bot,gait,Date.now());if(g)this.log(g);if(ledgeGuard(bot)&&Date.now()-last>5000){last=Date.now();this.log('Ledge guard: stopped at '+bot.entity.position.floored()+' (a '+LEDGE_DROP+'+ drop ahead)');}const f=fallWatch(bot,fall);if(f)this.log('Fall: dropping from '+new Vec3(f.from.x,f.from.y,f.from.z).floored()+' (job '+((this.jobs||[]).find(j=>j.status==='running')?.spec?.type||'none')+', pathing '+!!bot.pathfinder?.isMoving?.()+', sprint '+!!bot.getControlState?.('sprint')+')');}catch{}});}bot.pathfinder.LOSWhenPlacingBlocks=false;bot.pathfinder.thinkTimeout=10000;/* round 27: 5 s timed out every night-mine climb home (`Took to long to decide path to goal!`) *//* round 25: its returningPos is never cleared by a reset and wedged all pathing */// in blocks: bounds searches for unreachable goals; legit paths may still cost up to goal distance + 128
+  bot.once('spawn',()=>{this.ready=true;installToolWear(bot);if(!bot._earnHook){bot._earnHook=true;bot.on('playerCollect',(collector,collected)=>{try{if(collector!==bot.entity)return;const it=collected?.getDroppedItem?.();if(it)this.earn(it.name,it.count);}catch{}});}if(!bot.inventory._lossWatch){bot.inventory._lossWatch=true;watchToolLoss(bot,m=>this.log(m));}const movement=this.movements=this.normalMovements(bot);bot.pathfinder.setMovements(movement);bot.pathfinder.searchRadius=128;if(!bot._ledgeGuard){bot._ledgeGuard=true;let last=0,lastLava=0;const fall={};const gait=newGait();installSprintHold(bot);const sink={};bot.on('physicsTick',()=>{bot.__pathTick=false;try{const sk=sinkGuard(bot,sink,Date.now());if(sk)this.log(sk+' (job '+((this.jobs||[]).find(j=>j.status==='running')?.spec?.type||'none')+', chain '+(this.taskRunner?.active?.name||this.taskRunner?.current?.name||'?')+')');}catch{}try{sprintAssist(bot);const g=gaitTick(bot,gait,Date.now());if(g)this.log(g);{const lv=lavaGuard(bot);if(lv&&Date.now()-lastLava>5000){lastLava=Date.now();this.log('Lava guard: stopped at '+bot.entity.position.floored()+' (lava ahead at '+lv+'; job '+((this.jobs||[]).find(j=>j.status==='running')?.spec?.type||'none')+')');}}if(ledgeGuard(bot)&&Date.now()-last>5000){last=Date.now();this.log('Ledge guard: stopped at '+bot.entity.position.floored()+' (a '+LEDGE_DROP+'+ drop ahead)');}const f=fallWatch(bot,fall);if(f)this.log('Fall: dropping from '+new Vec3(f.from.x,f.from.y,f.from.z).floored()+' (job '+((this.jobs||[]).find(j=>j.status==='running')?.spec?.type||'none')+', pathing '+!!bot.pathfinder?.isMoving?.()+', sprint '+!!bot.getControlState?.('sprint')+')');}catch{}});}bot.pathfinder.LOSWhenPlacingBlocks=false;bot.pathfinder.thinkTimeout=10000;/* round 27: 5 s timed out every night-mine climb home (`Took to long to decide path to goal!`) *//* round 25: its returningPos is never cleared by a reset and wedged all pathing */// in blocks: bounds searches for unreachable goals; legit paths may still cost up to goal distance + 128
   if(!this.trackersTimer){ // tracker refresh + preemption resume + idle armour, port of the reflex cadence
    this.loopWatch.start();
    this.trackersTimer=setInterval(()=>this.loopWatch.timeTick('cadence',()=>{
@@ -2051,6 +2081,38 @@ export class Worker extends EventEmitter {
   // seal its floor): the bot lands before the sump is read.
   const land=async()=>{const until=Date.now()+LAND_WAIT_MS;while(b.entity.onGround===false&&Date.now()<until){await sleep(50);this.check(token);}};
   const open=c=>{const bl=b.blockAt(c);return !!bl&&bl.boundingBox==='empty'&&!isFluid(bl);};
+  // Round 76 (round-75 hard2's third night mine: `stepping in`, `pillaring up the sump from y=94`,
+  // `Pillar: no rise in 3 jump-places at y=94 (... jumps +0.2 / 0.2 / 0.2, onGround true)`; the
+  // probe's shelter_hole: `pillaring up the sump from y=-62`, `Pillar: stopped at y=-61 (no solid
+  // block under the feet: air)` - the drop in left the bot off the column's centre, half in the
+  // tunnel mouth whose roof stopped each jump at 0.2, or on its rim over air): from beside the
+  // cell the sump is filled first, so the step in lands on a floor; a bot already down the sump
+  // is centred on it before the pillar.
+  const fill=async()=>{
+   let n=0;
+   for(const c of [origin.offset(0,-2,0),origin.offset(0,-1,0)]){
+    this.check(token);
+    const item=(b.inventory?.items?.()||[]).find(i=>SHELTER_ITEMS.includes(i.name));if(!item)break;
+    const bl=b.blockAt(c);if(!bl||(bl.boundingBox!=='empty'&&!isFluid(bl)))continue;
+    const ref=[[0,-1,0],[1,0,0],[-1,0,0],[0,0,1],[0,0,-1]].map(([x,y,z])=>b.blockAt(c.offset(x,y,z))).find(r=>r&&r.boundingBox==='block');
+    if(!ref)break;
+    try{await b.equip(item,'hand');this.check(token);await b.placeBlock(ref,c.minus(ref.position));n++;}
+    catch(e){this.check(token);this.log('Night mine: could not fill the sump at '+c+' ('+String(e&&e.message||e).slice(0,60)+')');break;}
+   }
+   return n;
+  };
+  const centre=async()=>{
+   const c=feet(),until=Date.now()+CENTRE_MS;
+   try{
+    while(Date.now()<until){
+     const p=b.entity.position,dx=c.x+0.5-p.x,dz=c.z+0.5-p.z;
+     if(Math.hypot(dx,dz)<0.15)break;
+     try{await b.look(Math.atan2(-dx,-dz),0);}catch{}
+     b.setControlState('forward',true);await sleep(50);this.check(token);
+    }
+   }finally{if(token===this.epoch)b.clearControlStates();}
+   await sleep(150);
+  };
   try{await this.climbTunnel(mine,token);if(this.strandedTunnel?.job===mine.id)this.strandedTunnel=null;}
   catch(e){this.check(token);this.log('Night mine: climb back failed: '+e.message);}
   if(home())return true;
@@ -2073,7 +2135,8 @@ export class Worker extends EventEmitter {
     if(side)path=[origin,side];
    }
    if(path){
-    this.log('Night mine: one step from the shelter at '+p+(path.length>1?' (through '+path[1]+')':'')+'; stepping in');
+    const filled=await fill();
+    this.log('Night mine: one step from the shelter at '+p+(path.length>1?' (through '+path[1]+')':'')+(filled?'; filled the sump ('+filled+' blocks)':'')+'; stepping in');
     await this.walkTunnelBack(path,token);
     await land();
     if(home())return true;
@@ -2086,6 +2149,7 @@ export class Worker extends EventEmitter {
   }
   await land();
   if(inSump()){
+   await centre();await land();
    this.log('Night mine: pillaring up the sump from y='+feet().y);
    await this.pillarUp(origin.y,token);
   }
@@ -4378,7 +4442,17 @@ export class Worker extends EventEmitter {
   if(Math.floor(b.entity.position.y)<=start+2&&Math.floor(b.entity.position.y)<y-4){
    const safe=bl=>{const up=b.blockAt(bl.position.offset(0,1,0));return !/bedrock|obsidian|chest|furnace|crafting_table|spawner/.test(bl.name)&&!isFluid(bl)&&!isFluid(up)&&!isGravity(up);};
    this.log('Ascend: no path up from y='+start+'; pillaring');
-   try{await this.pillarUp(Math.min(y,start+ASCEND_PILLAR),token,{clear:safe,maxDigs:ASCEND_PILLAR});}catch(e){this.check(token);this.log('Ascend: pillar stopped ('+String(e.message).slice(0,60)+')');}
+   // Round 76 (round-75 normal1: the iron pick broke at y=38, `Ascend: y=38 -> 62 (surface 71)`
+   // - the one ASCEND_PILLAR segment ran out 9 below the surface - then 15 minutes of `no path for
+   // gather log` / `explore` from (854, 62, -447) to the end of the run): segment after segment
+   // while each one rises.
+   for(let seg=0;seg<ASCEND_SEGMENTS;seg++){
+    const from=Math.floor(b.entity.position.y),target=Math.min(y,from+ASCEND_PILLAR);
+    try{await this.pillarUp(target,token,{clear:safe,maxDigs:ASCEND_PILLAR});}catch(e){this.check(token);this.log('Ascend: pillar stopped ('+String(e.message).slice(0,60)+')');break;}
+    const to=Math.floor(b.entity.position.y);
+    if(to>=y-4||to<target||seg===ASCEND_SEGMENTS-1)break; // short of its own target: a ceiling or no blocks
+    this.log('Ascend: pillared y='+from+' -> '+to+', '+(y-to)+' below the surface; pillaring on');
+   }
   }
   const now=Math.floor(b.entity.position.y);
   this.log('Ascend: y='+start+' -> '+now+' (surface '+y+')');

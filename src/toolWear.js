@@ -80,7 +80,7 @@ export function installToolWear(bot){
 // Round 75 (round-74 hard3: `Combat: equip skeleton` then `Tool left the inventory: stone_sword
 // (125 uses left)` in the same millisecond, and the sword still held 20 s later): an equip empties
 // the old slot before the new one fills, so the check waits TOOL_LOSS_SETTLE_MS.
-export const TOOL_LOSS_SETTLE_MS=250;
+export const TOOL_LOSS_SETTLE_MS=250,WEAR_SLACK=4;
 export function watchToolLoss(bot,log,{settleMs=TOOL_LOSS_SETTLE_MS}={}){
  const inv=bot.inventory;
  if(!inv||typeof inv.on!=='function')return;
@@ -91,7 +91,12 @@ export function watchToolLoss(bot,log,{settleMs=TOOL_LOSS_SETTLE_MS}={}){
   const judge=()=>{
    if(!(bot.health>0))return;
    // A move to another slot (equip, sort) is not a loss: the stack is still held somewhere.
-   if(inv.items().some(i=>i.name===oldItem.name&&(i.slot!==slot||settleMs>0)&&(i.durabilityUsed||0)===(oldItem.durabilityUsed||0)))return;
+   // Round 76 (round-75 normal1, normal3, hard2: `Combat: strike chicken`, then `Tool left the
+   // inventory: stone_sword (131 uses left)` and the sword still held on the next sample - the
+   // strike's wear came back as an empty slot, then the sword one use down): the same tool up to
+   // WEAR_SLACK uses more worn is the same tool.
+   const used=oldItem.durabilityUsed||0;
+   if(inv.items().some(i=>i.name===oldItem.name&&(i.slot!==slot||settleMs>0)&&(i.durabilityUsed||0)>=used&&(i.durabilityUsed||0)-used<=WEAR_SLACK))return;
    const left=usesLeft(oldItem,bot.registry);
    log('Tool left the inventory: '+oldItem.name+' ('+(left===Infinity?'?':left)+' uses left'+(left<=1?', broke':'')+')');
   };
