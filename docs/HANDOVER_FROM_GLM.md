@@ -2518,3 +2518,44 @@ The round-70 soak on the Nitrous world copy (bot `beed76a`) ran all six runs cle
 - **Hard runs are short:** hard1 and hard2 spent about 7 of their 21 minutes in the night box, and neither reached iron.
 - **Paths into builds and beds:** no new data this round.
 - **Obstruction probe:** `cobble_box_bare` and `chest_spot_blocked` still need a full run.
+
+## Round 72 (2026-10-30)
+
+The round-71 soak on the Nitrous world copy (bot `c88bd69`) ran all six runs clean.
+- **Iron:** iron picks on 3 of 6, all three normals, at 512 / 783 / 843 s (round 70: 4 of 6). Diamond pick on normal3 at 2379 s.
+- **Hard wood:** 241 / 362 / 874 s.
+- **Deaths:** one, hard2, blown up by a creeper. No drowning.
+- **Air:** `air falling` logged 0 times again.
+- **Obstruction probe:** 9 of 11, the same two failures since round 66.
+
+**Round 71's climb out was half wrong**
+- **What the log showed:** normal2 spent 51 s on the floor of a cave pool at (779, 54, -515), near its furnace.
+  - `No path` to every goal.
+  - `Water: could not step out (The goal was changed ...)`.
+  - Then `(Navigation timed out at (779, 55, -515) (onGround false ...)`.
+- **The physics check:** I ran the bot's own physics (prismarine-physics) on a swimmer holding forward and jump against a bank.
+  - It climbs onto a bank level with the water top.
+  - It tops out at y+0.58 against a bank one block higher, so it can never land there.
+  - Round 71 planned that higher climb, so a bot could push at it until the walk timed out.
+- **Second gap:** the pathfinder never plans a move up inside water (`getMoveUp` refuses liquid). A bot under the surface had no path at all.
+
+**Fixes**
+- **`waterExits` now plans two moves:**
+  - The climb onto a level bank only.
+  - A swim-up, one water cell at a time, to the top water cell (`SWIM_UP_COST` 1 plus the liquid cost).
+  - The tests run the real A* and the real physics. From a pool floor the stock search is `noPath` and the fixed one reaches land. A pool walled one block over the water still plans nothing, and the physics confirms it can't be climbed.
+- **`leaveWater` tries once more on `The goal was changed`.** A failure now names the stand it was going to.
+- **Creepers hold the shelter** (night.js `leaveRefuge(tod, nearest, creeper)`):
+  - hard2 opened its box at tod 3000 with the nearest hostile 10.9 away; the late-morning rule let anything past 6 go.
+  - The 22-block box took 19 s to take down, a creeper walked up, and it blew the bot up as it stepped out.
+  - Now a creeper within 16 holds the box until `CREEPER_LATE` (tod 6000), then within 6.
+- **Walls come down last:** `removeShelter` digs the outer cells first and leaves the cells beside the bot's feet, head, roof and floor for the end. Before those, `waitCreeperClear` waits inside the walls while a creeper is within 16, for at most `CREEPER_WAIT_MS` 60 s.
+- **Boxed in with no pickaxe, the stair-out digs by hand:**
+  - It digs blocks up to `BOXED_HAND_HARDNESS` 2 (cobblestone and stone, not deepslate or ores) and logs `Boxed in: no tool for X at P; digging it by hand (it drops nothing)`.
+  - Every other tunnel still refuses a dig without the tool.
+  - This is for the probe's `cobble_box_bare`.
+
+**Not changed yet**
+- **`chest_spot_blocked`:** the bot refuses to break a cobblestone block it didn't place to put a chest there, which is right. The probe should count that refusal as a pass.
+- **Night-mine climb home:** still fails in `shelter_hole`, and the fallback reseals where the bot stands.
+- **Hard runs:** short on time; hard2 and hard3 never reached a furnace.

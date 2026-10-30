@@ -33,7 +33,7 @@ import {solidSupport,placementCells,softBreakCell,hitsBot,HARD_BREAK,SOFT_BREAK,
 import {createMoveTasks} from './tasks/movement/factories.js';
 import {createLoopWatch} from './loop-watch.js';
 import {installToolWear,watchToolLoss} from './toolWear.js';
-import {darkNow,stillNight,leaveRefuge,shelterShell,shellGaps,holdableShell,placementPlan,shelterTarget,deepWaterCost,fleeHeading,nightMineWanted,tunnelBreach,SUNSET,DUSK_PREP,NIGHT_MINE_MS,NIGHT_MINE_STOP,NIGHT_MINE_DEPTH,NIGHT_MINE_STRIP} from './night.js';
+import {darkNow,stillNight,leaveRefuge,shelterShell,shellGaps,holdableShell,placementPlan,shelterTarget,deepWaterCost,fleeHeading,nightMineWanted,tunnelBreach,REFUGE_CLEAR,SUNSET,DUSK_PREP,NIGHT_MINE_MS,NIGHT_MINE_STOP,NIGHT_MINE_DEPTH,NIGHT_MINE_STRIP} from './night.js';
 import {bestWeapon,attackCooldown,leaveAlone} from './chains/combatPolicy.js';
 const {pathfinder,Movements,goals}=pathfinderPackage;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -44,30 +44,42 @@ const PfMove=createRequire(import.meta.url)('mineflayer-pathfinder/lib/move.js')
 // `No path to the goal!` within a second, `no dry stand within 6`): the pathfinder measures a
 // climb from the block under the feet, and under a swimmer that is water - so even a bank level
 // with the surface is "too high", and a bot out of reach of a shallow edge cannot path out at
-// all. Add the climb out: from the top water cell (or the air cell just over it) onto a full
-// block beside it whose top is at most 1 over the water, with the cells above both clear. The
-// pathfinder holds jump in water and the physics lifts a swimmer that pushes into a ledge.
-export const SWIM_OUT_COST=2,LEAVE_WATER_R=12;
+// all. Add the climb out: from the top water cell onto a full block beside it level with the
+// water, with the two cells above it and the cells over the swimmer clear. The pathfinder holds
+// jump in water and the physics lifts a swimmer that pushes into the ledge.
+// Round 72 (round-71 normal2: 51 s on the floor of a cave pool at (779, 54, -515), `No path` to
+// every goal, then `could not step out (Navigation timed out ... onGround false)`): the physics
+// (prismarine-physics, the bot's own) lifts a swimmer only to y+0.58 over the water top, so a
+// bank one block over the water can never be climbed - round 71 planned that climb and the bot
+// pushed at it until the walk timed out. Only the level bank now. And the pathfinder never
+// plans a move up inside water (`getMoveUp` refuses liquid), so a bot under the surface could
+// not path at all: add the swim up, one cell at a time, through water to the top water cell.
+export const SWIM_OUT_COST=2,SWIM_UP_COST=1,LEAVE_WATER_R=12;
 export function waterExits(movement){
  if(movement._waterExits)return movement;movement._waterExits=true;
+ const water=b=>b?.name==='water';
  const jump=movement.getMoveJumpUp.bind(movement);
  movement.getMoveJumpUp=(node,dir,neighbors)=>{
   const before=neighbors.length;jump(node,dir,neighbors);
   if(neighbors.length>before)return;
-  const at=(x,dy,z)=>movement.getBlock(node,x,dy,z),water=b=>b?.name==='water';
-  const here=at(0,0,0);let s;
-  if(water(here)&&!at(0,1,0).liquid)s=0;else if(!here.liquid&&here.safe&&water(at(0,-1,0)))s=-1;else return;
-  for(let k=-s;k<=1;k++){
-   const t=s+k,bank=at(dir.x,t,dir.z);
-   if(!bank.physical||bank.height>node.y+t+1)continue;
-   const feet=at(dir.x,t+1,dir.z),head=at(dir.x,t+2,dir.z);
-   if(!feet.safe||feet.liquid||!head.safe||head.liquid)continue;
-   for(let dy=Math.max(s+1,1);dy<=t+2;dy++)if(!at(0,dy,0).safe)return;
-   const cost=SWIM_OUT_COST+(movement.liquidCost||0)+movement.exclusionStep(feet)+movement.getNumEntitiesAt(feet.position,0,0,0)*movement.entityCost;
-   if(cost>100)return;
-   neighbors.push(new PfMove(feet.position.x,feet.position.y,feet.position.z,node.remainingBlocks,cost,[],[]));
-   return;
-  }
+  const at=(x,dy,z)=>movement.getBlock(node,x,dy,z);
+  if(!water(at(0,0,0))||at(0,1,0).liquid)return;
+  const bank=at(dir.x,0,dir.z);
+  if(!bank.physical||bank.height>node.y+1)return;
+  const feet=at(dir.x,1,dir.z),head=at(dir.x,2,dir.z);
+  if(!feet.safe||feet.liquid||!head.safe||head.liquid||!at(0,1,0).safe||!at(0,2,0).safe)return;
+  const cost=SWIM_OUT_COST+(movement.liquidCost||0)+movement.exclusionStep(feet)+movement.getNumEntitiesAt(feet.position,0,0,0)*movement.entityCost;
+  if(cost>100)return;
+  neighbors.push(new PfMove(feet.position.x,feet.position.y,feet.position.z,node.remainingBlocks,cost,[],[]));
+ };
+ const up=movement.getMoveUp.bind(movement);
+ movement.getMoveUp=(node,neighbors)=>{
+  up(node,neighbors);
+  const here=movement.getBlock(node,0,0,0),above=movement.getBlock(node,0,1,0);
+  if(!water(here)||!water(above))return;
+  const cost=SWIM_UP_COST+(movement.liquidCost||0)+movement.exclusionStep(above);
+  if(cost>100)return;
+  neighbors.push(new PfMove(node.x,node.y+1,node.z,node.remainingBlocks,cost,[],[]));
  };
  return movement;
 }
@@ -120,7 +132,7 @@ export const TUNNEL_SETTLE_ROUNDS=12;export const TUNNEL_FALL_MS=450;export cons
 // A tunnel opens a block with no harvest tool when a bare hand breaks it this fast (hardness
 // 0.5: 2.5 s by hand). The passage needs no drop: snow blocks (0.2) stopped a normal-anchor
 // dig-down at 16:42Z, round 3, with 'needs a suitable tool'.
-export const HAND_CLEAR_HARDNESS=0.5;
+export const HAND_CLEAR_HARDNESS=0.5,BOXED_HAND_HARDNESS=2;
 // The smelt job takes its output every this many items.
 export const SMELT_TAKE=8;
 // Habit 6: junk the bot dropped is left lying for this long (no sweep walks back to it).
@@ -608,7 +620,7 @@ export function tunnelHeading(tunnel){
 // reason and the night pillar takes over (round 5 hard1/hard2: 11 min re-walking one
 // unreachable dirt block, cancelled by the soak bell, never sealed).
 const SHELTER_ITEMS=['cobblestone','dirt','cobbled_deepslate','netherrack'];
-export const SHELTER_DIG_MS=45000,SHELTER_SEAL_MS=30000,NIGHT_PILLAR_MS=13*60000,SHELTER_EXIT_MARGIN_MS=60000;
+export const SHELTER_DIG_MS=45000,SHELTER_SEAL_MS=30000,NIGHT_PILLAR_MS=13*60000,SHELTER_EXIT_MARGIN_MS=60000,CREEPER_WAIT_MS=60000;
 // Natural plants that fill a shell cell but are not replaceable: a placement into them is
 // refused, so the seal digs them out first (a dark-forest floor is full of mushrooms).
 export const SHELTER_NOTCH=/^(.*_mushroom|.*_sapling|.*_fungus|.*_roots|dandelion|poppy|blue_orchid|allium|azure_bluet|.*_tulip|oxeye_daisy|cornflower|lily_of_the_valley|wither_rose|torchflower|pink_petals|wildflowers|leaf_litter|sweet_berry_bush|sugar_cane|bush|firefly_bush|short_dry_grass|tall_dry_grass|moss_carpet|cocoa|lily_pad)$/;
@@ -2109,17 +2121,17 @@ export class Worker extends EventEmitter {
  // the job's own deadline is SHELTER_EXIT_MARGIN_MS away (a timed-out job leaves the box up).
  shelterExitSafe(){
   if(Number.isFinite(this.deadline)&&this.deadline-Date.now()<SHELTER_EXIT_MARGIN_MS)return true;
-  return leaveRefuge(dayTicks(this.bot),this.nearestHostile());
+  return leaveRefuge(dayTicks(this.bot),this.nearestHostile(),this.nearestHostile('creeper'));
  }
  hostilesWithin(r){
   const b=this.bot,me=b.entity&&b.entity.position;if(!me)return 0;
   return Object.values(b.entities||{}).filter(e=>e&&e!==b.entity&&(e.type==='hostile'||provoked(b,e))&&e.position&&e.isValid!==false&&e.position.distanceTo(me)<=r).length;
  }
- nearestHostile(){
+ nearestHostile(name){
   const b=this.bot,me=b.entity&&b.entity.position;
   if(!me)return Infinity;
   let best=Infinity;
-  for(const e of Object.values(b.entities||{}))if(e&&e!==b.entity&&(e.type==='hostile'||provoked(b,e))&&e.position&&e.isValid!==false)best=Math.min(best,e.position.distanceTo(me));
+  for(const e of Object.values(b.entities||{}))if(e&&e!==b.entity&&(e.type==='hostile'||provoked(b,e))&&e.position&&e.isValid!==false&&(!name||e.name===name))best=Math.min(best,e.position.distanceTo(me));
   return best;
  }
  // Shelter blocks held beyond the stone kit's cobble reserve (all of them with reserve=true).
@@ -2351,8 +2363,14 @@ export class Worker extends EventEmitter {
   this.update(job,0,'Removing the shelter');
   const seen=new Set(),cells=[];
   for(const c of [...(Array.isArray(job.shell)?job.shell:[]),...(job.placed||[])]){const k=c.x+','+c.y+','+c.z;if(!seen.has(k)){seen.add(k);cells.push(c);}}
-  for(const key of [...cells].reverse()){
+  // Round 72 (round-71 hard2: a 22-block box took 19 s to take down, a creeper walked up meanwhile
+  // and blew the bot up as it stepped out): the cells beside the bot's own two (and the roof and
+  // floor) come down last, after a creeper re-check that waits inside the walls.
+  const feet=b.entity?.position?.floored?.(),guard=c=>!!feet&&[0,1].some(dy=>Math.abs(c.x-feet.x)+Math.abs(c.y-feet.y-dy)+Math.abs(c.z-feet.z)===1);
+  const order=[...cells].reverse(),outer=order.filter(c=>!guard(c)),walls=order.filter(guard);
+  for(const key of [...outer,null,...walls]){
    this.check(token);
+   if(key===null){await this.waitCreeperClear(token);continue;}
    const block=b.blockAt(new Vec3(key.x,key.y,key.z));
    // The right tool, or cobble drops nothing: round 4's dawn cleanup dug the box by hand and
    // the 25 cobble the furnace needed never came back (and each block took ~7 s).
@@ -2364,6 +2382,16 @@ export class Worker extends EventEmitter {
    if(b.blockAt(new Vec3(key.x,key.y,key.z))?.boundingBox==='block')throw Error('Shelter block remained at '+key.x+','+key.y+','+key.z);
   }
   job.placed=[];
+ }
+ // Round 72: before the walls come down, wait (sealed) while a creeper is within REFUGE_CLEAR,
+ // at most CREEPER_WAIT_MS.
+ async waitCreeperClear(token){
+  const until=Date.now()+CREEPER_WAIT_MS;let logged=false;
+  for(let d=this.nearestHostile('creeper');d<=REFUGE_CLEAR&&Date.now()<until;d=this.nearestHostile('creeper')){
+   if(!logged){logged=true;this.log('Shelter: a creeper '+d.toFixed(1)+' away; keeping the walls up');}
+   await sleep(250);this.check(token);
+  }
+  if(logged)this.log('Shelter: creeper '+(Number.isFinite(this.nearestHostile('creeper'))?this.nearestHostile('creeper').toFixed(1)+' away':'gone')+'; opening the walls');
  }
  // Phase 6b: obtain - plan the full chain with the howto tree, then run it as ordinary
  // verified jobs. The step list and index are persisted, so a restart resumes mid-chain.
@@ -3282,7 +3310,7 @@ export class Worker extends EventEmitter {
   await this.stepInto(next,plan.dir,token);
   const here=b.entity.position.floored();
   if(here.y<next.y)throw Error('Tunnel stopped: dropped to y='+here.y+' below the step at '+next);
-  await this.clearCells(token,[here.offset(0,1,0),here],natural,false);
+  await this.clearCells(token,[here.offset(0,1,0),here],natural,false,job);
   await plugLava(this,token,here);
   await wallPickups(this,job,token,here,plan.dir);
   return {dir:plan.dir,next};
@@ -3472,13 +3500,13 @@ export class Worker extends EventEmitter {
   // Top-down (corner, head, feet): sand in the head cell must never drop into an open feet
   // cell. The bot stands in the previous column meanwhile, so whatever falls lands in the
   // step, never on the bot.
-  await this.clearCells(token,[...(corner?[next.offset(0,2,0)]:[]),next.offset(0,1,0),next],natural);
+  await this.clearCells(token,[...(corner?[next.offset(0,2,0)]:[]),next.offset(0,1,0),next],natural,true,job);
  }
  // Dig `cells` (top first) until every one is air and nothing that falls sits on the top one:
  // a gravel stack above is dug block by block as it comes down. Throws after
  // TUNNEL_SETTLE_ROUNDS rather than step into a cell that is still filling.
  // watchAbove=false (the bot stands in these cells): only free them, never pull more down.
- async clearCells(token,cells,natural,watchAbove=true){
+ async clearCells(token,cells,natural,watchAbove=true,job=null){
   const b=this.bot,top=cells[0];
   for(let round=0;;round++){
    this.check(token);
@@ -3493,7 +3521,13 @@ export class Worker extends EventEmitter {
     this.check(token);
     if(natural&&!natural(block))throw Error('Tunnel stopped: '+block.name+' at '+block.position+' is not natural terrain');
     // Digging without the required tool destroys the block for nothing; refuse instead.
-    if(block.harvestTools&&!(block.hardness<=HAND_CLEAR_HARDNESS)&&!Object.keys(block.harvestTools).some(id=>b.inventory.items().some(i=>i.type===+id)))throw Error('Tunnel needs a suitable tool in the inventory for '+block.name);
+    // Round 72 (the obstruction probe's cobble_box_bare, failed every round since 66: sealed in
+    // cobblestone with nothing held): a bot boxed in digs out by hand - losing a block beats
+    // staying shut in. Up to BOXED_HAND_HARDNESS (cobblestone and stone; not deepslate or ore).
+    if(block.harvestTools&&!(block.hardness<=HAND_CLEAR_HARDNESS)&&!Object.keys(block.harvestTools).some(id=>b.inventory.items().some(i=>i.type===+id))){
+     if(!(job?.handDig&&block.hardness<=BOXED_HAND_HARDNESS))throw Error('Tunnel needs a suitable tool in the inventory for '+block.name);
+     if(!job.handLogged){job.handLogged=true;this.log('Boxed in: no tool for '+block.name+' at '+block.position+'; digging it by hand (it drops nothing)');}
+    }
     await b.tool.equipForBlock(block);
     if(block.material==='incorrect_for_wooden_tool')block.material='mineable/pickaxe';
     await b.dig(block);await sleep(80);
@@ -4138,7 +4172,7 @@ export class Worker extends EventEmitter {
   const seen=new Set();
   for(const [x,z] of dirs){
    const k=x+','+z;if(seen.has(k)||(!x&&!z))continue;seen.add(k);
-   const d=new Vec3(x,0,z),job={tunnel:[]};let n=0;
+   const d=new Vec3(x,0,z),job={tunnel:[],handDig:true};let n=0;
    for(;n<STAIR_OUT;n++){
     this.check(token);
     try{await this.tunnelStep(job,token,d,1,false,undefined,true);}
@@ -4208,8 +4242,12 @@ export class Worker extends EventEmitter {
    const d=Math.abs(dx)+Math.abs(dz)+Math.abs(dy);if(d<bd){bd=d;best=p;}
   }
   if(!best){this.log('Water: no dry stand within '+LEAVE_WATER_R+' of '+f);return;}
-  try{await this.navigate(new goals.GoalBlock(best.x,best.y,best.z),token,20);this.log('Water: stepped out to '+best);}
-  catch(e){this.check(token);this.log('Water: could not step out ('+String(e.message).slice(0,60)+')');}
+  // Round 72 (round-71 normal2: `could not step out (The goal was changed before it could be
+  // completed!)` as the swim-up let go of its goal): a changed goal is tried once more.
+  for(let tries=0;;tries++){
+   try{await this.navigate(new goals.GoalBlock(best.x,best.y,best.z),token,20);this.log('Water: stepped out to '+best);return;}
+   catch(e){this.check(token);if(tries<1&&/goal was changed/i.test(e.message||''))continue;this.log('Water: could not step out to '+best+' ('+String(e.message).slice(0,120)+')');return;}
+  }
  }
  async dropPocket(token){
   const b=this.bot,start=b.entity.position.floored();

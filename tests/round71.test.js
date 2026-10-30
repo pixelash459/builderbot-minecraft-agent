@@ -26,7 +26,7 @@ test('round 71: the stock pathfinder will not climb out of deep water onto a ban
  const m=await pool();
  assert.deepEqual(east(m,new Move(5,61,0,0,0)),[],'the bug: no way east onto the bank');
 });
-test('round 71: a swimmer climbs out onto a bank level with the surface, from the water cell or the air over it',async()=>{
+test('round 71: a swimmer climbs out onto a bank level with the surface',async()=>{
  const m=waterExits(await pool());
  const out=east(m,new Move(5,61,0,0,0));
  assert.equal(out.length,1);assert.deepEqual([out[0].x,out[0].y,out[0].z],[6,62,0]);
@@ -34,12 +34,10 @@ test('round 71: a swimmer climbs out onto a bank level with the surface, from th
  const fromAir=east(m,new Move(5,62,0,0,0));
  assert.deepEqual(fromAir.map(n=>[n.x,n.y,n.z]),[[6,62,0]],'over the surface the stock forward step already lands');
 });
-test('round 71: a bank one over the surface is climbed too, but not one two over',async()=>{
- let m=waterExits(await pool({bankTop:62}));
- assert.deepEqual(east(m,new Move(5,61,0,0,0)).map(n=>[n.x,n.y,n.z]),[[6,63,0]]);
- assert.deepEqual(east(m,new Move(5,62,0,0,0)).map(n=>[n.x,n.y,n.z]),[[6,63,0]]);
- m=waterExits(await pool({bankTop:63}));
+test('round 72: a bank one block over the water is not planned (the physics cannot climb it)',async()=>{
+ const m=waterExits(await pool({bankTop:62}));
  assert.deepEqual(east(m,new Move(5,61,0,0,0)),[]);
+ assert.deepEqual(east(m,new Move(5,62,0,0,0)),[]);
 });
 test('round 71: no climb out of lava or from under the surface',async()=>{
  const lava=waterExits(await pool({fluid:'lava'}));
