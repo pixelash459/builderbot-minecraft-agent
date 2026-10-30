@@ -14246,3 +14246,596 @@ then again at 04:30:34 (2400,-58,1), 04:31:06 (2399,-58,0), 04:31:38 (2400,-58,-
 `shelter_hole`: `sealed_after` 62.2 s, `resealed_after` 4.0 s, `opened_after` 22.2 s (round 71: 64.1 / 4.0 / 20.1). Still could not climb home (`the night mine could not climb home; bot at (3000, -60, -1)`), resealed where it stood. `repeated_errors` empty on every scenario. All 11 finished.
 
 After the probe the world is `level-name=agent-test-world`, `level-type=minecraft:flat` / flat, `difficulty=peaceful`, `server-ip=0.0.0.0`. The model stayed off and port 8081 stayed closed. The source folder `test-server/nitrous-copy-20261029` was not edited. Its directory mtime is still 2026-10-29 01:19:43 IST.
+
+## 2026-10-30 12:06 IST – 2026-10-30 15:15 IST — round 73 soak on the Nitrous world copy (bot code `2769c3b`)
+
+This soak is the round-73 bot code `2769c3b` (`Round 73: path again from the water with a wider search budget and without mob avoidance on a no-path, ...`). HEAD for the run is `2769c3b` (bot code under test is `2769c3b`). No combat and no integration. Units on this PC before the soak: 720 pass, 0 fail (round 72 live was 712 pass / 0 fail; this is 8 more, and 0 fail). Model off. `logs/supervisor.log` first line is `model server disabled (config.model.enabled=false): skipping llama-server, saving ~6.5 GB commit`. Port 8081 stayed closed. `SOAK_SEED` was unset (the launch printed `SOAK_SEED=[]` and `NIGHT_SKIP_UNSET`; `SOAK_NIGHT_SKIP` was not set; the harness default is 150 s). The source folder was not opened and was not edited. Its directory mtime is still 2026-10-29 01:19:43 IST.
+
+`reset the bot world memory (storage, home, ledger)`
+
+`soak world copy D:\Usefu Shi\Epic\SGSMP\minecraft-agent\test-server\nitrous-copy-20261029 (anchors scouted from spawn)`
+
+`copied the soak world from D:\Usefu Shi\Epic\SGSMP\minecraft-agent\test-server\nitrous-copy-20261029`
+
+The log says a world copy, not a soak seed. Spawn was not set by hand.
+
+`scout base: the spawn at [708, 64, -435]`
+
+`scout: HARD anchor confirmed (gather completed, canopy light 15) at [711, 71, -425]`
+
+`scout: trying the normal anchor an earlier soak confirmed on this world at [722, 71, -424]`
+
+`run scout vitals: ok (health 20, food 20)`
+
+`scout: NORMAL anchor confirmed (open sky 15, gather completed) at [722, 71, -424]`
+
+Prior-anchor retry: tried round 72's normal `[722, 71, -424]` and confirmed it (sky 15, gather completed). Hard this scout is `[711, 71, -425]` canopy light 15. Spawn `[708, 64, -435]`.
+
+The harness window is `2026-10-30T06:36:31Z` to `2026-10-30T09:45:26Z` (12:06 IST to 15:15 IST on 2026-10-30), 11335 s. Six valid runs, every `tod_end` day. `errors` is empty on every run. The harness printed `clean triple promoted to data/soak-results.json` and `SOAK DONE (clean)`. Harness deaths are 1/0/0/1/1/0 (3 total). Round 72 on this copy was iron on 3 of 6, deaths 3, hard wood 302/512/603. Round 71 was iron on 3 of 6, deaths 1, hard wood 241/362/874. This copy reached iron on 3 of 6 again (no diamond pick), hard wood 331/—/452 (hard2 never logged wood_at), and died 3 times (1 drown + 2 skeleton).
+
+### Rungs
+
+```
+run       | wood | stone pick | furnace | iron pick | torches | armour worn | bed  | diamonds | diamond pick | food                                                   | deaths
+normal1a1 | 120  | 211        | 873     | 1144      | 18      | 2 at 1777   | 964  | 1        | -            | ate 4                                                  | 1
+normal2a2 | 241  | 362        | 422     | 723       | 17      | 1 at 2320   | -    | 0        | -            | ate 3 (1 failed: the food bar did not rise (2 tries))  | 0
+normal3a3 | 181  | 301        | 331     | 723       | 16      | 2 at 1657   | 753  | 0        | -            | ate 2                                                  | 0
+hard1a1   | 331  | 512        | -       | -         | 0       | 0           | -    | 0        | -            | ate 1                                                  | 1
+hard2a2   | -    | -          | -       | -         | 0       | 0           | -    | 0        | -            | no food held (food min 5)                              | 1
+hard3a3   | 452  | 513        | -       | -         | 0       | 0           | -    | 0        | -            | not hungry enough (food min 20)                        | 0
+```
+
+Iron picks on 3 of 6 (normal1 at 1144 s, ore peak 3, ingot peak 6; normal2 at 723 s, ore peak 5, ingot peak 7; normal3 at 723 s, ore peak 4, ingot peak 7). Round 72: 3 of 6 at 572/723/1145. No diamond pick (normal1 held 1 diamond). Beds on normal1 at 964 s and normal3 at 753 s. Hard wood 331/—/452 (round 72: 302/512/603; round 71: 241/362/874). Food mins 14/15/15/14/5/20. Night skips 0/0/0/1/0/1.
+
+### NEW no path from the water (round 73)
+
+Every `Navigation: no path from the water at P within the search budget; searching 320` line in the soak window (**56**), quoted whole, with the immediate retry outcome and where the bot was ~30 s later (from the evidence parse of `r73_ev.txt`):
+
+1. `2026-10-30T06:45:08.465Z Navigation: no path from the water at (709, 60, -420) within the search budget; searching 320`
+   - retry: failed No path: 2026-10-30T06:45:08.526Z Job: No path to the goal!
+   - ~30s later: at (709, 61, -420)
+
+2. `2026-10-30T06:45:31.758Z Navigation: no path from the water at (709, 60, -420) within the search budget; searching 320`
+   - retry: failed No path: 2026-10-30T06:45:31.820Z Job: No path to the goal!
+   - ~30s later: at (709, 60, -420)
+
+3. `2026-10-30T06:45:32.802Z Navigation: no path from the water at (709, 60, -420) within the search budget; searching 320`
+   - retry: failed No path: 2026-10-30T06:45:32.860Z Water: could not step out to (710, 63, -421) (No path to the goal!)
+   - ~30s later: at (709, 60, -420)
+
+4. `2026-10-30T06:45:32.985Z Navigation: no path from the water at (709, 60, -420) within the search budget; searching 320`
+   - retry: failed No path: 2026-10-30T06:45:33.048Z Job: No path to the goal!
+   - ~30s later: at (709, 60, -420)
+
+5. `2026-10-30T06:46:00.060Z Navigation: no path from the water at (709, 60, -420) within the search budget; searching 320`
+   - retry: failed No path: 2026-10-30T06:46:00.108Z Job: No path to the goal!
+   - ~30s later: None
+
+6. `2026-10-30T06:46:01.105Z Navigation: no path from the water at (709, 60, -420) within the search budget; searching 320`
+   - retry: failed No path: 2026-10-30T06:46:01.156Z Water: could not step out to (710, 63, -421) (No path to the goal!)
+   - ~30s later: None
+
+7. `2026-10-30T06:46:01.272Z Navigation: no path from the water at (709, 60, -420) within the search budget; searching 320`
+   - retry: failed No path: 2026-10-30T06:46:01.334Z Job: No path to the goal!
+   - ~30s later: None
+
+8. `2026-10-30T06:46:09.168Z Navigation: no path from the water at (709, 60, -420) within the search budget; searching 320`
+   - retry: failed No path: 2026-10-30T06:46:09.230Z Water: could not step out to (710, 63, -421) (No path to the goal!)
+   - ~30s later: at (712, 71, -426)
+
+9. `2026-10-30T06:46:14.853Z Navigation: no path from the water at (709, 61, -420) within the search budget; searching 320`
+   - retry: failed No path: 2026-10-30T06:46:14.906Z Water: could not step out to (710, 63, -421) (No path to the goal!)
+   - ~30s later: at (712, 71, -426)
+
+10. `2026-10-30T07:01:05.874Z Navigation: no path from the water at (886, 62, -637) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: None
+
+11. `2026-10-30T07:20:27.408Z Navigation: no path from the water at (743, 62, -442) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (725, 63, -454)
+
+12. `2026-10-30T07:46:56.332Z Navigation: no path from the water at (541, 62, -754) within the search budget; searching 320`
+   - retry: failed No path: 2026-10-30T07:46:56.482Z Job: No path to the goal!
+   - ~30s later: at (547, 62, -751)
+
+13. `2026-10-30T07:47:34.293Z Navigation: no path from the water at (548, 62, -751) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (560, 62, -747)
+
+14. `2026-10-30T07:47:50.668Z Navigation: no path from the water at (554, 62, -749) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (566, 62, -745)
+
+15. `2026-10-30T07:47:58.807Z Navigation: no path from the water at (557, 62, -748) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (568, 62, -744)
+
+16. `2026-10-30T07:48:24.015Z Navigation: no path from the water at (567, 62, -745) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (578, 62, -741)
+
+17. `2026-10-30T07:48:31.296Z Navigation: no path from the water at (568, 62, -744) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (580, 62, -740)
+
+18. `2026-10-30T07:48:56.740Z Navigation: no path from the water at (579, 62, -741) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (588, 62, -737)
+
+19. `2026-10-30T07:49:03.919Z Navigation: no path from the water at (580, 62, -740) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (591, 62, -736)
+
+20. `2026-10-30T07:49:13.912Z Navigation: no path from the water at (582, 62, -739) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (593, 62, -735)
+
+21. `2026-10-30T07:49:30.453Z Navigation: no path from the water at (588, 62, -737) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (600, 62, -733)
+
+22. `2026-10-30T07:49:44.918Z Navigation: no path from the water at (593, 62, -735) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (605, 62, -731)
+
+23. `2026-10-30T07:49:54.201Z Navigation: no path from the water at (598, 62, -734) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (609, 61, -730)
+
+24. `2026-10-30T07:50:03.193Z Navigation: no path from the water at (601, 62, -733) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (613, 61, -729)
+
+25. `2026-10-30T07:50:10.513Z Navigation: no path from the water at (604, 62, -732) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (615, 62, -728)
+
+26. `2026-10-30T07:50:18.016Z Navigation: no path from the water at (605, 62, -731) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (618, 62, -727)
+
+27. `2026-10-30T07:50:43.353Z Navigation: no path from the water at (616, 62, -728) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (628, 62, -724)
+
+28. `2026-10-30T07:50:52.750Z Navigation: no path from the water at (619, 62, -727) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (633, 62, -722)
+
+29. `2026-10-30T07:51:07.739Z Navigation: no path from the water at (624, 62, -725) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (636, 62, -721)
+
+30. `2026-10-30T07:51:32.625Z Navigation: no path from the water at (634, 62, -722) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (643, 62, -718)
+
+31. `2026-10-30T07:51:48.761Z Navigation: no path from the water at (640, 62, -720) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (651, 62, -716)
+
+32. `2026-10-30T07:51:56.249Z Navigation: no path from the water at (641, 62, -719) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (652, 62, -715)
+
+33. `2026-10-30T07:52:04.946Z Navigation: no path from the water at (644, 62, -718) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (657, 62, -714)
+
+34. `2026-10-30T07:52:29.746Z Navigation: no path from the water at (653, 62, -715) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (665, 62, -711)
+
+35. `2026-10-30T07:53:04.265Z Navigation: no path from the water at (665, 62, -711) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (677, 62, -707)
+
+36. `2026-10-30T07:53:11.251Z Navigation: no path from the water at (668, 62, -710) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (678, 62, -706)
+
+37. `2026-10-30T07:53:20.911Z Navigation: no path from the water at (671, 62, -709) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (682, 62, -705)
+
+38. `2026-10-30T07:53:43.181Z Navigation: no path from the water at (678, 62, -706) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (691, 62, -702)
+
+39. `2026-10-30T07:53:53.652Z Navigation: no path from the water at (683, 62, -705) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (694, 62, -701)
+
+40. `2026-10-30T07:54:08.734Z Navigation: no path from the water at (689, 62, -703) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (700, 62, -699)
+
+41. `2026-10-30T07:54:16.969Z Navigation: no path from the water at (692, 62, -702) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (703, 62, -698)
+
+42. `2026-10-30T07:54:33.306Z Navigation: no path from the water at (698, 62, -700) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (709, 61, -696)
+
+43. `2026-10-30T07:54:41.701Z Navigation: no path from the water at (701, 62, -699) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (713, 62, -695)
+
+44. `2026-10-30T07:54:49.554Z Navigation: no path from the water at (704, 62, -698) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (715, 62, -694)
+
+45. `2026-10-30T07:55:22.361Z Navigation: no path from the water at (716, 62, -694) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (727, 62, -690)
+
+46. `2026-10-30T07:55:38.739Z Navigation: no path from the water at (722, 62, -692) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (733, 62, -688)
+
+47. `2026-10-30T07:55:47.803Z Navigation: no path from the water at (724, 62, -691) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (736, 62, -687)
+
+48. `2026-10-30T07:55:55.152Z Navigation: no path from the water at (728, 62, -690) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (740, 61, -686)
+
+49. `2026-10-30T07:56:03.248Z Navigation: no path from the water at (731, 62, -689) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (742, 62, -685)
+
+50. `2026-10-30T07:56:11.455Z Navigation: no path from the water at (734, 62, -688) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (747, 62, -683)
+
+51. `2026-10-30T07:56:20.909Z Navigation: no path from the water at (737, 62, -687) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (747, 62, -683)
+
+52. `2026-10-30T07:56:37.753Z Navigation: no path from the water at (743, 62, -685) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (753, 61, -681)
+
+53. `2026-10-30T07:56:52.464Z Navigation: no path from the water at (748, 62, -683) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (758, 62, -679)
+
+54. `2026-10-30T07:57:10.350Z Navigation: no path from the water at (754, 62, -681) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: None
+
+55. `2026-10-30T08:41:50.358Z Navigation: no path from the water at (736, 62, -443) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: None
+
+56. `2026-10-30T09:03:06.970Z Navigation: no path from the water at (740, 62, -445) within the search budget; searching 320`
+   - retry: (no clear follow-up in 30s)
+   - ~30s later: at (787, 95, -519)
+
+`Navigation: no path with mob avoidance at P; trying without it` lines that came right after a `No path to the goal!`: **11** (counted, not each quoted). Total `Navigation: no path with mob avoidance` in the soak window: **980**.
+
+### Water
+
+Every `Water: head under` line in the soak window, quoted whole (**8**):
+
+`2026-10-30T06:45:33.966Z Water: head under for 8 s at (709, 60, -420) with no swim-up; holding jump (air 9, isInWater true) (job none, chain User Tasks)`
+
+`2026-10-30T06:46:05.304Z Water: head under for 8 s at (709, 60, -420) with no swim-up; holding jump (air 9, isInWater true) (job none, chain User Tasks)`
+
+`2026-10-30T06:46:22.855Z Water: head under for 8 s at (710, 60, -420) with no swim-up; holding jump (air 8, isInWater true) (job none, chain Misc World Survival Chain)`
+
+`2026-10-30T07:43:23.024Z Water: head under for 8 s at (697, 57, -543) with no swim-up; holding jump (air 9, isInWater true) (job none, chain User Tasks)`
+
+`2026-10-30T07:47:15.475Z Water: head under for 8 s at (540, 57, -755) with no swim-up; holding jump (air 9, isInWater true) (job none, chain User Tasks)`
+
+`2026-10-30T07:58:45.554Z Water: head under for 8 s at (782, 60, -667) with no swim-up; holding jump (air 10, isInWater true) (job smelt, chain User Tasks)`
+
+`2026-10-30T09:02:20.305Z Water: head under for 8 s at (727, 61, -434) with no swim-up; holding jump (air 9, isInWater true) (job none, chain User Tasks)`
+
+`2026-10-30T09:25:05.072Z Water: head under for 8 s at (785, 56, -418) with no swim-up; holding jump (air 9, isInWater true) (job none, chain Mob Defense)`
+
+`Water: stepped out to P`: **4** lines:
+
+`2026-10-30T06:45:13.953Z Water: stepped out to (710, 63, -421)`
+
+`2026-10-30T06:45:50.003Z Water: stepped out to (710, 63, -421)`
+
+`2026-10-30T07:43:27.881Z Water: stepped out to (699, 63, -547)`
+
+`2026-10-30T07:43:33.976Z Water: stepped out to (698, 63, -548)`
+
+`Water: could not step out`: **5**:
+
+`2026-10-30T06:45:32.860Z Water: could not step out to (710, 63, -421) (No path to the goal!)`
+
+`2026-10-30T06:46:01.156Z Water: could not step out to (710, 63, -421) (No path to the goal!)`
+
+`2026-10-30T06:46:09.230Z Water: could not step out to (710, 63, -421) (No path to the goal!)`
+
+`2026-10-30T06:46:14.906Z Water: could not step out to (710, 63, -421) (No path to the goal!)`
+
+`2026-10-30T08:23:36.788Z Water: could not step out to (789, 61, -560) (No path to the goal! (empty path at (789, 60, -560), last path: partial, 0 steps, 461 nodes))`
+
+`no dry stand`: **3**:
+
+`2026-10-30T07:47:03.413Z Water: no dry stand within 12 of (541, 58, -754)`
+
+`2026-10-30T07:47:19.066Z Water: no dry stand within 12 of (541, 62, -754)`
+
+`2026-10-30T07:47:21.811Z Water: no dry stand within 12 of (544, 61, -753)`
+
+#### 30+ s water stretches
+
+1. **normal1 drown pocket at (709–710, 60–61, -420), ~97 s** (06:45:08Z first nav-water → 06:46:45Z death). Repeated `Navigation: no path from the water ... searching 320` with Job/Water could-not-step-out retries; head-under at 06:45:33Z and 06:46:05Z; stepped out twice to (710, 63, -421) then fell back in; drowning swim-ups at air 8; died `BuilderBot drowned` at (710, 60, -420). First dry after the cluster is the post-death respawn ladder resume (~06:46:52Z Autopilot restarted), not a wet step-out that stuck.
+
+2. **normal2 river traverse (541–758, 61–62, -754→-679), intermittent ~11 min of nav-water** (07:46:56Z–07:57:10Z). Many `searching 320` lines with `(no clear follow-up in 30s)` while the position marched southeast along the water; head-under at (540, 57, -755); three `no dry stand` lines; one explore GoalXZ no-path. Ended dry later on the bank (30s-later samples climb toward (758, 62, -679)); no drown death in this stretch.
+
+3. **normal2 head-under near (697, 57, -543) then stepped out** (07:43:23Z–07:43:33Z): head under → drowning swim-up → stepped out to (699, 63, -547) then (698, 63, -548) within ~10 s.
+
+### No-path counts (incl. in water)
+
+`Job: no path for ...` total **16** (per run: normal1 8, normal2 3, normal3 0, hard1 2, hard2 0, hard3 3). Wet (in water) among those: **1** (hard3). Round 72: 60 total / ~13 in water. Grep: window filter on `logs/dashboard.log` for substring `Job: no path for` between `2026-10-30T06:36:00Z` and `2026-10-30T09:46:00Z` → 16.
+
+Grouped by job + goal class (GoalNear buckets rounded to 3):
+
+- `goto` GoalNear ~708,66,-420 within 1: 6
+- `goto` GoalNear ~756,73,-603 within 1: 2
+- `goto` GoalNear ~789,87,-522 within 1: 2
+- `goto` GoalNear ~810,95,-531 within 1: 2
+- `goto` GoalNear ~819,102,-447 within 1: 2
+- `explore` GoalXZ: 1
+- `gather log` GoalXZ: 1
+
+### NEW morning boxes
+
+Every `Shelter: morning`:
+
+`2026-10-30T08:59:11.804Z Shelter: morning in a cave (6 hostiles within 24, sky 0); climbing out through the roof`
+
+`2026-10-30T09:43:19.756Z Shelter: morning (tod 6000, nearest hostile 13.7); opening up`
+
+`Shelter: a creeper ... keeping the walls up` (1):
+
+`2026-10-30T09:43:21.937Z Shelter: a creeper 13.7 away; keeping the walls up`
+
+`opening the walls` pair: **1** line:
+
+`2026-10-30T09:44:21.983Z Shelter: creeper 13.7 away; opening the walls`
+
+#### hard1 cave roof morning (died)
+
+- Cave morning at 08:59:11Z (sky 0, 6 hostiles within 24) → roof climb; Boxed in stair-out at 08:59:28Z `(812, 87, -531)` → `(816, 91, -531)`.
+- Mob Defense flees from ~09:00:13Z; `BuilderBot was shot by Skeleton` / `Bot died at 777, 85, -564` at 09:02:04Z (~173 s after the cave morning line).
+
+#### hard3 box open (survived)
+
+- Opening up at 09:43:19Z → creeper hold at +2.2 s (13.7 away) → opening the walls at +62.2 s → two goto no-paths toward GoalNear ~820,102,-447; no death after this open.
+
+Death within 2 minutes of a box opening: **0** after the hard3 `opening up` (the hard1 skeleton death follows the cave-roof morning, not an `opening up` wall clear). hard2's skeleton death was at 09:05:08Z, before hard3's night box.
+
+### NEW Boxed in by hand (soak)
+
+Soak window: **0** `Boxed in: no tool for ... digging it by hand` lines (probe only; see Obstructions).
+
+Soak `Boxed in at` stair-outs (**5**):
+
+`2026-10-30T06:43:54.962Z Boxed in at (707, 66, -421): dug 3 steps up west to (704, 69, -421)`
+
+`2026-10-30T06:45:49.760Z Boxed in at (709, 62, -420): dug 1 steps up east to (710, 63, -420)`
+
+`2026-10-30T08:04:51.162Z Boxed in at (790, 82, -522): dug 4 steps up east to (794, 86, -522)`
+
+`2026-10-30T08:59:28.168Z Boxed in at (812, 87, -531): dug 4 steps up east to (816, 91, -531)`
+
+`2026-10-30T09:45:02.118Z Boxed in at (825, 98, -442): dug 3 steps up east to (828, 101, -442)`
+
+### Night mine
+
+Every `Night mine:` line (**8**):
+
+`2026-10-30T08:51:52.660Z Night mine: down from the shelter at (811, 87, -531) (tod 12603)`
+
+`2026-10-30T08:53:39.247Z Night mine: could not climb back into (811, 87, -531): Took to long to decide path to goal!`
+
+`2026-10-30T08:53:39.247Z Night mine: walking the tunnel back by hand from (812, 87, -531)`
+
+`2026-10-30T08:53:39.248Z Night mine: not back in the shelter (done; 27 steps, 0 ore items, 0 wall digs); bot at (812, 87, -531), the box is at (811, 87, -531)`
+
+`2026-10-30T09:34:28.560Z Night mine: down from the shelter at (825, 98, -443) (tod 12607)`
+
+`2026-10-30T09:36:16.255Z Night mine: could not climb back into (825, 98, -443): Took to long to decide path to goal!`
+
+`2026-10-30T09:36:16.256Z Night mine: walking the tunnel back by hand from (824, 98, -442)`
+
+`2026-10-30T09:36:16.256Z Night mine: not back in the shelter (done; 27 steps, 0 ore items, 0 wall digs); bot at (824, 98, -442), the box is at (825, 98, -443)`
+
+Tunnel climb failures (**3**):
+
+`2026-10-30T06:51:51.890Z Tunnel climb: step 755,69,-599 failed (No path to the goal! (empty path at (755, 74, -600), last pa); digging through natural fill`
+
+`2026-10-30T06:53:59.849Z Tunnel climb: step 753,69,-600 failed (No path to the goal!); digging through natural fill`
+
+`2026-10-30T07:17:58.387Z Tunnel climb: step 1020,11,-863 failed (No path to the goal!); digging through natural fill`
+
+### Falling air and drowning (round-70 again)
+
+`WorldSurvival: air falling` logged **2** times (round 72: 0; round 71: 0; round 70: 0; round 69: 908):
+
+`2026-10-30T07:20:34.655Z WorldSurvival: air falling (air 17) with no water seen at the head (air) or feet (air) at (722, 71, -424); treating it as water`
+
+`2026-10-30T09:02:39.404Z WorldSurvival: air falling (air 18) with no water seen at the head (air) or feet (air) at (711, 71, -425); treating it as water`
+
+`WorldSurvival: drowning (air N)` logged **7** times (all first air 8).
+
+`Job: Reflex: preempted by Misc World Survival Chain` logged **5** times (round 72: 2). Broader `preempted by Misc World Survival Chain` substring: 15 (includes Pause/Reflex twins).
+
+No `roof over the water` line. No `the roof dig at ... failed` line. One cave-roof morning climb (quoted above).
+
+### Round-69 scout retry and food fights
+
+Prior-anchor line quoted above; confirmed. Food fights are melee on sheep/cow/pig; examples:
+
+`2026-10-30T06:54:54.362Z Fight result: sheep tactic=melee hits=3 ... result=finished`
+
+`2026-10-30T07:28:04.152Z Fight result: cow tactic=melee hits=3 ... result=finished`
+
+`2026-10-30T08:06:34.252Z Fight result: pig tactic=melee hits=3 ... result=finished`
+
+No `avoid never fight unarmed` / unarmed avoid vs prey.
+
+### Round-68 checklist
+
+No `Unknown item` line. No gather target named `stripped_*`. Plank crafts name real planks (`oak_planks` and `cherry_planks` seen). `wood failed 3 times` counts: **4** lines total (06:49:29Z, 07:22:58Z, 08:42:57Z, 09:07:06Z). No unarmed avoid vs prey. `Water: head under` quoted above; drown death as below.
+
+### Builds
+
+No `Dig: broke` line. Home chest **found** at `(731, 71, -526)` and `(794, 88, -519)`. No found-furnace / found-bed / crop line (`FOUND chest=0 furnace=0 bed=0` in the evidence scan). Shelter seals:
+
+`2026-10-30T08:51:21.055Z Shelter: sealed at (811, 87, -531) (3 blocks placed)`
+
+`2026-10-30T08:53:41.478Z Shelter: sealed at (812, 87, -531) (5 blocks placed)`
+
+`2026-10-30T09:34:08.663Z Shelter: sealed at (825, 98, -443) (8 blocks placed)`
+
+`2026-10-30T09:36:18.392Z Shelter: sealed at (824, 98, -442) (4 blocks placed)`
+
+`Navigation: stranded` **0** times. hard1/hard3 night mines could not climb back into the box (quoted above) and resealed one block over. Spawn/anchors vs builds: hard `[711,71,-425]`, normal `[722,71,-424]`; storage chests placed around 790–800,88,-519.
+
+### Sprint / Fall / PACKET_RATE
+
+`Movement: sprinting` weighted share with food>6 (from the periodic lines, food>6 only): normal1 99.9% (374 s), normal2 99.8% (301 s), normal3 100% (358 s), hard1 100% (122 s), hard2 99.3% (122 s), hard3 88.1% (75 s). Fall/Ledge:
+
+`2026-10-30T07:22:13.910Z Fall: dropping from (751, 81, -452) (job gather, pathing true, sprint false)`
+
+`2026-10-30T07:41:33.006Z Fall: dropping from (723, 72, -521) (job gather, pathing true, sprint false)`
+
+`2026-10-30T09:08:50.003Z Fall: dropping from (796, 93, -517) (job gather, pathing true, sprint true)`
+
+No `Ledge guard` line. No kick. Round 72 had 4 falls (2 with sprint true).
+
+#### PACKET_RATE (counted once)
+
+Grep used (soak window only):
+
+```
+python: read logs/dashboard.log; keep lines whose leading ISO timestamp is in
+[2026-10-30T06:36:00Z, 2026-10-30T09:46:00Z] (carry-forward timestamp for
+PACKET_RATE lines that share the prior ISO stamp); count lines containing the
+literal substring PACKET_RATE.
+```
+
+Result: **32** matches total. Per run: 11/7/7/0/4/3 (=32).
+
+### Windows / placing / store
+
+Stale-window closes: many `Window: closed a stale minecraft:generic_9x3 window left open before an equip` lines clustered ~09:07–09:08Z on hard2 after the death resume (60 total substring hits in the soak window).
+
+Store: placed storage chests at 790/794/792/800,88,-519; put away cobble/dirt/etc. Earlier `Store: put away nothing (0 storage chests)` on normal2. Cobble inventory step set aside 5 min twice (`2026-10-30T07:06:37.540Z`, `2026-10-30T07:18:21.802Z`). Pillar lines: ceiling at (723, 74, -517); stopped at y=89 (short_grass under feet).
+
+### Food search
+
+Animals fought: sheep, cow, pig (melee). Food mins 14/15/15/14/5/20. End edible 2/4/3/0/0/0. hard2 ended with no food held after death; hard3 never hungry enough. End health stayed 20 on surviving samples.
+
+### Harness
+
+No `head in a wall`. No `suffocated`. No setup fill error. Interventions include: normal1 resume after drown + return from below the anchor at `[1040, 6, -818]`; normal2 unstuck from `[749, 77, -454]`; hard1 unstuck + night skip (sealed_s 172) + resume after skeleton; hard2 resume after skeleton + unstuck; hard3 night skip (sealed_s 171).
+
+### Deaths
+
+Three harness deaths (this soak window only; 1/0/0/1/1/0 = 3):
+
+1. normal1 drowned:
+
+`2026-10-30T06:45:33.966Z Water: head under ... (709, 60, -420) ...`
+
+`2026-10-30T06:46:45.057Z BuilderBot drowned`
+
+`2026-10-30T06:46:45.058Z Bot died at 710, 60, -420`
+
+Harness `death_causes`: `System chat: BuilderBot drowned`. In water after repeated nav-water / could-not-step-out.
+
+2. hard1 after cave morning / roof climb:
+
+`2026-10-30T08:59:11.804Z Shelter: morning in a cave (6 hostiles within 24, sky 0); climbing out through the roof`
+
+`2026-10-30T09:02:04.608Z BuilderBot was shot by Skeleton`
+
+`2026-10-30T09:02:04.609Z Bot died at 777, 85, -564 (killed by skeleton)`
+
+Harness: `shot by Skeleton`. Not in water.
+
+3. hard2:
+
+`2026-10-30T09:05:08.758Z BuilderBot was shot by Skeleton`
+
+`2026-10-30T09:05:08.758Z Bot died at 802, 89, -525`
+
+Harness: `shot by Skeleton`. Preceded by Mob Defense flees (unarmed COMBAT_SPEC 7f). Not in water.
+
+### Disconnects and uncaught
+
+`logs/dashboard-uncaught.log`: **0** new timestamped lines in the soak window. Disconnects are the soak's own service restarts. No kick. `Navigation: no path with mob avoidance` counted not quoted: **980** in the soak window; **11** of those came right after a `No path to the goal!`.
+
+### Verdict
+
+All 6 runs valid, IST 12:06–15:15 on 2026-10-30, duration 11335 s, `SOAK DONE (clean)`, promoted. Iron 3 of 6 (round 72: 3; round 71: 3). Deaths 3 (round 72: 3; round 71: 1) — drown + 2 skeleton. Hard wood 331/—/452 (round 72: 302/512/603; round 71: 241/362/874). Air falling 2. Misc Survival Job preempts 5. Swim-out: **4** `stepped out to`, **5** `could not step out`, **3** `no dry stand` (round 72: 4 / 0 / 0). Job no-path 16 (1 wet) vs round 72's 60 (~13 wet). Nav-water `searching 320`: **56** with outcomes above. Mob-avoid after No path: 11; total mob avoid 980. Morning creeper hold fired once (hard3); hard1 died to skeleton after cave-roof morning. PACKET_RATE 32 = 11/7/7/0/4/3 with the grep above. Obstructions 10/11: `cobble_box_bare` now **complete** in 34.2 s (was timeout 120.9 s in round 72).
+
+### Obstructions
+
+The probe ran after the flat world was restored, services up, model off (`2026-10-30T09:45:45Z`–`09:50:32Z`). Wrote `data/obstruction-results.json` (`at: 2026-10-30T15:20:31`). Printed table:
+
+```
+scenario             status          secs  message
+cobble_wall          complete        4.0s  Completed and verified
+plank_wall_long      complete       14.1s  Completed and verified
+door_wall            complete       14.1s  Completed and verified
+cobble_box_pick      complete        6.1s  Completed and verified
+cobble_box_bare      complete       34.2s  Completed and verified
+plank_box            complete        6.0s  Completed and verified
+glass_box            complete        6.0s  Completed and verified
+pit                  complete       10.1s  Completed and verified
+chest_spot_blocked   failed          2.0s  Cannot place at (2802, -60, 0): occupied by cobblestone
+chest_spot_flower    complete        2.0s  Completed and verified
+shelter_hole         complete       20.2s  Completed and verified
+```
+
+**10 of 11 complete**. `cobble_box_bare` **complete** in **34.2s** (round 72: timed out 120.9 s). By-hand dig fired then stair-out finished:
+
+`09:47:08.302 Navigation: no path with mob avoidance at (2400, -60, 0); trying without it`
+
+`09:47:08.363 Boxed in: no tool for cobblestone at (2400, -58, 0); digging it by hand (it drops nothing)`
+
+`09:47:40.085 Boxed in at (2400, -60, 0): dug 1 steps up east to (2401, -59, 0)`
+
+`cobble_box_pick` complete in **6.1s** (round 72: 12.1 s):
+
+`09:46:53.905 Navigation: no path with mob avoidance at (2300, -60, 0); trying without it`
+
+`09:46:57.444 Boxed in at (2300, -60, 0): dug 1 steps up east to (2301, -59, 0)`
+
+`chest_spot_blocked` failed occupied by cobblestone — **EXPECTED** (bot must not break a block it did not place): `Cannot place at (2802, -60, 0): occupied by cobblestone`.
+
+`shelter_hole`: `sealed_after` 62.0 s, `resealed_after` 4.0 s, `opened_after` 20.2 s. Still could not climb home:
+
+`09:49:18.795 Shelter: sealed at (3000, -60, 0) (25 blocks placed)`
+
+`09:49:39.426 Tunnel climb: step 3001,-63,0 failed (No path to the goal!); digging through natural fill`
+
+`09:49:51.313 Shelter: not in the box at (3000, -60, 0) (the night mine could not climb home; bot at (3000, -60, -1)); sealing where it stands`
+
+`09:49:51.316 Shelter: moved from 3000,-60,0 to (3000, -60, -1); building a new box here`
+
+`09:49:59.046 Shelter: sealed at (3000, -60, -1) (11 blocks placed)`
+
+`09:50:07.323 Shelter: re-sealing 1 open cell(s)`
+
+`09:50:11.427 Shelter: dawn (tod 1000); staying sealed until the morning is light and clear`
+
+`09:50:11.428 Shelter: morning (tod 1000, nearest hostile none); opening up`
+
+`repeated_errors` empty on every scenario. All 11 finished.
+
+After the probe the world is `level-name=agent-test-world`, `level-type=minecraft:flat` / flat, `difficulty=peaceful`, `server-ip=0.0.0.0`. The model stayed off and port 8081 stayed closed. The source folder `test-server/nitrous-copy-20261029` was not edited. Its directory mtime is still 2026-10-29 01:19:43 IST.
