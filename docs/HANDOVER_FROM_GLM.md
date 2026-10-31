@@ -2702,3 +2702,39 @@ The round-72 soak on the Nitrous world copy (bot `3fc0f73`) ran all six runs cle
 - **hard3's last 4.5 minutes** standing at (717, 66, -590) on `night: no shelter; holding for morning` at food 6, after the river stretch.
 - **The 26 tool-loss lines at run boundaries** are the harness's bag clear.
 - **`chest_spot_blocked`:** the expected refusal.
+
+## Round 77 (2026-10-31)
+
+**Round-76 soak results** (Nitrous world copy, `b425ba8`)
+- **Iron:** 4 of 6 again. The hard one is hard1 at 1416 s. normal1 made a diamond pick at 2349 s. hard2 never placed a furnace.
+- **Deaths:** 435, and 429 of them are one loop at (811, 32, -549) on hard1, hard2 and hard3 (6 / 194 / 235 deaths). Outside it, two hard2 deaths before the loop: a creeper and lava.
+- **Round 76's fixes held:** `searching 320` 2 (round 75: 12). Job no-paths 15 (round 75: 140). No 5-minute no-path sit. 0 deaths within 60 s of a stand-down. No mid-run false sword loss. `PACKET_RATE` 0.
+- **Night mine:** 1 of 1 back in, through `filled the sump (2 blocks); stepping in`.
+- **Obstruction probe:** 10 of 11. `shelter_hole` now completes with `resealed_after 4.0`. `chest_spot_blocked` is the expected refusal.
+
+**Diagnosis: the death loop**
+- **The bed:** hard1 was in a mob cave at y=32, 39 under the hard anchor, perched for the night with a bed held. At 02:05:34Z `Autopilot [night] {"type":"sleep"}` placed the bed at (811, 32, -550), and the server answered `Respawn point set`.
+- **Then:** the sleep was preempted and resumed, the resumed job found the bed already standing, and nothing picked it up. At 02:14:12Z, after a death there, `Autopilot: home set to the bed at (811, 32, -550)`.
+- **Why it spread:** the harness's bag clear between runs keeps the server's spawn point. hard2's lava death at 02:29:58Z respawned in the cave (`Fall: dropping from (806, 33, -548)` 4 s later). From then on every respawn was at that bed, empty-handed, in the middle of the cave's mobs. hard3 escaped at t=1147.
+
+**Diagnosis: the lava death after the guard**
+- hard2 at 02:29:56.181Z: `Lava guard: stopped at (837, 87, -539) (lava ahead at (838, 84, -539); job none)`. 0.33 s later it logged `in lava; escaping at (838, 85, -539)`, and the next fall line has sprint on.
+- **Cause:** the guard clears the keys after the physics step. A flee that presses them again before the next step walks on. At sprint speed one cell of look-ahead also leaves little room to stop.
+
+**Fixes**
+- **No sleep underground.** A new `Autopilot.undergroundForBed(p)` is true when the spot is more than `ASCEND_BELOW` (16) under the surface, or more than `SHALLOW_BELOW` (4) under it with no sky.
+  - `bedForNight` is false there, so the night job is the shelter.
+  - The sleep job refuses with `Underground at y=Y (surface S): a bed here would put the respawn point in the cave`.
+  - `rememberHome` does not take such a bed as home.
+- **Break a respawn bed that kills.** After each death, 800 ms after the respawn, `respawnBedCheck` looks for a bed within 3.
+  - It breaks the bed when the bot has died within 24 of it twice in the last 10 minutes, or once when the bed is underground.
+  - It logs `Respawn: N deaths within 24 of the bed at P in 10 min[ (underground)]; breaking it so the next respawn is the world spawn`. If that bed was home, it also logs `Respawn: home cleared (it was that bed)`.
+  - A failed dig logs `Respawn: could not break the bed at P (...)`.
+- **The lava hold.** For `LAVA_HOLD_MS` (1.5 s) after a lava-guard stop, presses of sprint, jump, or a walking key heading toward that lava are dropped in the `setControlState` wrapper. The guard's own step back and walking away still go through. The hold is never applied while the bot's own cell is lava.
+- **Farther look at speed.** At more than 0.15 blocks a tick, or off the ground, the lava guard also reads the cell 0.8 farther along. A wall in the near cell still hides it.
+
+**Not changed yet**
+- **The sleep path that let the bed stand:** a preempted sleep resumed onto a bed it had placed, so `afterSleep` saw no placed bed and left it. With no sleep underground this matters only on the surface. There a bed left away from home is a spare respawn point.
+- **hard2's furnace:** never placed, because the run was in the loop from t≈420.
+- **The tool-loss lines at run boundaries:** these are the harness's bag clear.
+- **`chest_spot_blocked`:** the expected refusal.

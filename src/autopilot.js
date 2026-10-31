@@ -1052,7 +1052,7 @@ export class Autopilot{
  bedNear(b){return b.inventory.items().some(i=>BED.test(i.name))||!!b.findBlock({matching:Object.values(b.registry.blocksByName).filter(bl=>BED.test(bl.name)).map(bl=>bl.id),maxDistance:16});}
  // Tonight's night job: a bed held or standing near means sleep (round 8: preferred to the
  // shelter), unless a sleep already failed tonight - then the shelter (sleepFailedTonight).
- bedForNight(b){return (this.bedNear(b)||!!this.homeBed(b))&&!this.sleepFailedTonight(b);}
+ bedForNight(b){return (this.bedNear(b)||!!this.homeBed(b))&&!this.sleepFailedTonight(b)&&!this.undergroundForBed(b?.entity?.position);}
  // Habit 5: the home bed (the spawn point), standing within HOME_BED_RANGE and loaded.
  homeBed(b){
   const h=this.home,me=b&&b.entity&&b.entity.position;
@@ -1126,6 +1126,16 @@ export class Autopilot{
  enclosedBelowSurface(){
   const b=this.worker.bot,p=b?.entity?.position,y=p?.y,top=this.lastSurfaceY??this.foodAnchorY;
   if(!(Number.isFinite(y)&&Number.isFinite(top)&&y<top-SHALLOW_BELOW))return false;
+  try{const head=b.blockAt(p.offset(0,1.6,0));return !!head&&head.skyLight===0;}catch{return false;}
+ }
+ // Round 77 (round-76 hard1: slept at (811, 32, -549), 39 under the anchor, and set the respawn
+ // point in a mob cave): a spot no bed belongs at - more than ASCEND_BELOW under the surface, or
+ // more than SHALLOW_BELOW under it with no sky.
+ undergroundForBed(p){
+  const b=this.worker.bot,top=this.lastSurfaceY??this.foodAnchorY;
+  if(!p||!Number.isFinite(p.y)||!Number.isFinite(top))return false;
+  if(p.y<top-ASCEND_BELOW)return true;
+  if(!(p.y<top-SHALLOW_BELOW))return false;
   try{const head=b.blockAt(p.offset(0,1.6,0));return !!head&&head.skyLight===0;}catch{return false;}
  }
  deepUnderground(){
@@ -1296,7 +1306,9 @@ export class Autopilot{
   const registry=b.registry;
   if(!this.home){
    const bed=b.findBlock({matching:Object.values(b.registry.blocksByName).filter(bl=>BED.test(bl.name)).map(bl=>bl.id),maxDistance:16});
-   if(bed){this.home={x:bed.position.x,y:bed.position.y,z:bed.position.z};this.save();this.log('Autopilot: home set to the bed at '+bed.position.floored());}
+   // Round 77: a bed in a cave is not a home (round-76 hard1 set it to the bed at (811, 32, -550)).
+   if(bed&&this.undergroundForBed(bed.position)){}
+   else if(bed){this.home={x:bed.position.x,y:bed.position.y,z:bed.position.z};this.save();this.log('Autopilot: home set to the bed at '+bed.position.floored());}
    // Habit 6: no bed yet - the first table the bot left standing is the base (a bed found
    // later does not move it; the first bed slept in sets home only when none is set).
    else{const t=this.worker.leftTable;if(t){this.home={x:t.x,y:t.y,z:t.z};this.save();this.log('Autopilot: home set to the table at '+t.x+','+t.y+','+t.z);}}

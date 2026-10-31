@@ -128,7 +128,7 @@ export function searchHeading(from,points){
 }
 // Tunnel settle: rounds of re-digging a step while sand/gravel keeps falling into it, and the
 // wait for a falling block to land before the cells are read again.
-export const TUNNEL_SETTLE_ROUNDS=12;export const TUNNEL_FALL_MS=450;export const TUNNEL_WALK_MS=2500;export const LAND_WAIT_MS=2000;export const CENTRE_MS=1000;export const TRUNK_PILLAR=4;export const SHELTER_AWAY_MS=3000;
+export const TUNNEL_SETTLE_ROUNDS=12;export const TUNNEL_FALL_MS=450;export const TUNNEL_WALK_MS=2500;export const RESPAWN_SETTLE_MS=800,RESPAWN_BED_REACH=3,RESPAWN_LOOP_DEATHS=2,RESPAWN_LOOP_MS=600000,RESPAWN_LOOP_RANGE=24;export const LAND_WAIT_MS=2000;export const CENTRE_MS=1000;export const TRUNK_PILLAR=4;export const SHELTER_AWAY_MS=3000;
 // A tunnel opens a block with no harvest tool when a bare hand breaks it this fast (hardness
 // 0.5: 2.5 s by hand). The passage needs no drop: snow blocks (0.2) stopped a normal-anchor
 // dig-down at 16:42Z, round 3, with 'needs a suitable tool'.
@@ -261,13 +261,20 @@ export function dropAhead(bot){
 export function lavaAhead(bot){
  const e=bot&&bot.entity;if(!e||!e.velocity||!e.position)return null;
  const vx=e.velocity.x,vz=e.velocity.z,sp=Math.hypot(vx,vz);if(sp<0.04)return null;
- const ahead=e.position.offset(vx/sp*LEDGE_LOOK,0,vz/sp*LEDGE_LOOK).floored();
  const at=p=>bot.blockAt(p),lava=bl=>!!bl&&/lava/.test(bl.name||'');
- const head=at(ahead.offset(0,1,0)),feet=at(ahead);
- if(lava(head))return head.position||ahead.offset(0,1,0);
- if(!feet)return null;if(lava(feet))return feet.position||ahead;
- if(feet.boundingBox==='block')return null; // a wall
- for(let dy=1;dy<=3;dy++){const bl=at(ahead.offset(0,-dy,0));if(!bl)return null;if(lava(bl))return bl.position||ahead.offset(0,-dy,0);if(bl.boundingBox==='block'||/water/.test(bl.name||''))break;}
+ const cell=ahead=>{
+  const head=at(ahead.offset(0,1,0)),feet=at(ahead);
+  if(lava(head))return head.position||ahead.offset(0,1,0);
+  if(!feet)return null;if(lava(feet))return feet.position||ahead;
+  if(feet.boundingBox==='block')return false; // a wall
+  for(let dy=1;dy<=3;dy++){const bl=at(ahead.offset(0,-dy,0));if(!bl)return null;if(lava(bl))return bl.position||ahead.offset(0,-dy,0);if(bl.boundingBox==='block'||/water/.test(bl.name||''))break;}
+  return null;
+ };
+ // Round 77 (round-76 hard2: stopped at (837, 87, -539) with the lava 3 below the next cell, and
+ // in it 0.33 s later, sprinting): at sprint speed or off the ground the stop carries the bot on,
+ // so a cell LAVA_LOOK_FAR farther along is read too.
+ const looks=sp>LAVA_FAST||e.onGround===false?[LEDGE_LOOK,LEDGE_LOOK+LAVA_LOOK_FAR]:[LEDGE_LOOK];
+ for(const d of looks){const r=cell(e.position.offset(vx/sp*d,0,vz/sp*d).floored());if(r===false)return null;if(r)return r;}
  return null;
 }
 // Stops a key-driven walk (no pathfinder) into lava and steps back, as the ledge guard does at
@@ -279,6 +286,7 @@ export function lavaGuard(bot){
  if(here.some(bl=>bl&&/lava/.test(bl.name||'')))return null;
  const keys=['forward','back','left','right'].filter(k=>bot.getControlState(k));if(!keys.length)return null;
  const at=lavaAhead(bot);if(!at)return null;
+ bot._lavaHold={x:at.x+0.5,z:at.z+0.5,until:Date.now()+LAVA_HOLD_MS};
  for(const k of ['forward','back','left','right','sprint','jump'])bot.setControlState(k,false);
  const away=LEDGE_AWAY[keys[0]];
  if(away){bot._ledgeBack={key:away,until:Date.now()+LEDGE_BACK_MS};bot.setControlState(away,true);}
@@ -312,6 +320,25 @@ export function ledgeGuard(bot){
  return true;
 }
 export const LEDGE_BACK_MS=400,LEDGE_AWAY={forward:'back',back:'forward',left:'right',right:'left'};
+// Round 77 (round-76 hard2: `Lava guard: stopped at (837, 87, -539)`, then `in lava; escaping at
+// (838, 85, -539)` 0.33 s later and `tried to swim in lava` - the guard clears the keys after the
+// physics step, and the flee pressed them again before the next one): for LAVA_HOLD_MS after a
+// stop, a press of a walking key that heads toward that lava, or of sprint or jump, is dropped.
+// The lava escape (the bot's own cell is lava) is never held.
+export const LAVA_HOLD_MS=1500,LAVA_FAST=0.15,LAVA_LOOK_FAR=0.8;
+export function keyHeading(key,yaw){
+ const s=Math.sin(yaw),c=Math.cos(yaw);
+ return {forward:{x:-s,z:-c},back:{x:s,z:c},right:{x:c,z:-s},left:{x:-c,z:s}}[key]||null;
+}
+export function lavaHeld(bot,name,now=Date.now()){
+ const h=bot&&bot._lavaHold,e=bot&&bot.entity;
+ if(!h||now>h.until||!e||!e.position)return false;
+ try{const f=e.position.floored();if([f,f.offset(0,1,0)].some(p=>/lava/.test(bot.blockAt(p)?.name||'')))return false;}catch{}
+ if(name==='sprint'||name==='jump')return true;
+ const d=keyHeading(name,e.yaw||0);if(!d)return false;
+ const tx=h.x-e.position.x,tz=h.z-e.position.z,len=Math.hypot(tx,tz)||1;
+ return (d.x*tx+d.z*tz)/len>0.3;
+}
 // Round 66 (the user, 2026-10-28: the bot still walks, never runs - round 65's gait lines read
 // 13-64% sprint on most legs with food 20): the pathfinder sprints only where its physics
 // simulation says the next nodes are a straight sprintable line, which forest and rolling ground
@@ -369,6 +396,7 @@ export function installSprintHold(bot){
   // pathfinder asked for sprint every tick and the flee tasks let go of it): no sprint-on at or
   // under SPRINT_FOOD, where the game refuses a sprint anyway.
   if(name==='sprint'&&value===true&&(bot.food??20)<=SPRINT_FOOD)return;
+  if(value===true&&lavaHeld(bot,name))return;
   return raw(name,value);
  };
  if(typeof bot.prependListener==='function')bot.prependListener('physicsTick',()=>{bot.__pathTick=true;});
@@ -1056,7 +1084,27 @@ export class Worker extends EventEmitter {
   this.deathLog=[...(this.deathLog||[]).slice(-19),{t:new Date().toISOString(),pos:this.lastDeath.pos,killer:killer?killer.name:null,job:(this.jobs.find(j=>j.status==='running')||{}).spec?.type||null}];
   this.deathResume=true;
   this.stop('Bot died; inspect the world before resuming','death');
+  if(typeof bot.once==='function')bot.once('spawn',()=>{const t=setTimeout(()=>{this.respawnBedCheck(bot).catch(()=>{});},RESPAWN_SETTLE_MS);t.unref?.();});
   setTimeout(()=>{try{bot.respawn();}catch{}},500);
+ }
+ // Round 77 (round-76: 194 deaths on hard2 and 235 on hard3 at (811, 32, -549), each respawn at
+ // the bed hard1 left in a mob cave, the sample never leaving that block while the count climbed):
+ // a respawn beside a bed the bot has died near RESPAWN_LOOP_DEATHS times in RESPAWN_LOOP_MS - or
+ // once, when that bed is underground - breaks the bed, so the next respawn is the world spawn.
+ async respawnBedCheck(bot){
+  if(this.bot!==bot||!(bot.health>0)||!bot.entity?.position||typeof bot.findBlock!=='function')return null;
+  const ids=Object.values(bot.registry?.blocksByName||{}).filter(bl=>/_bed$/.test(bl.name)).map(bl=>bl.id);
+  const bed=ids.length?bot.findBlock({matching:ids,maxDistance:RESPAWN_BED_REACH}):null;
+  if(!bed)return null;
+  const p=bed.position,now=Date.now();
+  const n=(this.deathLog||[]).filter(d=>d.pos&&now-Date.parse(d.t)<RESPAWN_LOOP_MS&&Math.hypot(d.pos.x-p.x,d.pos.y-p.y,d.pos.z-p.z)<=RESPAWN_LOOP_RANGE).length;
+  const under=!!this.autopilot?.undergroundForBed?.(p);
+  if(!(n>=RESPAWN_LOOP_DEATHS||(n>=1&&under)))return null;
+  this.log('Respawn: '+n+' death'+(n===1?'':'s')+' within '+RESPAWN_LOOP_RANGE+' of the bed at '+p+' in '+RESPAWN_LOOP_MS/60000+' min'+(under?' (underground)':'')+'; breaking it so the next respawn is the world spawn');
+  try{await bot.dig(bed);}catch(e){this.log('Respawn: could not break the bed at '+p+' ('+e.message+')');return false;}
+  const ap=this.autopilot,h=ap&&ap.home;
+  if(h&&h.y===p.y&&Math.abs(h.x-p.x)+Math.abs(h.z-p.z)<=1){ap.home=null;ap.save?.();this.log('Respawn: home cleared (it was that bed)');}
+  return true;
  }
  onHealth(bot){if(this.busy&&!this.survivalJob&&(bot.health<this.config.limits.minHealth||bot.food<this.config.limits.minFood))this.stop('Health or food is low','health');}
  disconnect(){this.stop('Disconnected by user','user');this.bot?.quit();this.bot=null;this.ready=false;}
@@ -1663,6 +1711,12 @@ export class Worker extends EventEmitter {
    if(tod<=1200)return this.update(job,1,'Night already slept through');
    throw Error('It is daytime; sleep is only possible at night');
   }
+  // Round 77 (round-76 hard1: `Autopilot [night] {"type":"sleep"}` at (811, 32, -549), 39 under the
+  // hard anchor in a mob cave, `Respawn point set` - then 429 deaths over three runs, every
+  // respawn at that bed, because the harness's bag clear between runs keeps the spawn point):
+  // no sleep underground. The night there is the shelter.
+  {const ap=this.autopilot,me=b.entity?.position;
+   if(me&&ap?.undergroundForBed?.(me))throw Error('Underground at y='+Math.floor(me.y)+' (surface '+(ap.lastSurfaceY??ap.foodAnchorY)+'): a bed here would put the respawn point in the cave');}
   let bed=job.spec.position?b.blockAt(pos(job.spec.position)):null;
   if(bed&&!/_bed$/.test(bed.name))throw Error('No bed at that position');
   if(!bed)bed=b.findBlock({matching:Object.values(b.registry.blocksByName).filter(bl=>/_bed$/.test(bl.name)).map(bl=>bl.id),maxDistance:16});
