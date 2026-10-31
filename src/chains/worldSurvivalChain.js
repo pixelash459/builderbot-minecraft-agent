@@ -12,6 +12,7 @@ import {chainConfig,inGame,hasEffect,onFire,TimerGame} from './settings.js';
 import {hasItemName} from './combatPolicy.js';
 import {movementTask,EscapeFromLavaTask,EscapeFreezingTask,EscapeSuffocationTask,GetToBlockTask,PutOutFireTask,SafeRandomShimmyTask,ExtinguishWithWaterTask,InteractWithBlockTask,SwimUpTask} from './fallbackTasks.js';
 import {inLava as blockInLava} from '../tasks/movement/escape-from-lava-task.js';
+import {waterlogged} from '../tasks/movement/get-out-of-water-task.js';
 export class WorldSurvivalChain extends SingleTaskChain{
  constructor(){
   super('Misc World Survival Chain');
@@ -121,7 +122,7 @@ export class WorldSurvivalChain extends SingleTaskChain{
   // back to 18 - it released within a second and the resumed shelter job dragged the bot down.
   const at=dy=>(bot.blockAt&&e.position&&bot.blockAt(e.position.offset(0,dy,0)))||null;
   const head=at(1.4),feet=at(0.1);
-  const wet=bl=>!!bl&&(WET.test(bl.name)||bl.properties?.waterlogged===true||bl.properties?.waterlogged==='true');
+  const wet=bl=>!!bl&&(WET.test(bl.name)||waterlogged(bl));
   const air=airOf(bot);
   const now=Date.now();
   // Round 69 (round-68 scout on the Nitrous copy: five `drowning (air 1)` lines, each the first

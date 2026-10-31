@@ -23,6 +23,7 @@ import * as combat from './combat.js';
 import {TaskRunner} from './tasks/runner.js';
 import {defaultChains} from './chains/index.js';
 import {airFall} from './chains/worldSurvivalChain.js';
+import {waterlogged} from './tasks/movement/get-out-of-water-task.js';
 import {FightTask} from './chains/fightTask.js';
 import {createTrackers} from './trackers/index.js';
 import {createMoveApi,setDefaultMoveContext} from './tasks/movement/move.js';
@@ -450,7 +451,7 @@ export const SINK_MS=8000;
 export function sinkGuard(bot,st,now){
  const e=bot&&bot.entity;if(!e||!e.position||typeof bot.blockAt!=='function')return null;
  const head=bot.blockAt(e.position.offset(0,1.62,0));
- const seen=!!head&&(/^(water|bubble_column|seagrass|tall_seagrass|kelp|kelp_plant)$/.test(head.name)||head.properties?.waterlogged===true||head.properties?.waterlogged==='true');
+ const seen=!!head&&(/^(water|bubble_column|seagrass|tall_seagrass|kelp|kelp_plant)$/.test(head.name)||waterlogged(head));
  // Round 69: a falling air reading is a head under water the client cannot see (round-68 scout).
  // Round 70: two levels down within 3 s, not any step (the reading mixes two scales).
  const raw=typeof bot.oxygenLevel==='number'?bot.oxygenLevel:null;

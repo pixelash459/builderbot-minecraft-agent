@@ -34,6 +34,16 @@ export function findNearestLand(bot,from,radius=24){
 // how far the water goes. {open: n} - air n cells above the head; {roof: block, dy} - a solid
 // block dy cells above the head; null - deeper than max.
 // The air on the 0-20 scale whether the server sends it in ticks (0-300) or bubbles (0-20).
+// Round 78 (round-77 normal2 drowned at (844, 100, -440): `head block cherry_slab at eye y 102.3,
+// in water`, 21 s after `drowning (air 8), swimming up` - a waterlogged top slab in a build, the
+// eye in the water under its upper half; the head checks matched the block's name only, so no
+// straight-up, pocket or roof branch ever ran, and mineflayer exposes the state as
+// isWaterlogged / getProperties(), not the `properties` the older checks read).
+export function waterlogged(bl){
+ if(!bl)return false;
+ const v=bl.isWaterlogged??bl.properties?.waterlogged??(typeof bl.getProperties==='function'?bl.getProperties()?.waterlogged:undefined);
+ return v===true||v==='true';
+}
 export const airOf=bot=>{const a=typeof bot.oxygenLevel==='number'?bot.oxygenLevel:(typeof bot.oxygen==='number'?bot.oxygen:20);return a>20?Math.min(20,a/15):a;};
 const AIRISH=n=>['air','cave_air','void_air'].includes(n);
 export function waterAbove(bot,max=24){
@@ -43,7 +53,7 @@ export function waterAbove(bot,max=24){
   const b=bot.blockAt(head.offset(0,dy,0));
   if(!b)return null;
   if(AIRISH(b.name))return {open:dy};
-  if(/water|seagrass|kelp|bubble_column/.test(b.name))continue;
+  if(/water|seagrass|kelp|bubble_column/.test(b.name)||(waterlogged(b)&&b.boundingBox!=='block'))continue;
   if(b.boundingBox==='block')return {roof:b,dy};
  }
  return null;
@@ -66,14 +76,16 @@ export function airPocket(bot,max=POCKET_MAX,stuck=null){
   const next=[];
   for(const path of frontier){
    const c=path[path.length-1];
+   // Round 78: a waterlogged slab or stair is swum under sideways, never risen through.
+   const cur=bot.blockAt(c),capped=waterlogged(cur)&&cur.boundingBox==='block';
    for(const[dx,dy,dz]of[[0,1,0],[1,0,0],[-1,0,0],[0,0,1],[0,0,-1]]){
     const n=c.offset(dx,dy,dz),k=key(n);
-    if(dy===1&&stuck&&n.x===stuck.x&&n.z===stuck.z)continue;
+    if(dy===1&&(capped||(stuck&&n.x===stuck.x&&n.z===stuck.z)))continue;
     if(seen.has(k))continue;seen.add(k);
     const bl=bot.blockAt(n);if(!bl)continue;
     if(dy===0){const body=bot.blockAt(n.offset(0,-1,0));if(!body||body.boundingBox==='block'||/lava/.test(body.name))continue;}
     if(AIRISH(bl.name))return {cell:n,path:path.concat([n]),steps:path.length};
-    if(WATERY.test(bl.name))next.push(path.concat([n]));
+    if(WATERY.test(bl.name)||(dy===0&&waterlogged(bl)))next.push(path.concat([n]));
    }
   }
   frontier=next;
@@ -85,7 +97,7 @@ export function airPocket(bot,max=POCKET_MAX,stuck=null){
 // that has not lifted the bot NO_RISE_BLOCKS in NO_RISE_MS is given up for that column; the
 // pocket search then swims round it.
 export const NO_RISE_MS=3000,NO_RISE_BLOCKS=0.5;
-export const headUnderWater=bot=>{const p=bot.entity?.position;if(!p||!bot.blockAt)return false;const h=bot.blockAt(new Vec3(Math.floor(p.x),Math.floor(p.y+1.6),Math.floor(p.z)));return !!h&&/water|bubble_column/.test(h.name);};
+export const headUnderWater=bot=>{const p=bot.entity?.position;if(!p||!bot.blockAt)return false;const h=bot.blockAt(new Vec3(Math.floor(p.x),Math.floor(p.y+1.6),Math.floor(p.z)));return !!h&&(/water|bubble_column/.test(h.name)||waterlogged(h));};
 export class GetOutOfWaterTask extends Task {
  constructor({maxSeconds=30,radius=16,ctx=null}={}){
   super('GetOutOfWaterTask');

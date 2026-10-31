@@ -20,6 +20,12 @@ import {UNSAFE_FOOD} from './foodChain.js';
 // MobDefenseChain.java constants.
 const CREEPER_KEEP_DISTANCE=10;
 export const CREEPER_PERSIST=20;
+// Round 78 (round-77 hard2: 49 s after the box opened, unarmed, `fleeing creeper` and `resumed the
+// craft job` alternating every 0.2-0.6 s for 11 s, then `creeper fuse (swell 1)` and blown up -
+// the flee ends at CREEPER_KEEP_DISTANCE, the craft resumes standing still, and the creeper walks
+// back in): a creeper that has followed for CREEPER_CHASE_S is kept CREEPER_CHASED_KEEP away,
+// past its 16-block follow range, and that flee outranks the job.
+export const CREEPER_CHASE_S=3,CREEPER_CHASED_KEEP=20;
 const ARROW_KEEP_DISTANCE_HORIZONTAL=2;
 const ARROW_KEEP_DISTANCE_VERTICAL=10;
 const DANGER_KEEP_DISTANCE=15*2;
@@ -130,7 +136,8 @@ export class MobDefenseChain extends SingleTaskChain{
   }
   // Run away from the closest creeper (AltoClef: 50 + fuse*50; mineflayer does not expose
   // the client fuse, so proximity stands in for urgency — 7f says walk away regardless).
-  const creeper=hostiles.filter(e=>e.name==='creeper'&&withinRange(e,bot,CREEPER_KEEP_DISTANCE))
+  const ch=this._creeperChase,chasing=e=>!!ch&&ch.id===e.id&&this.now()-ch.last<=5&&this.now()-ch.since>=CREEPER_CHASE_S;
+  const creeper=hostiles.filter(e=>e.name==='creeper'&&withinRange(e,bot,chasing(e)?CREEPER_CHASED_KEEP:CREEPER_KEEP_DISTANCE))
    .sort((a,b)=>distanceTo(a,bot)-distanceTo(b,bot))[0];
   if(creeper){
    // Round 46 (round-45 hard2: a creeper fled every second for 3.5 min under the canopy, the
@@ -152,6 +159,11 @@ export class MobDefenseChain extends SingleTaskChain{
    this._runAwayTask=null;
    this._doingFunkyStuff=true;
    const fuse=Math.max(0,Math.min(1,1-distanceTo(creeper,bot)/CREEPER_KEEP_DISTANCE));
+   if(now-this._creeperChase.since>=CREEPER_CHASE_S){
+    this.root=new RunAwayFromCreepersTask(CREEPER_CHASED_KEEP);
+    this._fleeLog(ctx,'creeper-chase','Reflex: a creeper has followed for '+Math.round(now-this._creeperChase.since)+' s; keeping '+CREEPER_CHASED_KEEP+' away');
+    return 55+fuse*45;
+   }
    this.root=new RunAwayFromCreepersTask(CREEPER_KEEP_DISTANCE);
    this._fleeLog(ctx,'creeper','Reflex: fleeing creeper (never melee a creeper)');
    return 50+fuse*50;

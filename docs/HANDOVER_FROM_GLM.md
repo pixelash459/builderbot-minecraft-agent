@@ -2738,3 +2738,40 @@ The round-72 soak on the Nitrous world copy (bot `3fc0f73`) ran all six runs cle
 - **hard2's furnace:** never placed, because the run was in the loop from t≈420.
 - **The tool-loss lines at run boundaries:** these are the harness's bag clear.
 - **`chest_spot_blocked`:** the expected refusal.
+
+## Round 78 (2026-10-31)
+
+**Round-77 soak results** (Nitrous world copy, `beace60`)
+- **Deaths:** 4 (round 76: 435). normal2 drowned. hard1 a creeper. hard2 a creeper, then a zombie a minute later, unarmed after the respawn. No spot had 3 deaths. No lava line and no `Respawn point set`; the bed-break check never needed to fire.
+- **Iron:** 5 of 6 (rounds 75 and 76: 4). hard1 at 2138 s, hard3 at 1807 s. hard2 placed a furnace (1867 s) and mined ore, but made no iron pick. No diamond pick.
+- **Hard furnace** on all three (1265 / 1867 / 783 s). Night skips 2 / 3 / 3.
+- **Night mine:** 5 of 5 back in (4 filled the sump, 1 pillared from 2 below the box).
+- **Obstruction probe:** 10 of 11. `chest_spot_blocked` is the expected refusal.
+- **This scout's hard anchor** was open sky (canopy light 15), not the dark canopy of rounds 75 and 76. The hard runs are not directly comparable.
+
+**Diagnosis: the normal2 drowning**
+- At 06:14:38Z, a dig-down stopped on `cherry_slab at (843, 102, -440) is not natural terrain` (a build).
+- At 06:15:03Z: `Water: head under for 8 s at (844, 100, -440) ... head block cherry_slab at eye y 102.3, in water`, then `drowning (air 8), swimming up`. There was no further water line, and it drowned at 06:15:24Z.
+- **Cause:** the eye was in the water under the upper half of a waterlogged top slab. `headUnderWater` matched the head cell's name only, so the straight-up, pocket and roof branches never ran. The land search alone did not get out in 21 s.
+- **Also:** every older waterlogged check read `block.properties`, which mineflayer does not set. It exposes `isWaterlogged` and `getProperties()`. So those checks never matched.
+
+**Diagnosis: the hard2 creeper**
+- 49 s after the box opened, the bot was unarmed. From 08:19:15Z to 08:19:24Z, `fleeing creeper (never melee a creeper)` and `resumed the craft job` alternated every 0.2-0.6 s. Then `creeper fuse (swell 1)`, and it was blown up at 08:19:26Z.
+- **Cause:** the creeper flee ends at 10 blocks. The craft then resumes standing still, and the creeper walks back in.
+
+**Fixes**
+- **`waterlogged(block)`**, in `get-out-of-water-task.js`, reads `isWaterlogged`, then `properties`, then `getProperties()`. It is used by:
+  - `headUnderWater`, the world-survival chain's `wet`, and the sink guard.
+  - `waterAbove`: a waterlogged non-solid cell counts as water, and a waterlogged slab is a roof at dy 0.
+  - `airPocket`: it swims sideways through waterlogged cells, and never rises out of a waterlogged solid block (slab, stair) or into one.
+- **The creeper chase.** A creeper that has followed for `CREEPER_CHASE_S` (3 s) is fled out to `CREEPER_CHASED_KEEP` (20 blocks), past its 16-block follow range. The bot keeps fleeing while that creeper is within 20 and was seen in the last 5 s.
+  - It logs `Reflex: a creeper has followed for N s; keeping 20 away`.
+  - Its priority is 55-100, above the user task's 50.
+  - The armed pillar fight at `CREEPER_PERSIST` (20 s) is unchanged.
+
+**Not changed yet**
+- **hard1's creeper:** knocked off a night pillar at health 8, with nothing to eat, then a chicken fight. hard2's zombie came right after the respawn, unarmed.
+- **The normal2 river stretch:** 14 `searching 320` lines and 5 `no dry stand within 12`, from 06:19Z to 06:32Z.
+- **hard2's ore and no ingots.**
+- **The tool-loss lines at run boundaries:** these are the harness's bag clear.
+- **`chest_spot_blocked`:** the expected refusal.
