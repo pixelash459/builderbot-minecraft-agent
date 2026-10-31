@@ -146,7 +146,17 @@ export class WorldSurvivalChain extends SingleTaskChain{
   // ~15 s of the air running out, so 30 s under with full health is breathing - the backstop
   // (for an air reading that never comes, round 21) stands down.
   const fullUnder=!!this._headWetSince&&now-this._headWetSince>=BREATHING_MS&&typeof bot.health==='number'&&bot.health>=20;
-  const longUnder=!!this._headWetSince&&now-this._headWetSince>=HEAD_WET_MS&&stale&&!fullUnder;
+  let longUnder=!!this._headWetSince&&now-this._headWetSince>=HEAD_WET_MS&&stale&&!fullUnder;
+  if(longUnder&&e.position){
+   const p=e.position,hp=typeof bot.health==='number'?bot.health:0,near=s=>!!s&&Math.hypot(p.x-s.x,p.y-s.y,p.z-s.z)<=BREATH_SPOT_R;
+   const sp=this._breathSpot,last=this._longUnderAt;
+   if(sp&&now<sp.until&&near(sp)&&air>=BREATH_AIR&&hp>=sp.health)longUnder=false;
+   else if(last&&now-last.at>=BREATH_GAP_MS&&now-last.at<=BREATH_SPOT_MS&&near(last)&&air>=BREATH_AIR&&last.air>=BREATH_AIR&&hp>=last.health){
+    this._breathSpot={x:p.x,y:p.y,z:p.z,health:hp,until:now+BREATH_SPOT_MS};longUnder=false;this._longUnderAt=null;
+    const w=ctx&&ctx.worker;if(w&&w.log)try{w.log('WorldSurvival: the head read under water again at '+(p.floored?p.floored():p)+' with the air and health full (air '+air+', health '+hp+'); breathing here - no stale-air swim-up within '+BREATH_SPOT_R+' for '+BREATH_SPOT_MS/1000+' s');}catch{}
+   }
+   else this._longUnderAt={x:p.x,y:p.y,z:p.z,air,health:hp,at:now};
+  }
   // Round 38 (round-37 normal1 drowned at 59,51,37 with no `drowning` line for its last 56 s -
   // the client saw no water at head or feet): health falling with nothing else to explain it
   // (no hostile within 6, no fire or lava, not starving) and the air below full is drowning too.
@@ -228,6 +238,15 @@ export class WorldSurvivalChain extends SingleTaskChain{
   return !!b&&b.name==='nether_portal';
  }
 }
+// Round 80 (round-79 normal1: 193 `drowning (air 20), swimming up` at (703, 58, -373) over 33 min,
+// one every ~10 s, health 20 throughout - the stale-air backstop latched each time the head had
+// read under 8 s, the swim to the pocket a cell up let go, and the resumed smelt job walked back
+// in; each latch cut the job's 320 search before its stair-out could run): a second backstop
+// episode within BREATH_SPOT_R of the last one, inside BREATH_SPOT_MS, with the air still
+// BREATH_AIR+ and no health lost since, marks the spot as breathing - the backstop stands down
+// there for BREATH_SPOT_MS while the air and health hold. A falling air reading, low air and a
+// silent health loss still latch.
+export const BREATH_SPOT_MS=180000,BREATH_SPOT_R=2,BREATH_AIR=18,BREATH_GAP_MS=1000;
 const AIR_FALL_MS=3000,WET=/^(water|bubble_column|seagrass|tall_seagrass|kelp|kelp_plant)$/,HEAD_WET_MS=8000,DROWN_AIR=8,DRY_HOLD_MS=1500,SILENT_HURT_MS=4000,SILENT_HOSTILE=24,SILENT_FALL_MS=2000,BREATHING_MS=30000;
 // Round 24: a reading above 20 is the raw air supply in ticks (0-300; the round-23 report saw
 // 10-400): scaled to the 0-20 bubbles every threshold here uses.

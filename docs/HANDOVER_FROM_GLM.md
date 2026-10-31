@@ -2810,3 +2810,51 @@ The round-72 soak on the Nitrous world copy (bot `3fc0f73`) ran all six runs cle
 - **normal3's respawn landing:** the line is missing from the dashboard log.
 - **The shelter keeps its walls up for a creeper within 16.** hard3's three nights all used the same cave-box cell.
 - **`chest_spot_blocked`:** the expected refusal.
+
+## Round 80 (2026-11-01)
+
+**Round-79 soak results** (Nitrous world copy, `efd7e7c`)
+- **Deaths:** 6 (round 78: 2). hard1 2, hard2 3, hard3 1. All six were on hard runs; 3 skeleton, 2 zombie, 1 creeper fuse. None in water or lava, and no creeper death after a hover line.
+- **Iron:** 3 of 6. normal2 made the first diamond on any round.
+- **Stuck stretches:** two runs lost most of their time stuck in one spot. normal1 was in a flooded mine cell for 33 min. normal3 was on a pillar at y=217 for its last 7 min.
+- **hard1** never got wood.
+- **hard2** slept in a bed that was already in the world copy at (728, 71, -525), and three later respawns landed there.
+- **Round-79 fixes:**
+  - The creeper hover rule fired once, with no harm after it.
+  - The slow-roof-dig timing and the cave-morning climb did not come up.
+- **Obstruction probe:** 10 of 11. `chest_spot_blocked` is the expected refusal.
+
+**Diagnosis**
+- **normal1, the water loop:** the loop was at (703, 58, -373), with air 20 and health 20 the whole time.
+  - The bot was breathing: the air reading is already the bot's own since round 70's `installOwnAir`.
+  - Even so, the stale-air backstop latched every ~10 s once the head had read under water for 8 s. The swim to the pocket a cell up let go, and the resumed smelt job walked back in.
+  - Each latch also cut off the job's 320-block search before the stair-out after it could run.
+  - The paused smelt jobs piled up to 14. Each preempt paused them all, and each was resumed, because the resume loop only counted a newer *queued* job as superseding.
+- **normal3, the pillar:**
+  - The iron pick broke underground. The bot climbed out to y=93 on a mountain spike, then got stranded.
+  - Each new job stranded again and pillared 3 more, 93 → 217, until it held no blocks.
+- **hard1, the build logs:**
+  - Every wood search from the spawn went for the oak logs at (723, 76-78, -518), which stand above a build's stone bricks.
+  - It pillared into the build and dug out its `stone_brick_stairs` and `stone_bricks` by hand. It spent 9 minutes on wood searches and explores, and the night caught it with no wood.
+- **hard3, the failed meal:** `meal failed - Cannot read properties of null (reading 'name')` came from the food chain eating the porkchops while the smelt job was loading them.
+
+**Fixes**
+- **Breathing spots** (`worldSurvivalChain.js`):
+  - The stale-air backstop marks a spot as breathing when a second backstop episode happens there with the air and health still full. That is within `BREATH_SPOT_R` (2) of the last one, inside `BREATH_SPOT_MS` (180 s), at air 18 or more, with no health lost.
+  - It then stays off there for 180 s while the air and health hold, and logs `the head read under water again at P with the air and health full (...); breathing here - no stale-air swim-up within 2 for 180 s`.
+  - Low air, falling air and a silent health loss still latch.
+- **Superseded jobs** (`worker.js` resume loop): a newer reflex-paused job now supersedes an older paused one, so only the newest resumes.
+- **Meals:** the food chain defers a meal of the item a running smelt job is cooking, logged as `the smelt job is cooking X`. Other food is still eaten, and a critical meal goes ahead.
+- **Stranded pillars** (`worker.js`, `strandPlan` / `strandDigDown`):
+  - The strand pillar runs at most `STRAND_PILLAR_MAX` (2) times within 2 blocks of a column in 10 min.
+  - After that, `still stranded at P after N pillars on this column; digging down instead`: the bot digs its own column 3 cells at a time and paths again after each step, up to 30 cells.
+  - The dig never goes when the cell two below is a fluid or not solid.
+- **Build logs** (`digDown.js` `builtLog`): a log beside a crafted block, or whose trunk stands on one, is neither a gather target nor a search target. A branch's air gap of up to 4 is passed over to what it stands above.
+
+**Not changed yet**
+- **The mineflayer oxygen patch** (PrismarineJS/mineflayer#4052) is already covered by round 70's own-air hook.
+- **The pathfinder fixes** PrismarineJS/mineflayer-pathfinder#384 (water-containing blocks), #375 (no-path goto) and #393 (diagonal corners) are on master only, not released. They are candidates for a local patch.
+- **Whether normal1's hole has a way out at all:** with the latch off, the stair-out now gets its turn, and the next soak shows whether it finds one.
+- **The hard night deaths:** hard1 died to a skeleton while burrowing in a night crowd and to a zombie right after the respawn; hard2 died to a zombie 27 s after a box opened.
+- **The pre-placed bed:** hard2 slept in a bed it found in the world, which set the spawn point there for later runs.
+- **`chest_spot_blocked`:** the expected refusal.

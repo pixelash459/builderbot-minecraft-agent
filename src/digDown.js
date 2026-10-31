@@ -10,6 +10,18 @@ export const STONE_NEAR=16,STONE_DIG_DOWNS=3,STONE_DIG_DEPTH=6,STONE_DIG_MIN=3;
 export const isFluid=bl=>!!bl&&(bl.name==='water'||bl.name==='lava'||bl.name==='bubble_column');
 // Terrain the bot may dig through on its own (tunnels, explore, a suffocation escape).
 export const NATURAL_DIG=new Set(['dirt','grass_block','coarse_dirt','rooted_dirt','podzol','mycelium','mud','moss_block','sand','red_sand','gravel','clay','stone','cobblestone','deepslate','cobbled_deepslate','andesite','granite','diorite','tuff','calcite','dripstone_block','sandstone','netherrack','soul_sand','soul_soil','end_stone','snow','snow_block','packed_mud','terracotta']);
+// Round 80 (round-79 hard1: every wood search from the spawn went for the oak logs at (723, 76-78,
+// -518) over a build's stone bricks, pillared into the build, dug its stone_brick_stairs and
+// stone_bricks by hand to get out, and never got wood in 40 min): a log beside a crafted block,
+// or whose trunk stands on one, is a build's, not a tree.
+export const BUILT=/_planks$|bricks?$|_brick_|_stairs$|_slab$|_fence$|_fence_gate$|_wall$|glass|_pane$|_wool$|_carpet$|_door$|_trapdoor$|lantern$|torch$|^chest$|^barrel$|^crafting_table$|^furnace$|_bed$|concrete|^smooth_|^polished_|^cut_|^chiseled_|^bookshelf$|^ladder$|_sign$|^lectern$|^stripped_/;
+export function builtLog(blockAt,p){
+ for(const [dx,dy,dz]of [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]]){const bl=blockAt(p.x+dx,p.y+dy,p.z+dz);if(bl&&BUILT.test(bl.name))return true;}
+ // down the trunk; a branch's air gap (up to 4) is passed over to what it stands above
+ let gap=0;
+ for(let y=p.y-1;y>=p.y-16;y--){const bl=blockAt(p.x,y,p.z);if(!bl)return false;if(/_log$|_wood$/.test(bl.name))continue;if(/^(air|cave_air)$/.test(bl.name)&&++gap<=4)continue;return BUILT.test(bl.name);}
+ return false;
+}
 // Blocks that fall when the block under them is dug out. A sand or gravel stack over a
 // tunnel step falls into the step, and onto the bot if it has already walked in (soak hard1
 // and hard2, 2026-10-14: 'suffocated in a wall' twice during the stone dig-down).

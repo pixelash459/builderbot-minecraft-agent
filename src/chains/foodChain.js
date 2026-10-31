@@ -60,7 +60,7 @@ export class FoodChain extends SingleTaskChain{
    // Round 8: eat between job steps, never mid-fight or with a window open (a crafting
    // table's click waits for the result slot with no timeout in mineflayer, so an equip
    // there can hang the meal). A deferred meal is recorded with its reason.
-   const why=this.deferReason(bot,ctx);
+   const why=this.deferReason(bot,ctx,best);
    if(why){this._isTryingToEat=false;this.noteDefer(why);}
    else{this._deferred=null;this.startEat(bot,best);}
   }else{this._deferred=null;this.stopEat();}
@@ -76,12 +76,16 @@ export class FoodChain extends SingleTaskChain{
  }
  // Why a wanted meal waits: null when it can start now. A critical meal (needsToEatCritical)
  // goes ahead through a fight, exactly like MobDefense yields to it.
- deferReason(bot,ctx){
+ deferReason(bot,ctx,food=null){
   if(bot.currentWindow)return 'a window is open';
   const w=ctx&&ctx.worker;
   const running=w&&Array.isArray(w.jobs)&&w.jobs.find(j=>j.status==='running');
   if(running&&running.spec&&running.spec.type==='eat')return 'the eat job is eating';
   if(this.needsToEatCritical(bot))return null;
+  // Round 80 (round-79 hard3: `ate porkchop` twice while the smelt job loaded the porkchops, then
+  // `meal failed - Cannot read properties of null (reading 'name')` and the smelt's `Can't find
+  // porkchop in slots`): the food a running smelt job is cooking waits for it.
+  if(food&&running&&running.spec&&running.spec.type==='smelt'&&running.spec.item===food.name)return 'the smelt job is cooking '+food.name;
   const md=this.mobDefense;
   if(md&&md.isActive&&md.isActive())return 'mid-fight (Mob Defense active)';
   if(running&&running.spec&&running.spec.type==='fight')return 'mid-fight (fight job)';

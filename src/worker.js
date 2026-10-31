@@ -29,7 +29,7 @@ import {createTrackers} from './trackers/index.js';
 import {createMoveApi,setDefaultMoveContext} from './tasks/movement/move.js';
 import {forceFieldTick} from './forcefield.js';
 import {avoidanceActive,pickOpenStand,stepCost,trackProgress,coverCell,SHOOTERS} from './move-safety.js';
-import {stonePlan,stoneBeside,isExposed,STONE_DIG_DOWNS,STONE_DIG_MIN,NATURAL_DIG,isGravity,isFluid,stepFooting,turnOrder,wallOre} from './digDown.js';
+import {stonePlan,stoneBeside,isExposed,STONE_DIG_DOWNS,STONE_DIG_MIN,NATURAL_DIG,isGravity,isFluid,stepFooting,turnOrder,wallOre,builtLog} from './digDown.js';
 import {solidSupport,placementCells,softBreakCell,hitsBot,HARD_BREAK,SOFT_BREAK,PLACE_BLOCKER} from './place-support.js';
 import {createMoveTasks} from './tasks/movement/factories.js';
 import {createLoopWatch} from './loop-watch.js';
@@ -215,6 +215,18 @@ export function floodedAround(b,p){
  return false;
 }
 export const STRANDED_DROP=6,STRANDED_HEALTH=12,STRAND_PILLAR=3;
+// Round 80 (round-79 normal3: `still stranded ...; pillaring up 3` again and again on one column,
+// 93 -> 217, then `Pillar: stopped at y=217 (no blocks held)` and 7 min on a 1-wide pillar ~150
+// up - every new job stranded again and pillared 3 more): the strand pillar runs at most
+// STRAND_PILLAR_MAX times within STRAND_COLUMN_R of a column in STRAND_PILLAR_MS. After that the
+// bot digs its own column down, STRAND_PILLAR at a time (never into a fluid, never more than
+// STRAND_DESCEND in all), and paths again from each step.
+export const STRAND_PILLAR_MAX=2,STRAND_COLUMN_R=2,STRAND_PILLAR_MS=600000,STRAND_DESCEND=30;
+export function strandPlan(list,p,now=Date.now()){
+ const recent=(list||[]).filter(s=>now-s.at<STRAND_PILLAR_MS);
+ const here=recent.filter(s=>Math.hypot(s.x-p.x,s.z-p.z)<=STRAND_COLUMN_R).length;
+ return {recent,here,action:here>=STRAND_PILLAR_MAX?'dig':'pillar'};
+}
 export const HAZARD_NEAR=8,HAZARD_MS=5*60000,DEEP_DARK_AVOID=32,DEEP_DARK_MS=30*60000;
 // Round 52: a mob cave - a crowd met underground (round 50 hard2 and round 51's first run died
 // in the same cave under the spawn, y 38-40, 20+ hostiles): its ores are set aside for a while.
@@ -1026,7 +1038,10 @@ export class Worker extends EventEmitter {
       // Round 16: a paused job with a newer job queued behind it was superseded (the night
       // shelter queued while Mob Defense held a pig fight): cancel it rather than resume it.
       for(const [i,j] of this.jobs.entries())if(j.status==='paused'&&/^(Preempted by|Job interrupted|Reflex:)/.test(String(j.message))){
-       if(this.jobs.slice(i+1).some(k=>k.status==='queued')){this.log('Reflex: the paused '+j.spec.type+' job was superseded; cancelled');j.status='cancelled';continue;}
+       // Round 80 (round-79 normal1: 14 `smelt raw_iron` jobs queued at once by the end, 2158
+       // `resumed the smelt job` lines - each preempt paused them all, and each was resumed because
+       // the newer ones were paused, not queued): a newer reflex-paused job supersedes it too.
+       if(this.jobs.slice(i+1).some(k=>k.status==='queued'||(k.status==='paused'&&/^(Preempted by|Job interrupted|Reflex:)/.test(String(k.message))))){this.log('Reflex: the paused '+j.spec.type+' job was superseded; cancelled');j.status='cancelled';continue;}
        // Round 19: a job a World Survival escape (lava, fire, water) took over walked into it.
        if(/World Survival/.test(String(j.message))&&['explore','goto','gather'].includes(j.spec.type)){this.log('Reflex: the '+j.spec.type+' job led into a hazard; cancelled, not resumed');j.status='cancelled';this.markHazard?.();continue;}
        if(Date.now()-(this.lastDrownAt||0)<DROWN_RECENT_MS){j.leaveWaterFirst=true;this.log('Reflex: resumed the '+j.spec.type+' job (stepping out of the water first)');}
@@ -1246,6 +1261,13 @@ export class Worker extends EventEmitter {
       try{
        const safe=bl=>{const up=bot.blockAt(bl.position.offset(0,1,0));return !/bedrock|obsidian|chest|furnace|crafting_table|spawner/.test(bl.name)&&!isFluid(bl)&&!isFluid(up)&&!isGravity(up);};
        const y0=Math.floor(bot.entity.position.y);
+       const plan=strandPlan(this.strandPillars,bot.entity.position);this.strandPillars=plan.recent;
+       if(plan.action==='dig'){
+        this.log('Navigation: still stranded at '+bot.entity.position.floored()+' after '+plan.here+' pillars on this column; digging down instead');
+        if(await this.strandDigDown(token,goal,seconds))return;
+        throw e;
+       }
+       this.strandPillars.push({x:bot.entity.position.x,z:bot.entity.position.z,at:Date.now()});
        this.log('Navigation: still stranded at '+bot.entity.position.floored()+'; pillaring up '+STRAND_PILLAR);
        await this.pillarUp(y0+STRAND_PILLAR,token,{clear:safe,maxDigs:STRAND_PILLAR});
        if(Math.floor(bot.entity.position.y)>y0)return await this.navigate(goal,token,seconds);
@@ -1257,6 +1279,26 @@ export class Worker extends EventEmitter {
     throw new Error('No path to the goal! (empty path at '+bot.entity.position.floored()+', last path: '+last+')');
    }}
   finally{bot.off('path_update',onPath);clearTimeout(timer);clearInterval(monitor);if(token===this.epoch){bot.pathfinder.setGoal(null);unstickDigging(bot);bot.clearControlStates();}}
+ }
+ // Round 80: down the bot's own column, STRAND_PILLAR cells a segment, a path tried after each.
+ // A cell is dug only when it is solid, not bedrock or a container, and the one under it holds
+ // the bot (solid, no fluid); the bot drops one cell per dig. True once a path is found.
+ async strandDigDown(token,goal,seconds){
+  const bot=this.bot,start=Math.floor(bot.entity.position.y);let dug=0;
+  while(dug<STRAND_DESCEND){
+   for(let k=0;k<STRAND_PILLAR&&dug<STRAND_DESCEND;k++){
+    this.check(token);
+    const f=bot.entity.position.floored(),under=bot.blockAt(f.offset(0,-1,0)),below=bot.blockAt(f.offset(0,-2,0));
+    if(!under||under.boundingBox!=='block'||/bedrock|obsidian|chest|furnace|crafting_table|spawner|barrier/.test(under.name)||isFluid(under)){this.log('Navigation: the dig down stopped at y='+f.y+' ('+(under?.name||'unloaded')+' under the feet)');return false;}
+    if(!below||isFluid(below)||below.boundingBox!=='block'){this.log('Navigation: the dig down stopped at y='+f.y+' ('+(below?.name||'unloaded')+' two below)');return false;}
+    try{await bot.tool?.equipForBlock?.(under);}catch{}
+    await bot.dig(under,true);dug++;
+    const t0=Date.now();while(Math.floor(bot.entity.position.y)>=f.y&&Date.now()-t0<2000)await new Promise(r=>setTimeout(r,50));
+   }
+   this.log('Navigation: dug down y='+start+' -> '+Math.floor(bot.entity.position.y)+'; pathing again');
+   try{await this.navigate(goal,token,seconds);return true;}catch(e){this.check(token);if(!/No path/.test(String(e.message)))throw e;}
+  }
+  return false;
  }
  // Round 22: path once more with the mob-avoidance step cost off (it can price out every step).
  async navigateNoAvoid(goal,token,seconds){
@@ -3082,7 +3124,7 @@ export class Worker extends EventEmitter {
     // the area it already worked (within SEARCH_SCAN), not a fixed east/north/west/south.
     try{
      const me=b.entity.position,seen=b.findBlocks({matching:match,point:me,maxDistance:SEARCH_SCAN,count:256})
-      .filter(p=>p.distanceTo(pos(job.anchor))>radius&&!this.gatherBlacklisted(job,p)&&(!s.belowFoots||Math.abs(p.y-me.y)<=8));
+      .filter(p=>p.distanceTo(pos(job.anchor))>radius&&!this.gatherBlacklisted(job,p)&&(!s.belowFoots||Math.abs(p.y-me.y)<=8)&&!(anyLog&&builtLog(at3,p)));
      const head=searchHeading(me,seen);
      if(head){aim=head.target;direction=head.direction;leg=Math.max(leg,Math.min(64,head.distance-8));this.log('Gather: search leg '+job.searches+' '+direction+' toward '+(anyLog?'logs':s.block)+' at '+head.target);}
     }catch(e){this.check(token);}
@@ -3118,6 +3160,7 @@ export class Worker extends EventEmitter {
     // Blocks that failed for good (this job, or a recent job: the ladder resubmits the same
     // gather) are skipped. hard1/hard2 sat for minutes re-trying the same canopy logs.
     targets=targets.filter(t=>!this.gatherBlacklisted(job,t.position));
+    if(anyLog)targets=targets.filter(t=>!builtLog(at3,t.position));
     // Habit 11: a crop is harvested only ripe (age 7; beetroots 3), never pulled green.
     if(CROP_RIPE[s.block]!=null)targets=targets.filter(t=>blockAge(t)>=CROP_RIPE[s.block]);
     // openSky RANKS open trunks first but never empties the list: the dark-canopy hard
