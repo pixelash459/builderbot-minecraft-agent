@@ -227,6 +227,11 @@ export const STORE_RETRY_MS=5*60000;
 // clear a cave. A box with no sky over it and CAVE_EXIT_CROWD+ hostiles within CAVE_EXIT_NEAR is
 // left through the roof (an ascend from inside the box), not opened.
 export const CAVE_EXIT_NEAR=24,CAVE_EXIT_CROWD=3;
+// Round 79 (round-78 hard3: `morning in a cave` at y=84 under a surface of 88, then `the climb out
+// stopped (Could not climb toward the surface from y=84)` three mornings running - the ascend
+// stops 4 short of its target, so 4 under it never moved): the climb out aims for the sky, at
+// least CAVE_EXIT_RISE over the box.
+export const CAVE_EXIT_RISE=5;
 // Round 57 (round-56 hard2: `morning in a cave (3 hostiles within 24, sky 0)` from a box at y=71,
 // surface 64 - a sealed box reads sky 0 anywhere): only a box under the surface anchor is a cave.
 export const caveMorning=({sky,crowd,y,surfaceY})=>sky<SKY_OPEN&&crowd>=CAVE_EXIT_CROWD&&!(Number.isFinite(y)&&Number.isFinite(surfaceY)&&y>=surfaceY-2);
@@ -2051,8 +2056,8 @@ export class Worker extends EventEmitter {
    if(caveMorning({sky,crowd,y:b.entity.position.y,surfaceY:this.autopilot?.lastSurfaceY})){
     this.log('Shelter: morning in a cave ('+crowd+' hostiles within '+CAVE_EXIT_NEAR+', sky '+sky+'); climbing out through the roof');
     this.markMobCave?.();this.shelterSpot=null;this.save();
-    const top=escapeY(this.autopilot?.lastSurfaceY),y0=b.entity.position.y;
-    try{await this.ascend({spec:{type:'ascend',y:top}},token);}catch(e){this.check(token);this.log('Shelter: the climb out stopped ('+String(e.message).slice(0,60)+')');}
+    const y0=b.entity.position.y,top=Math.max(escapeY(this.autopilot?.lastSurfaceY),Math.floor(y0)+CAVE_EXIT_RISE);
+    try{await this.ascend({spec:{type:'ascend',y:top,sky:true}},token);}catch(e){this.check(token);this.log('Shelter: the climb out stopped ('+String(e.message).slice(0,60)+')');}
     if(b.entity.position.y>=y0+3)return;
     this.log('Shelter: could not climb out of the cave; opening up');
    }
@@ -4487,8 +4492,9 @@ export class Worker extends EventEmitter {
    try{await this.climbTunnel({tunnel:this.strandedTunnel.points},token);this.strandedTunnel=null;}
    catch(e){this.check(token);this.log('Ascend: tunnel climb stopped ('+String(e.message).slice(0,60)+')');}
   }
-  if(Math.floor(b.entity.position.y)<y-4&&!(job.spec.forFood&&headSky(b,b.entity.position.floored())>=SKY_OPEN)){
-   const goal=job.spec.forFood?new GoalSky(b,y):new goals.GoalY(y);
+  const toSky=!!(job.spec.forFood||job.spec.sky);
+  if(Math.floor(b.entity.position.y)<y-4&&!(toSky&&headSky(b,b.entity.position.floored())>=SKY_OPEN)){
+   const goal=toSky?new GoalSky(b,y):new goals.GoalY(y);
    try{await this.navigate(goal,token,90);}catch(e){this.check(token);this.log('Ascend: path up stopped ('+String(e.message).slice(0,60)+')');}
   }
   // Round 40 (round-39 normal: `ascend` for food from y=53 x16, every one `No path to the goal!
@@ -4511,7 +4517,7 @@ export class Worker extends EventEmitter {
   }
   const now=Math.floor(b.entity.position.y);
   this.log('Ascend: y='+start+' -> '+now+' (surface '+y+')');
-  if(job.spec.forFood&&headSky(b,b.entity.position.floored())>=SKY_OPEN)return; // round 31: on the surface
+  if(toSky&&headSky(b,b.entity.position.floored())>=SKY_OPEN)return; // round 31: on the surface
   if(now<=start+2)throw Error('Could not climb toward the surface from y='+start);
  }
  // A dropped item entity the bot tossed as junk a moment ago (drop job): not worth a walk.

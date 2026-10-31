@@ -97,6 +97,24 @@ export function airPocket(bot,max=POCKET_MAX,stuck=null){
 // that has not lifted the bot NO_RISE_BLOCKS in NO_RISE_MS is given up for that column; the
 // pocket search then swims round it.
 export const NO_RISE_MS=3000,NO_RISE_BLOCKS=0.5;
+// Round 79 (round-78 normal3 drowned at (837, 100, -446): `roof over the water at (837, 102, -446)
+// (air 8, cherry_slab); digging it`, then 23 s with no dig or fail line - a slab dug by hand while
+// floating under water takes 25x as long, and mineflayer's digTime counts the water only when the
+// eye block is named water, so under a waterlogged slab it sent the finish 5x early and waited for
+// a break the server never made): the dig is timed first, with that factor put back, against the
+// air left (AIR_UNIT_MS a unit) plus DIG_AIR_MARGIN_MS. A roof too slow to dig is not dug; the
+// air search then reaches POCKET_FAR cells. A dig still going after DIG_WATCH_X its estimate (and
+// DIG_WATCH_PAD_MS) is stopped and that roof given up.
+export const AIR_UNIT_MS=750,DIG_AIR_MARGIN_MS=4000,POCKET_FAR=16,DIG_WATCH_X=1.5,DIG_WATCH_PAD_MS=1500;
+export function roofDigMs(bot,bl){
+ if(typeof bot.digTime!=='function')return 0;
+ let t;try{t=bot.digTime(bl);}catch{return Infinity;}
+ if(!Number.isFinite(t))return Infinity;
+ const p=bot.entity?.position,eye=p&&bot.blockAt(new Vec3(Math.floor(p.x),Math.floor(p.y+1.62),Math.floor(p.z)));
+ if(eye&&!/water/.test(eye.name)&&waterlogged(eye))t*=5;
+ return t;
+}
+export const airMs=bot=>airOf(bot)*AIR_UNIT_MS;
 export const headUnderWater=bot=>{const p=bot.entity?.position;if(!p||!bot.blockAt)return false;const h=bot.blockAt(new Vec3(Math.floor(p.x),Math.floor(p.y+1.6),Math.floor(p.z)));return !!h&&(/water|bubble_column/.test(h.name)||waterlogged(h));};
 export class GetOutOfWaterTask extends Task {
  constructor({maxSeconds=30,radius=16,ctx=null}={}){
@@ -138,7 +156,7 @@ export class GetOutOfWaterTask extends Task {
     if(!this.upLogged){this.upLogged=true;const w=ctx?.worker;try{w?.log?.('WorldSurvival: open water '+up.open+' up (air '+air+'); swimming straight up');}catch{}}
     return null;
    }
-   if(!this.pocketAt||Date.now()-this.pocketAt>=250){this.pocket=airPocket(bot,POCKET_MAX,this.stuck);this.pocketAt=Date.now();}
+   if(!this.pocketAt||Date.now()-this.pocketAt>=250){this.pocket=airPocket(bot,this.slowRoofs?.size?POCKET_FAR:POCKET_MAX,this.stuck);this.pocketAt=Date.now();}
    const pk=this.pocket;
    if(pk&&!this.digging){
     if(this.navPromise){move.cancel(ctx);this.navPromise=null;}
@@ -148,15 +166,25 @@ export class GetOutOfWaterTask extends Task {
     if(!this.pocketLogged){this.pocketLogged=true;const w=ctx?.worker;try{w?.log?.('WorldSurvival: air at '+pk.cell+', '+pk.steps+' cell(s) through the water (air '+air+'); swimming to it instead of digging');}catch{}}
     return null;
    }
-   if(up&&up.roof&&up.dy<=1&&!this.digging&&!/bedrock|barrier|obsidian|spawner/.test(up.roof.name)){
+   const roofKey=up&&up.roof&&String(up.roof.position);
+   if(up&&up.roof&&up.dy<=1&&!this.digging&&!this.slowRoofs?.has(roofKey)&&!/bedrock|barrier|obsidian|spawner/.test(up.roof.name)){
     const lavaNear=[[1,0,0],[-1,0,0],[0,0,1],[0,0,-1],[0,1,0]].some(([dx,dy,dz])=>/lava/.test(bot.blockAt(up.roof.position.offset(dx,dy,dz))?.name||''));
     if(!lavaNear&&typeof bot.dig==='function'){
      if(this.navPromise){move.cancel(ctx);this.navPromise=null;}
-     this.digging=true;const w=ctx?.worker;try{w?.log?.('WorldSurvival: roof over the water at '+up.roof.position+' (air '+air+', '+up.roof.name+'); digging it');}catch{}
+     this.digging=true;const w=ctx?.worker,roof=up.roof,log=m=>{try{w?.log?.(m);}catch{}};
+     const giveUp=why=>{(this.slowRoofs||(this.slowRoofs=new Set())).add(roofKey);this.pocketAt=0;this.pocketLogged=false;log(why);};
      // Round 61: the roof is dug with the best tool held, not whatever is in hand.
      // Round 70 (round-69 normal3 drowned under a roof at 837,102,-446 dug four times, in a build at
      // y=100): the block's name above, and a dig that fails says why.
-     Promise.resolve(bot.tool?.equipForBlock?.(up.roof)).catch(()=>{}).then(()=>bot.dig(up.roof,true)).catch(e=>{try{w?.log?.('WorldSurvival: the roof dig at '+up.roof.position+' failed ('+up.roof.name+', held '+(bot.heldItem?.name||'hand')+'): '+String(e?.message||e).slice(0,120));}catch{}}).finally(()=>{this.digging=false;});
+     Promise.resolve(bot.tool?.equipForBlock?.(roof)).catch(()=>{}).then(()=>{
+      const est=roofDigMs(bot,roof),left=airMs(bot);
+      if(est>left+DIG_AIR_MARGIN_MS){giveUp('WorldSurvival: the roof at '+roof.position+' ('+roof.name+', held '+(bot.heldItem?.name||'hand')+') would take '+(est/1000).toFixed(1)+' s to dig under water (air '+airOf(bot)+'); swimming for air up to '+POCKET_FAR+' cells off');return;}
+      log('WorldSurvival: roof over the water at '+roof.position+' (air '+air+', '+roof.name+', '+(est/1000).toFixed(1)+' s); digging it');
+      let done=false;
+      const watch=setTimeout(()=>{if(done)return;try{bot.stopDigging?.();}catch{}giveUp('WorldSurvival: the roof dig at '+roof.position+' did not finish in '+((est*DIG_WATCH_X+DIG_WATCH_PAD_MS)/1000).toFixed(1)+' s; giving it up');this.digging=false;},est*DIG_WATCH_X+DIG_WATCH_PAD_MS);
+      watch.unref?.();
+      return Promise.resolve(bot.dig(roof,true)).catch(e=>{log('WorldSurvival: the roof dig at '+roof.position+' failed ('+roof.name+', held '+(bot.heldItem?.name||'hand')+'): '+String(e?.message||e).slice(0,120));}).finally(()=>{done=true;clearTimeout(watch);});
+     }).finally(()=>{this.digging=false;});
      return null;
     }
    }

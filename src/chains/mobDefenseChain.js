@@ -26,6 +26,12 @@ export const CREEPER_PERSIST=20;
 // back in): a creeper that has followed for CREEPER_CHASE_S is kept CREEPER_CHASED_KEEP away,
 // past its 16-block follow range, and that flee outranks the job.
 export const CREEPER_CHASE_S=3,CREEPER_CHASED_KEEP=20;
+// Round 79 (round-78 hard3: 116 s of `a creeper has followed` beside its box, keep-away and
+// pillar-fight flipping every few seconds, the creeper 7.7-14.6 off and never nearer, and 25 min
+// with the gather queued and the bot in one cell - a creeper that cannot path to the bot hovers):
+// one that has not come CREEPER_CLOSE_STEP nearer in CREEPER_STALL_S is left while it stays beyond
+// CREEPER_STALL_NEAR; inside that it is fled again from the start. A fuse is answered either way.
+export const CREEPER_STALL_S=30,CREEPER_STALL_NEAR=6,CREEPER_CLOSE_STEP=1;
 const ARROW_KEEP_DISTANCE_HORIZONTAL=2;
 const ARROW_KEEP_DISTANCE_VERTICAL=10;
 const DANGER_KEEP_DISTANCE=15*2;
@@ -108,7 +114,7 @@ export class MobDefenseChain extends SingleTaskChain{
   // Round 22 (round-21 normal3: `fleeing silverfish x4` and then 17 min of nothing, a drop job
   // queued behind the flee): silverfish and endermites (1 damage, slow) are not worth a flee
   // or a reflex unless one is within MINOR_NEAR - then it is fought like any other mob.
-  const hostiles=getHostiles(bot,ctx).filter(e=>!(MINOR_MOBS.has(e.name)&&!withinRange(e,bot,MINOR_NEAR)));
+  let hostiles=getHostiles(bot,ctx).filter(e=>!(MINOR_MOBS.has(e.name)&&!withinRange(e,bot,MINOR_NEAR)));
   if(hostiles.some(e=>withinRange(e,bot,16)))this._dangerUntil=this.now()+8;
   const policy=evaluateFight(bot,hostiles);
   // Night refuge (night.js): a perched bot holds its column (a creeper fusing at the base is
@@ -137,7 +143,17 @@ export class MobDefenseChain extends SingleTaskChain{
   // Run away from the closest creeper (AltoClef: 50 + fuse*50; mineflayer does not expose
   // the client fuse, so proximity stands in for urgency — 7f says walk away regardless).
   const ch=this._creeperChase,chasing=e=>!!ch&&ch.id===e.id&&this.now()-ch.last<=5&&this.now()-ch.since>=CREEPER_CHASE_S;
-  const creeper=hostiles.filter(e=>e.name==='creeper'&&withinRange(e,bot,chasing(e)?CREEPER_CHASED_KEEP:CREEPER_KEEP_DISTANCE))
+  {const c=ch&&!ch.stalled&&this.now()-ch.last<=5&&hostiles.find(e=>e.id===ch.id&&e.name==='creeper');
+   if(c){const d=distanceTo(c,bot),t=this.now();
+    if(ch.closest==null||d<ch.closest-CREEPER_CLOSE_STEP){ch.closest=d;ch.closedAt=t;}
+    else if(t-ch.closedAt>=CREEPER_STALL_S&&d>CREEPER_STALL_NEAR&&withinRange(c,bot,CREEPER_CHASED_KEEP)){
+     ch.stalled=true;this._fleeTag=null;
+     if(ctx.worker&&ctx.worker.log)try{ctx.worker.log('Reflex: the creeper '+d.toFixed(1)+' away has not come nearer than '+ch.closest.toFixed(1)+' in '+Math.round(t-ch.closedAt)+' s; back to the job (fleeing it again inside '+CREEPER_STALL_NEAR+')');}catch{}
+    }}}
+  const stalled=e=>!!ch&&ch.id===e.id&&ch.stalled&&distanceTo(e,bot)>CREEPER_STALL_NEAR;
+  // the rest of the ladder (the unarmed flee, the annoying-mob timers) leaves it too
+  if(ch&&ch.stalled)hostiles=hostiles.filter(e=>!stalled(e));
+  const creeper=hostiles.filter(e=>e.name==='creeper'&&!stalled(e)&&withinRange(e,bot,chasing(e)?CREEPER_CHASED_KEEP:CREEPER_KEEP_DISTANCE))
    .sort((a,b)=>distanceTo(a,bot)-distanceTo(b,bot))[0];
   if(creeper){
    // Round 46 (round-45 hard2: a creeper fled every second for 3.5 min under the canopy, the
@@ -146,7 +162,7 @@ export class MobDefenseChain extends SingleTaskChain{
    // bow from the top), which took 0 damage in every combat run - when armed and able to fight,
    // holding blocks for the pillar, and with nothing else within 6.
    const now=this.now();
-   if(!this._creeperChase||this._creeperChase.id!==creeper.id||now-this._creeperChase.last>5)this._creeperChase={id:creeper.id,since:now,last:now};
+   if(!this._creeperChase||this._creeperChase.id!==creeper.id||now-this._creeperChase.last>5||this._creeperChase.stalled)this._creeperChase={id:creeper.id,since:now,last:now};
    this._creeperChase.last=now;
    const lone=hostiles.filter(e=>withinRange(e,bot,CREEPER_KEEP_DISTANCE)&&e.name==='creeper').length===1&&!hostiles.some(e=>e.name!=='creeper'&&withinRange(e,bot,6));
    const blocks=pillarBlocks(bot);

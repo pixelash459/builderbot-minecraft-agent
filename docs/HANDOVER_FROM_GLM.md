@@ -2775,3 +2775,38 @@ The round-72 soak on the Nitrous world copy (bot `3fc0f73`) ran all six runs cle
 - **hard2's ore and no ingots.**
 - **The tool-loss lines at run boundaries:** these are the harness's bag clear.
 - **`chest_spot_blocked`:** the expected refusal.
+
+## Round 79 (2026-10-31)
+
+**Round-78 soak results** (Nitrous world copy, `195187d`)
+- **Deaths:** 2 (round 77: 4). normal3 drowned in the group's cherry-slab build at (837, 100, -446). hard2 was shot by a skeleton at 13:37:46Z. No creeper damage and no creeper death (round 77: 2 creeper deaths). The two deaths were 160 blocks apart.
+- **Iron:** 4 of 6. hard1 had a kiln loaded with raw iron when the run ended. hard3 never got past wood. hard2 made the fastest hard iron pick since round 74 (1205 s), then lost it at the skeleton death.
+- **Waterlogged fix:** working. The three `Water: head under` lines no longer name a slab head block, and two of them surfaced through open water.
+- **Night mine:** 1 of 2 back in. hard1 re-sealed at the lower cell.
+- **Obstruction probe:** 10 of 11. `chest_spot_blocked` is the expected refusal.
+
+**Diagnosis: the normal3 drowning**
+- At 12:06:04Z: `roof over the water at (837, 102, -446) (air 8, cherry_slab); digging it`. Then 23 s passed with no dig line and no fail line, and it drowned.
+- **Cause:** a block dug by hand while floating under water takes 25 times as long (5x for the water, 5x for being off the ground). A slab takes about 75 s that way. Worse, mineflayer's `digTime` counts the water only when the eye block is named water. Under a waterlogged block it times the dig 5 times too short, sends the finish early, and then waits for a break the server never makes.
+
+**Diagnosis: hard3's 25 minutes in one cell**
+- **Box 4 under the surface:** three mornings in a row, `morning in a cave` at y=84 (surface 88) was followed by `the climb out stopped (Could not climb toward the surface from y=84)`. The ascend stops 4 blocks short of its target, so a box exactly 4 under never moved.
+- **The creeper standoff:** after the walls opened, a creeper hovered 7.7-14.6 away and never came nearer. For 116 s the 20-block keep-away and the pillar fight swapped every few seconds. There was no headroom beside the box for a pillar, and the gather never ran.
+
+**Fixes**
+- **Roof dig against the air** (`get-out-of-water-task.js`). The dig is now timed first with `roofDigMs`, which puts back the 5x for a waterlogged eye block.
+  - If that time is more than the air left (`airOf × AIR_UNIT_MS`, 750 ms) plus `DIG_AIR_MARGIN_MS` (4 s), the roof is not dug. The bot logs `the roof at P (...) would take N s to dig under water (air A); swimming for air up to 16 cells off`, and the pocket search then reaches `POCKET_FAR` (16) cells.
+  - A dig still going after 1.5× its estimate plus 1.5 s is stopped with `stopDigging`. It logs `the roof dig at P did not finish in N s; giving it up`, and that roof is not tried again.
+  - The dig line now carries the estimate, for example `(air 8, cherry_slab, 9.5 s)`.
+- **Creeper stall** (`mobDefenseChain.js`). A chased creeper that has not come `CREEPER_CLOSE_STEP` (1 block) nearer in `CREEPER_STALL_S` (30 s) is left alone while it stays beyond `CREEPER_STALL_NEAR` (6).
+  - It logs `Reflex: the creeper D away has not come nearer than C in N s; back to the job (fleeing it again inside 6)`.
+  - It is also dropped from the rest of the ladder (the unarmed flee, the annoying-mob timers).
+  - Inside 6 the chase starts over with a normal flee. A fusing creeper is answered either way.
+- **Cave-morning climb** (`worker.js`). The climb out now aims at least `CAVE_EXIT_RISE` (5) above the box, using the sky goal (`spec.sky`), so a box 4 under the surface climbs too.
+
+**Not changed yet**
+- **hard2's skeleton death:** it happened right after the iron pick, during an ascend climb-out into a 14-mob crowd, and the respawn lost the pick.
+- **hard1's night mine:** it could not climb back into the box (`Navigation timed out`) and re-sealed one cell lower.
+- **normal3's respawn landing:** the line is missing from the dashboard log.
+- **The shelter keeps its walls up for a creeper within 16.** hard3's three nights all used the same cave-box cell.
+- **`chest_spot_blocked`:** the expected refusal.
