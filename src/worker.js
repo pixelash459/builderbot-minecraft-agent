@@ -707,6 +707,14 @@ export function creeperThreat(bot){
  return best;
 }
 const WORLD_CHAIN='Misc World Survival Chain';
+// Round 84 (round-83 hard3: health 20 on the sample at 18:06:45 and `was shot by Skeleton` at
+// 18:06:54 on the way back from its night mine, with no Reflex line between - the shelter job's
+// hold switched Mob Defense off for everything but a creeper, out of the box as well as in it):
+// with the night mine out of the box, a hostile within NIGHT_MINE_GUARD or a hit in the last
+// MINE_HURT_MS lets Mob Defense through. Its preemption pauses the shelter job, and the resumed
+// job seals a new box where the bot stands.
+export const NIGHT_MINE_GUARD=8,MINE_HURT_MS=3000;
+export function nightMineOverride(chainName,hold,threat){return chainName==='Mob Defense'&&!!hold&&!!hold.mining&&!!threat;}
 // Round 11: the bucket's eye ray from `from` to `to` (the fluid surface): the first solid
 // block it passes through (blocked) or the first water source it meets (fluid). Fine steps.
 export const BUCKET_TRIES=3,BUCKET_REACH=4.4;
@@ -740,7 +748,8 @@ export const NO_AVOID_LOG_MS=30000,NO_AVOID_NEAR=4;
 export const SHELTER_DIG_MS=45000,SHELTER_SEAL_MS=30000,NIGHT_PILLAR_MS=13*60000,SHELTER_EXIT_MARGIN_MS=60000,CREEPER_WAIT_MS=60000,SHELTER_CROWD=6,CROWD_WAIT_MS=180000,UNARMED_CLEAR=32;
 // Natural plants that fill a shell cell but are not replaceable: a placement into them is
 // refused, so the seal digs them out first (a dark-forest floor is full of mushrooms).
-export const SHELTER_NOTCH=/^(.*_mushroom|.*_sapling|.*_fungus|.*_roots|dandelion|poppy|blue_orchid|allium|azure_bluet|.*_tulip|oxeye_daisy|cornflower|lily_of_the_valley|wither_rose|torchflower|pink_petals|wildflowers|leaf_litter|sweet_berry_bush|sugar_cane|bush|firefly_bush|short_dry_grass|tall_dry_grass|moss_carpet|cocoa|lily_pad)$/;
+// Round 84: torches too (round-83 hard3: `open cells 857,94,-544=torch`, `re-seal left 1 open`).
+export const SHELTER_NOTCH=/^(.*torch|.*_mushroom|.*_sapling|.*_fungus|.*_roots|dandelion|poppy|blue_orchid|allium|azure_bluet|.*_tulip|oxeye_daisy|cornflower|lily_of_the_valley|wither_rose|torchflower|pink_petals|wildflowers|leaf_litter|sweet_berry_bush|sugar_cane|bush|firefly_bush|short_dry_grass|tall_dry_grass|moss_carpet|cocoa|lily_pad)$/;
 const reflexPaused=j=>j.status==='paused'&&/^(Preempted by|Reflex:)/.test(String(j.message));
 // Round 10 (bug A): a tunnel step is planned before it is dug. stepFooting looks two cells
 // under the next step; a shallow hole there is filled with a held block, a deep opening (a
@@ -956,12 +965,15 @@ export class Worker extends EventEmitter {
     const creeper=creeperNow||(creeperLatched&&!!hold&&chain.name==='Mob Defense'&&!hold.sealed&&!bot.isSleeping&&creeperDistance(bot)<=CREEPER_RELEASE);
     if(chain.name==='Mob Defense')creeperLatched=creeper;
     if(creeper&&!wasActive)self.log('Reflex: creeper at '+creeperThreat(bot).toFixed(1)+' overrides the '+hold.job.spec.type+' hold');
-    if(hold&&chain.name!==WORLD_CHAIN&&!creeper){
+    const threat=chain.name==='Mob Defense'&&hold&&hold.mining?self.mineThreat(bot):null;
+    const mineOverride=nightMineOverride(chain.name,hold,threat);
+    if(hold&&chain.name!==WORLD_CHAIN&&!creeper&&!mineOverride){
      const building=hold.job.status==='running'&&hold.job.spec.type==='shelter'&&!hold.sealed;
      if(chain.name==='Food'&&!building)try{chain.priority(bot,ctx);}catch{}
      wasActive=false;return -1;
     }
     const p=chain.priority(bot,ctx);
+    if(mineOverride&&p>=0&&!wasActive)self.log('Reflex: '+threat+' on the night mine; Mob Defense answers');
     // Observability contract (the suite and the dashboard watch for 'Reflex:'): log each
     // survival chain engagement, exactly like the retired reflex loop announced itself.
     const activeNow=p>=0;
@@ -990,9 +1002,16 @@ export class Worker extends EventEmitter {
  // running shelter has closed its box.
  survivalHold(){
   const running=this.jobs.find(j=>j.status==='running');
-  if(running)return SURVIVAL_JOBS.has((running.spec||{}).type)?{job:running,sealed:running.spec.type==='shelter'&&!!this.shelterSealed}:null;
+  if(running)return SURVIVAL_JOBS.has((running.spec||{}).type)?{job:running,sealed:running.spec.type==='shelter'&&!!this.shelterSealed,mining:running.spec.type==='shelter'&&!!this.nightMining&&!this.shelterSealed}:null;
   const waiting=this.jobs.find(j=>SURVIVAL_JOBS.has((j.spec||{}).type)&&(j.status==='queued'||reflexPaused(j)));
   return waiting?{job:waiting,sealed:false}:null;
+ }
+ // Round 84: what Mob Defense answers on the night mine (nightMineOverride), or null.
+ mineThreat(bot=this.bot){
+  const me=bot?.entity?.position;if(!me)return null;
+  if(Date.now()-(this.hurtAt||0)<=MINE_HURT_MS)return 'a hit';
+  const e=Object.values(bot.entities||{}).find(e=>e&&e!==bot.entity&&e.type==='hostile'&&e.position&&e.isValid!==false&&e.position.distanceTo(me)<=NIGHT_MINE_GUARD&&!leaveAlone(e,bot));
+  return e?'a '+e.name+' within '+NIGHT_MINE_GUARD:null;
  }
  // jobs.json holds the active jobs (running/queued/paused/failed, with the resume state
  // they need) plus the most recent 200 terminal jobs stripped to their skeleton; everything
@@ -1159,7 +1178,10 @@ export class Worker extends EventEmitter {
   if(h&&h.y===p.y&&Math.abs(h.x-p.x)+Math.abs(h.z-p.z)<=1){ap.home=null;ap.save?.();this.log('Respawn: home cleared (it was that bed)');}
   return true;
  }
- onHealth(bot){if(this.busy&&!this.survivalJob&&(bot.health<this.config.limits.minHealth||bot.food<this.config.limits.minFood))this.stop('Health or food is low','health');}
+ onHealth(bot){
+  if(this._lastHp!=null&&bot.health<this._lastHp-0.01)this.hurtAt=Date.now();
+  this._lastHp=bot.health;
+  if(this.busy&&!this.survivalJob&&(bot.health<this.config.limits.minHealth||bot.food<this.config.limits.minFood))this.stop('Health or food is low','health');}
  disconnect(){this.stop('Disconnected by user','user');this.bot?.quit();this.bot=null;this.ready=false;}
  // keepHolds: a survival job the autopilot sends while a death holds the ladder (the
  // respawn-at-night shelter) runs without lifting that hold.
@@ -2116,11 +2138,16 @@ export class Worker extends EventEmitter {
     // Round 55 (round-54 soak: a dusk box at y=41 over the spawn cave; the night mine's sump opened
     // onto the cave at y=39, the bot could not step back into the box, and died in the crowd): the
     // night mine runs from a box near the surface only, never from one deep underground.
-    if(!job.nightMined&&!this.nearHazard?.(b.entity.position)&&!deepBox(b.entity.position.y,headSky(b,b.entity.position.floored()),this.autopilot?.lastSurfaceY)&&nightMineWanted({tod,pod:job.pod,pickaxe:b.inventory.items().some(i=>/^(stone|iron|diamond|netherite)_pickaxe$/.test(i.name)),blocks:this.shelterStock(true),enabled:this.config?.nightMine!==false,health:b.health})){
+    // Round 84 (round-83 hard3: `re-seal left 1 open` - a torch in the head ring - and the night
+    // mine went down 2 s later; the bot was shot dead at the box on the way back): a box with an
+    // open cell is held, not mined from.
+    if(!job.nightMined&&this.shelterGaps>0&&nightMineWanted({tod,pod:job.pod,pickaxe:true,blocks:Infinity,enabled:this.config?.nightMine!==false,health:b.health})){
+     if(!job.mineHeldLogged){job.mineHeldLogged=true;this.log('Night mine: not from a box with '+this.shelterGaps+' open cell(s); holding the box');}
+    }else if(!job.nightMined&&!this.nearHazard?.(b.entity.position)&&!deepBox(b.entity.position.y,headSky(b,b.entity.position.floored()),this.autopilot?.lastSurfaceY)&&nightMineWanted({tod,pod:job.pod,pickaxe:b.inventory.items().some(i=>/^(stone|iron|diamond|netherite)_pickaxe$/.test(i.name)),blocks:this.shelterStock(true),enabled:this.config?.nightMine!==false,health:b.health})){
      job.nightMined=true;this.save();
      let r=null;
-     try{r=await this.nightMine(job,token,origin);}catch(e){this.check(token);this.log('Night mine: '+e.message);}
-     finally{this.shelterSealed=true;}
+     try{this.nightMining=true;r=await this.nightMine(job,token,origin);}catch(e){this.check(token);this.log('Night mine: '+e.message);}
+     finally{this.nightMining=false;this.shelterSealed=true;}
      if(r==='away'){away='the night mine could not climb home';break;}
     }
     if(darkNow(tod))job.sawDark=true;

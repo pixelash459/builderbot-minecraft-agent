@@ -2971,3 +2971,36 @@ The round-72 soak on the Nitrous world copy (bot `3fc0f73`) ran all six runs cle
 - **Keep-distance stand-downs in reach of a skeleton** (hard2's first death): `nothing within 8 in sight` does not cover a bow at 15. One death is not enough to change the stand-down, which was added for frozen holds.
 - **The 7-minute silence during a creeper hover:** nothing logs while the keep-away holds.
 - **Picking the bed back up, night-mine climbs home that time out, and `chest_spot_blocked`:** as before.
+
+## Round 84 (2026-11-02)
+
+**What the round-83 soak showed** (`97b129d`, report `c2b5b5c`)
+- **Iron on 6 of 6**, the third perfect iron round (80, 82, 83), with **4 deaths**, one each on normal3, hard1, hard2 and hard3. Every run ended holding its pick. Hard iron 1356/1385/1991 s (round 82: 1416/1539/2259).
+- **#393 (no raised diagonals):** iron was faster on five runs. `Job: no path` 8 (round 82: 3), `no path with mob avoidance` 201 (192), `Pillar: no rise` 0, `stranded` 0. No sign that it made climbs worse.
+- **The round-82 lava escape held on its first live use:** normal3 `in lava; escaping` with no `Lava guard:` after it, and it was out alive. It died 58 s later in a second pool, 17 blocks lower, with no escape line. That is one data point.
+- **The round-83 changes:**
+  - The armed flee label fired 8 times (`armed, but night in the open without armour`, `armed, but health 12 below 14`).
+  - Both `unarmed` lines were correct.
+  - The keep-away meal and the unarmed morning crowd were not exercised.
+- **hard1 and hard2 died to zombies** in the hard crowds round (830, 90, -500..-540): 77 and ~90 hostiles named on one flee line. Crowds this size are on every round's flee lines since 2026-10-21, so not new. hard1 swung between a strike and a `(vulnerable)` flee every half second while the smelt and craft jobs resumed in between. It died 4 s into a stone-pickaxe craft.
+- **hard3 was shot dead on its night mine**, the one death with a clear bug behind it:
+  - Its dusk box at (856, 93, -544) had a torch in the head ring: `open cells 857,94,-544=torch`, then `re-seal left 1 open`.
+  - The night mine went down 2 s later anyway.
+  - On the way back, the sample at 18:06:45 read health 20, and at 18:06:54 it `was shot by Skeleton` at the box, with no Reflex line in between.
+  - Cause: the shelter job's hold turns Mob Defense off for everything but a creeper. That covered the night mine, out of the box, as well. In the whole dashboard log, Mob Defense acted on a night mine only through the creeper override (`creeper at D overrides the shelter hold`), never for a zombie or a skeleton.
+
+**Fixes**
+- **Mob Defense on the night mine** (`worker.js`: `survivalHold` gains `mining`, plus `mineThreat` and `nightMineOverride`):
+  - While the night mine is out of the box (`nightMining`, and the box no longer sealed), the hold lets Mob Defense through for a hostile within `NIGHT_MINE_GUARD` (8), or for a hit in the last `MINE_HURT_MS` (3 s; `onHealth` now marks `hurtAt`).
+  - Logged `Reflex: <a zombie within 8 | a hit> on the night mine; Mob Defense answers`.
+  - Its preemption pauses the shelter job. The resumed job seals a new box where the bot stands, the path a world-survival escape already takes.
+  - In the sealed box, nothing changes.
+- **No night mine from an open box:** a box with an open cell after the re-seal is held, logged once per night as `Night mine: not from a box with N open cell(s); holding the box`.
+- **Torches in a shell cell** (`SHELTER_NOTCH` gains `.*torch`): dug out like a flower before the block goes in.
+
+**Tests:** `round84.test.js` (4). No fixture changed.
+
+**Not changed yet**
+- **The hard crowd thrash** (hard1): strike, flee and job resumes alternating in a crowd of 77. It needs more than one death to shape.
+- **normal3's second lava pool:** no escape line before the death. Needs the next soak's lava lines.
+- **From round 83:** keep-distance stand-downs in reach of a skeleton, the silence during a creeper hover, picking the bed back up, night-mine climbs home that time out, and `chest_spot_blocked`.
