@@ -174,7 +174,13 @@ export function deepWaterCost(blockAt,pos,dark){
 // Returns a unit heading {x,z,cost,blocked}, or null with no hostiles.
 // inWater: the bot is already swimming - water ahead costs per cell (the heading with the
 // least water leads to the shore) instead of ruling the heading out; lava still does.
-export function fleeHeading(blockAt,me,hostiles,{shelter=null,inWater=false}={}){
+// Round 81 (round-80 hard3: `Ledge guard: stopped at (834, 87, -541)`, the flee steered forward
+// again, `Fall: dropping from (834, 86, -541)` and `BuilderBot tried to swim in lava` 13 below, at
+// low health): a drop is read FLEE_DROP_SCAN deep; lava or water at its foot, a fall whose damage
+// (the drop less 3) would leave under 2 health, or FLEE_DROP_DEADLY+ blocks rule the heading out
+// like a fluid - standing beats the jump.
+export const FLEE_DROP_SCAN=16,FLEE_DROP_DEADLY=12;
+export function fleeHeading(blockAt,me,hostiles,{shelter=null,inWater=false,health=20}={}){
  const list=(hostiles||[]).filter(h=>h&&h.position);
  if(!list.length)return null;
  let ax=0,az=0;
@@ -198,7 +204,8 @@ export function fleeHeading(blockAt,me,hostiles,{shelter=null,inWater=false}={})
    if(feet==null)continue; // unloaded / unknown
    if(solid(feet)){const up=blockAt(x,fy+1,z),up2=blockAt(x,fy+2,z);if(solid(up)||solid(up2))return 20;continue;} // a wall: slows, not deadly
    let drop=0;
-   for(let dy=1;dy<=4;dy++){const b=blockAt(x,fy-dy,z);if(b==null){drop=0;break;}if(fluid(b))return 100;if(solid(b))break;drop=dy;}
+   for(let dy=1;dy<=FLEE_DROP_SCAN;dy++){const b=blockAt(x,fy-dy,z);if(b==null){if(dy<=4)drop=0;break;}if(fluid(b))return 100;if(solid(b))break;drop=dy;}
+   if(drop>3&&(drop>=FLEE_DROP_DEADLY||drop-3>=(Number.isFinite(health)?health:20)-2))return 100;
    if(drop>3)return 60;
   }
   return wet;

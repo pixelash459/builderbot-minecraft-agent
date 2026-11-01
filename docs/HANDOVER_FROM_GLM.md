@@ -2858,3 +2858,46 @@ The round-72 soak on the Nitrous world copy (bot `3fc0f73`) ran all six runs cle
 - **The hard night deaths:** hard1 died to a skeleton while burrowing in a night crowd and to a zombie right after the respawn; hard2 died to a zombie 27 s after a box opened.
 - **The pre-placed bed:** hard2 slept in a bed it found in the world, which set the spawn point there for later runs.
 - **`chest_spot_blocked`:** the expected refusal.
+
+## Round 81 (2026-11-01)
+
+**What the round-80 soak showed** (`0130591`, report `2a8e3e9`)
+- **The best round so far:**
+  - Iron on 6 of 6 runs, for the first time; rounds 75-79 were 4/4/5/4/3.
+  - 1 death, and a diamond on normal1.
+  - hard1 and hard2 both finished death-free with an iron pick. hard1 slept a night in its own bed.
+- **Round-80 fixes in play:**
+  - The strand cap held: 5 pillar lines in the whole soak, and nothing above y=93.
+  - The build logs were skipped, and every run got wood.
+  - 5 superseded paused jobs were cancelled.
+  - The breathing-spot rule never armed, because the soak had no water loop.
+- **normal3, the chest-window thrash:** 597 `Window: closed a stale minecraft:generic_9x3 window left open before an equip` lines in 22 min on its chest row; hard3 had 109 more.
+- **hard3, the death:**
+  - A night box under a dark canopy opened on `skeleton 16.4 away; opening the walls`, with a crowd around the box that the morning never burned.
+  - 6 s after the shelter completed: `Health or food is low`, then a flee.
+  - `Ledge guard: stopped at (834, 87, -541)`, then the flee steered forward again, `Fall: dropping from (834, 86, -541)`, and `BuilderBot tried to swim in lava` 13 blocks below.
+- **Log noise:** 1350 `no path with mob avoidance at P; trying without it` lines, about 2 a second while a gather retried one block.
+
+**Fixes**
+- **Sneak-place guard** (`worker.js` `guardPlace`):
+  - The round-67 guard never installed. `connect()` ran it before mineflayer's plugins inject (a 0 ms timer), when `bot.placeBlock` did not exist yet, so it returned silently.
+  - As a result, every placement against a chest opened it. That covers pillaring on the chest row and the pathfinder's scaffold blocks.
+  - It now waits for inject with `afterInject`, the way `guardEquip` does.
+- **Flee heading** (`night.js` `fleeHeading`, health passed from the run-away tasks and the reflex flee):
+  - A drop is now read `FLEE_DROP_SCAN` (16) deep instead of 4.
+  - The heading is ruled out, like a fluid, when any of these holds:
+    - a fluid lies at the drop's foot;
+    - the fall damage (drop less 3) would leave under 2 health;
+    - the drop is `FLEE_DROP_DEADLY` (12) blocks or more.
+  - Drops of 4 or more that are not lethal still cost 60, as before.
+- **Crowd hold** (`waitCreeperClear`): after the creeper/skeleton hold, `SHELTER_CROWD` (6) or more hostiles within `REFUGE_CLEAR` (16) keep the walls up for at most `CROWD_WAIT_MS` (180 s), and never past the job's exit margin.
+  - On holding it logs `Shelter: N hostiles within 16; keeping the walls up`.
+  - On opening it logs `Shelter: N hostiles within 16[ after S s]; opening the walls`.
+- **Log throttle:** `navigateNoAvoid` logs once per cell per `NO_AVOID_LOG_MS` (30 s), with the quiet repeats counted (`(N more here in S s)`).
+
+**Not changed yet**
+- **Picking the bed back up:** `Picked the bed back up ... (home is elsewhere)` 7 s after `Respawn point set` clears the respawn again.
+- **Cave-morning climbs** stop at the cave roof: hard1 reached 68 against a surface of 90, hard2 89 against 91. The job completes there.
+- **Night-mine climbs home** still time out on `Took to long to decide path to goal!`; the sump step-in covers it.
+- **The unreleased pathfinder fixes** (#384, #375, #393) are still candidates.
+- **`chest_spot_blocked`:** the expected refusal.

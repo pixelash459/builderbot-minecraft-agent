@@ -424,8 +424,13 @@ export function installSprintHold(bot){
 // window open, and the next equip hung on it for 9 min). Placements against one sneak, the way a
 // player does, and the sneak is let go after.
 export const INTERACTIVE=/chest$|barrel|furnace|smoker|crafting_table|_door$|_trapdoor$|_bed$|_button$|lever|anvil|enchanting_table|brewing_stand|hopper|dispenser|dropper|_shulker_box$|shulker_box|loom|stonecutter|grindstone|cartography_table|smithing_table|fletching_table|lectern|bell|note_block|repeater|comparator|_fence_gate$|_sign$|beacon|composter|cauldron/;
+// Round 81 (round-80 normal3: 597 `closed a stale minecraft:generic_9x3 window left open before an
+// equip` in 22 min on its chest row, hard3 109): the guard never installed - connect() runs it
+// before mineflayer's plugins inject (a 0 ms timer), when bot.placeBlock is not there yet, so every
+// placement against a chest opened it. It now waits for inject, the way guardEquip does.
 export function guardPlace(bot){
- if(!bot||bot.__rawPlace||typeof bot.placeBlock!=='function')return;
+ if(!bot||bot.__rawPlace)return;
+ if(typeof bot.placeBlock!=='function')return afterInject(bot,'placeBlock',()=>guardPlace(bot));
  const raw=bot.__rawPlace=bot.placeBlock.bind(bot);
  bot.placeBlock=async(ref,face,...rest)=>{
   const sneak=!!ref&&INTERACTIVE.test(ref.name||'')&&typeof bot.getControlState==='function'&&!bot.getControlState('sneak');
@@ -705,7 +710,8 @@ export function tunnelHeading(tunnel){
 // reason and the night pillar takes over (round 5 hard1/hard2: 11 min re-walking one
 // unreachable dirt block, cancelled by the soak bell, never sealed).
 const SHELTER_ITEMS=['cobblestone','dirt','cobbled_deepslate','netherrack'];
-export const SHELTER_DIG_MS=45000,SHELTER_SEAL_MS=30000,NIGHT_PILLAR_MS=13*60000,SHELTER_EXIT_MARGIN_MS=60000,CREEPER_WAIT_MS=60000;
+export const NO_AVOID_LOG_MS=30000;
+export const SHELTER_DIG_MS=45000,SHELTER_SEAL_MS=30000,NIGHT_PILLAR_MS=13*60000,SHELTER_EXIT_MARGIN_MS=60000,CREEPER_WAIT_MS=60000,SHELTER_CROWD=6,CROWD_WAIT_MS=180000;
 // Natural plants that fill a shell cell but are not replaceable: a placement into them is
 // refused, so the seal digs them out first (a dark-forest floor is full of mushrooms).
 export const SHELTER_NOTCH=/^(.*_mushroom|.*_sapling|.*_fungus|.*_roots|dandelion|poppy|blue_orchid|allium|azure_bluet|.*_tulip|oxeye_daisy|cornflower|lily_of_the_valley|wither_rose|torchflower|pink_petals|wildflowers|leaf_litter|sweet_berry_bush|sugar_cane|bush|firefly_bush|short_dry_grass|tall_dry_grass|moss_carpet|cocoa|lily_pad)$/;
@@ -1304,7 +1310,11 @@ export class Worker extends EventEmitter {
  async navigateNoAvoid(goal,token,seconds){
   const bot=this.bot,mv=bot.pathfinder.movements;
   this._noAvoid=true;mv.exclusionAreasStep=mv.exclusionAreasStep.filter(fn=>fn!==mv._mobAvoidHook);mv._mobAvoidHook=null;
-  this.log('Navigation: no path with mob avoidance at '+bot.entity.position.floored()+'; trying without it');
+  // Round 81 (round-80 soak: 1350 of these lines, ~2 a second while a gather job retried one
+  // block): logged once per cell per NO_AVOID_LOG_MS, with the count of the quiet repeats.
+  const at=String(bot.entity.position.floored()),now=Date.now(),nl=this._noAvoidLog;
+  if(nl&&nl.at===at&&now-nl.t<NO_AVOID_LOG_MS)nl.quiet++;
+  else{this.log('Navigation: no path with mob avoidance at '+at+'; trying without it'+(nl&&nl.at===at&&nl.quiet?' ('+nl.quiet+' more here in '+Math.round((now-nl.t)/1000)+' s)':''));this._noAvoidLog={at,t:now,quiet:0};}
   try{return await this.navigate(goal,token,seconds);}finally{this._noAvoid=false;}
  }
  async walk(target,token,range=2,seconds=45){await this.navigate(new goals.GoalNear(target.x,target.y,target.z,range),token,seconds);}
@@ -1837,7 +1847,7 @@ export class Worker extends EventEmitter {
   const me=b.entity.position;
   const near=Object.values(b.entities||{}).filter(e=>e&&e!==b.entity&&e.type==='hostile'&&e.position&&e.position.distanceTo(me)<=16);
   if(target&&target.position&&!near.includes(target))near.push(target);
-  const h=near.length?fleeHeading((x,y,z)=>b.blockAt(new Vec3(x,y,z)),me,near,{inWater:!!b.entity.isInWater}):{x:1,z:0,blocked:false};
+  const h=near.length?fleeHeading((x,y,z)=>b.blockAt(new Vec3(x,y,z)),me,near,{inWater:!!b.entity.isInWater,health:b.health}):{x:1,z:0,blocked:false};
   try{await b.look(Math.atan2(-h.x,-h.z),0,false);}catch{}
   if(h.blocked)return;
   b.setControlState('sprint',true);b.setControlState('forward',true);
@@ -2625,6 +2635,17 @@ export class Worker extends EventEmitter {
    await sleep(250);this.check(token);
   }
   if(held){const n=this.nearestOf(DAY_HOSTILE);this.log('Shelter: '+(Number.isFinite(n.d)?n.name+' '+n.d.toFixed(1)+' away':held+' gone')+'; opening the walls');}
+  // Round 81 (round-80 hard3: `skeleton 16.4 away; opening the walls` under a dark canopy with a
+  // crowd of zombies, skeletons, creepers and spiders around the box that the morning never
+  // burned; `Health or food is low` 6 s after the shelter completed, a flee, and the death 3 s
+  // later): SHELTER_CROWD+ hostiles within REFUGE_CLEAR keep the walls up too, for at most
+  // CROWD_WAIT_MS and never past the job's exit margin.
+  const crowdUntil=Date.now()+CROWD_WAIT_MS;let crowd=this.hostilesWithin(REFUGE_CLEAR);
+  if(crowd<SHELTER_CROWD)return;
+  this.log('Shelter: '+crowd+' hostiles within '+REFUGE_CLEAR+'; keeping the walls up');
+  const margin=()=>Number.isFinite(this.deadline)&&this.deadline-Date.now()<SHELTER_EXIT_MARGIN_MS;
+  while(crowd>=SHELTER_CROWD&&Date.now()<crowdUntil&&!margin()){await sleep(250);this.check(token);crowd=this.hostilesWithin(REFUGE_CLEAR);}
+  this.log('Shelter: '+crowd+' hostiles within '+REFUGE_CLEAR+(crowd>=SHELTER_CROWD?' after '+Math.round((CROWD_WAIT_MS-(crowdUntil-Date.now()))/1000)+' s':'')+'; opening the walls');
  }
  // Phase 6b: obtain - plan the full chain with the howto tree, then run it as ordinary
  // verified jobs. The step list and index are persisted, so a restart resumes mid-chain.

@@ -91,7 +91,7 @@ class RunAwayTask extends Task{
   const list=this.targets(bot,ctx).filter(e=>withinRange(e,bot,Math.max(this.distance,16)));
   if(!list.length){forget(bot,'forward','sprint');return null;}
   const c=pickCtx(this,ctx),w=c&&c.worker;
-  const h=fleeHeading(cellAt(bot),bot.entity.position,list,{shelter:w&&w.shelterSpot||null,inWater:swimming(bot)});
+  const h=fleeHeading(cellAt(bot),bot.entity.position,list,{shelter:w&&w.shelterSpot||null,inWater:swimming(bot),health:bot.health});
   look(bot,yawToward(h.x,h.z),0); // along the chosen away vector (heading.js convention)
   // Every heading is a hazard (cornered against a lake or a cliff): stand, do not walk in.
   setControl(bot,'forward',!h.blocked);
@@ -121,7 +121,7 @@ export class KeepDistanceTask extends Task{
   const dx=near.position.x-bot.entity.position.x,dz=near.position.z-bot.entity.position.z;
   const tooClose=d<this.distance;
   // Opening the gap walks forward: the same water/drop-aware crowd heading as the run-away.
-  const h=tooClose?fleeHeading(cellAt(bot),bot.entity.position,getHostiles(bot,ctx).filter(e=>withinRange(e,bot,16)),{inWater:swimming(bot)}):null;
+  const h=tooClose?fleeHeading(cellAt(bot),bot.entity.position,getHostiles(bot,ctx).filter(e=>withinRange(e,bot,16)),{inWater:swimming(bot),health:bot.health}):null;
   look(bot,h?yawToward(h.x,h.z):yawToward(-dx,-dz),0); // face AWAY from the threat: forward opens the gap
   const go=tooClose&&!(h&&h.blocked);
   setControl(bot,'forward',go);
