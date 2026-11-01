@@ -86,9 +86,16 @@ export function waterExits(movement){
  return movement;
 }
 // Diagonal steps past a solid corner wedge the bot on 26.3 (it stops moving); require both sides clear.
-function guardDiagonals(movement){
+// Round 83: PrismarineJS/mineflayer-pathfinder#393 (merged upstream, not in 2.4.5) - no diagonal
+// that lands one block up either: the jump clips the corner of the step and the bot falls back
+// short of the node. The straight jump-up and a flat step cover the same climb.
+export function guardDiagonals(movement){
  const diagonal=movement.getMoveDiagonal.bind(movement);
- movement.getMoveDiagonal=(node,dir,neighbors)=>{for(const [x,z]of [[dir.x,0],[0,dir.z]])for(let dy=0;dy<=2;dy++)if(movement.getBlock(node,x,dy,z).physical)return;diagonal(node,dir,neighbors);};
+ movement.getMoveDiagonal=(node,dir,neighbors)=>{
+  if(movement.getBlock(node,dir.x,0,dir.z).physical)return;
+  for(const [x,z]of [[dir.x,0],[0,dir.z]])for(let dy=0;dy<=2;dy++)if(movement.getBlock(node,x,dy,z).physical)return;
+  diagonal(node,dir,neighbors);
+ };
  return movement;
 }
 // Round 82: PrismarineJS/mineflayer-pathfinder#384 (merged upstream, not in 2.4.5). The planner
@@ -730,7 +737,7 @@ export function tunnelHeading(tunnel){
 // unreachable dirt block, cancelled by the soak bell, never sealed).
 const SHELTER_ITEMS=['cobblestone','dirt','cobbled_deepslate','netherrack'];
 export const NO_AVOID_LOG_MS=30000,NO_AVOID_NEAR=4;
-export const SHELTER_DIG_MS=45000,SHELTER_SEAL_MS=30000,NIGHT_PILLAR_MS=13*60000,SHELTER_EXIT_MARGIN_MS=60000,CREEPER_WAIT_MS=60000,SHELTER_CROWD=6,CROWD_WAIT_MS=180000;
+export const SHELTER_DIG_MS=45000,SHELTER_SEAL_MS=30000,NIGHT_PILLAR_MS=13*60000,SHELTER_EXIT_MARGIN_MS=60000,CREEPER_WAIT_MS=60000,SHELTER_CROWD=6,CROWD_WAIT_MS=180000,UNARMED_CLEAR=32;
 // Natural plants that fill a shell cell but are not replaceable: a placement into them is
 // refused, so the seal digs them out first (a dark-forest floor is full of mushrooms).
 export const SHELTER_NOTCH=/^(.*_mushroom|.*_sapling|.*_fungus|.*_roots|dandelion|poppy|blue_orchid|allium|azure_bluet|.*_tulip|oxeye_daisy|cornflower|lily_of_the_valley|wither_rose|torchflower|pink_petals|wildflowers|leaf_litter|sweet_berry_bush|sugar_cane|bush|firefly_bush|short_dry_grass|tall_dry_grass|moss_carpet|cocoa|lily_pad)$/;
@@ -2662,12 +2669,17 @@ export class Worker extends EventEmitter {
   // burned; `Health or food is low` 6 s after the shelter completed, a flee, and the death 3 s
   // later): SHELTER_CROWD+ hostiles within REFUGE_CLEAR keep the walls up too, for at most
   // CROWD_WAIT_MS and never past the job's exit margin.
-  const crowdUntil=Date.now()+CROWD_WAIT_MS;let crowd=this.hostilesWithin(REFUGE_CLEAR);
+  // Round 83 (round-82 hard2, respawned without its kit: `morning (tod 1008, nearest hostile 24.2);
+  // opening up`, the wooden-sword craft preempted by Mob Defense 0.2 s after the shelter completed,
+  // an unarmed flee from a canopy crowd, and slain by a zombie at the box 15 s later): with no sword
+  // or axe held the crowd is counted out to UNARMED_CLEAR - the bot cannot answer the near edge of it.
+  const unarmed=!!this.bot?.inventory&&!bestWeapon(this.bot),r=unarmed?UNARMED_CLEAR:REFUGE_CLEAR;
+  const crowdUntil=Date.now()+CROWD_WAIT_MS;let crowd=this.hostilesWithin(r);
   if(crowd<SHELTER_CROWD)return;
-  this.log('Shelter: '+crowd+' hostiles within '+REFUGE_CLEAR+'; keeping the walls up');
+  this.log('Shelter: '+crowd+' hostiles within '+r+(unarmed?' (no weapon held)':'')+'; keeping the walls up');
   const margin=()=>Number.isFinite(this.deadline)&&this.deadline-Date.now()<SHELTER_EXIT_MARGIN_MS;
-  while(crowd>=SHELTER_CROWD&&Date.now()<crowdUntil&&!margin()){await sleep(250);this.check(token);crowd=this.hostilesWithin(REFUGE_CLEAR);}
-  this.log('Shelter: '+crowd+' hostiles within '+REFUGE_CLEAR+(crowd>=SHELTER_CROWD?' after '+Math.round((CROWD_WAIT_MS-(crowdUntil-Date.now()))/1000)+' s':'')+'; opening the walls');
+  while(crowd>=SHELTER_CROWD&&Date.now()<crowdUntil&&!margin()){await sleep(250);this.check(token);crowd=this.hostilesWithin(r);}
+  this.log('Shelter: '+crowd+' hostiles within '+r+(crowd>=SHELTER_CROWD?' after '+Math.round((CROWD_WAIT_MS-(crowdUntil-Date.now()))/1000)+' s':'')+'; opening the walls');
  }
  // Phase 6b: obtain - plan the full chain with the howto tree, then run it as ordinary
  // verified jobs. The step list and index are persisted, so a restart resumes mid-chain.

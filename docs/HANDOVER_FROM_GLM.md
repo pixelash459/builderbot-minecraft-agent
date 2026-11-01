@@ -2942,3 +2942,32 @@ The round-72 soak on the Nitrous world copy (bot `3fc0f73`) ran all six runs cle
 - **Daytime skeletons after a box opens** (hard1): the morning line read nearest hostile 15.8.
 - **Picking the bed back up, cave-morning climbs that stop at the cave roof, and night-mine climbs home that time out:** as in round 81.
 - **`chest_spot_blocked`:** the expected refusal.
+
+## Round 83 (2026-11-01)
+
+**What the round-82 soak showed** (`fb7b80c`, report `de14afb`)
+- **Iron on 6 of 6**, the second perfect iron round (round 80 was the first), with **2 deaths**, both hard2's. Wood, stone and furnace on all six. 0 meal failures.
+- **The water counts fell** after the #384 change: `Water: head under` 1 (round 81: 6), `drowning` 1 (5), `searching 320` 0 (3), and no water death. The one episode was a clean swim-up on normal1.
+- **The no-avoidance line:** 192 (round 81: 421).
+- **The lava, bucket-bank, air-search and under-water meal fixes** were not exercised: no lava line, no bucket under water, no empty far air search. Two hard1 bucket refusals named the group's glass in the way, as designed.
+- **hard3's cave morning climbed to its logged surface** (`Ascend: y=90 -> 98 (surface 98)`), the first of these rounds.
+- **hard2's two deaths**, under the dark cherry canopy:
+  - **Skeleton** at (854, 84, -588), 55 s after crafting an iron sword. At health 11 in a crowd of ~90 hostiles the fight gate refused (`health 11 below 14`), but the flee line read `(unarmed - COMBAT_SPEC 7f)`. A keep-distance hold stood down after 20 s with nothing within 8 in sight, and an arrow killed it 10 s later.
+  - **Zombie** at its box (832, 87, -536), respawned without its kit. `morning (tod 1008, nearest hostile 24.2); opening up`, the wooden-sword craft preempted 0.2 s after the shelter completed, an unarmed flee, and dead 15 s later.
+- **hard3 sat at hp 2.2 with food 17 for 7 minutes** at (827, 90, -453), 13 food items held. A creeper hovered 4.7-8.5 away for 488 s. The keep-away read as acrobatics and as a fight, so FoodChain stood aside the whole time. It ate four meals within 30 s once the hover was released.
+
+**Fixes**
+- **Meals through a creeper keep-away** (`mobDefenseChain.js` `mealKeepAway`, `foodChain.js` `keepAwayMeal`):
+  - Under `criticalHealth` (10), a meal goes ahead while Mob Defense runs a `RunAwayFromCreepersTask` with no creeper fusing or nearer than `CREEPER_MEAL_NEAR` (5), and no other hostile within `MEAL_CLEAR` (8).
+  - Both the acrobatics gate and the mid-fight deferral stand aside. The keep-away keeps steering while the bot eats.
+  - Logged once per episode: `Food: eating through the creeper keep-away (health H, food F)`.
+- **The flee line names the real gate** (`_escapeLadder`): an armed bot reads `(armed, but <reason> - COMBAT_SPEC 7f)`, for example `health 11 below 14` or `N melee mobs (max 2)`. An unarmed one still reads `(unarmed - COMBAT_SPEC 7f)`.
+- **The unarmed morning crowd** (`waitCreeperClear`): with no sword or axe held, the crowd is counted out to `UNARMED_CLEAR` (32) instead of 16, logged `Shelter: N hostiles within 32 (no weapon held); keeping the walls up`. The cap is still `CROWD_WAIT_MS` and the job's exit margin.
+- **Raised diagonals, upstream mineflayer-pathfinder #393** (`worker.js` `guardDiagonals`, now exported): no diagonal that lands one block up. The jump clips the corner of the step and the bot falls back short of the node. The straight jump-up and a flat step cover the same climb. This is the one pathfinder change in this soak.
+
+**Tests:** `round83.test.js` (5). No fixture changed.
+
+**Not changed yet**
+- **Keep-distance stand-downs in reach of a skeleton** (hard2's first death): `nothing within 8 in sight` does not cover a bow at 15. One death is not enough to change the stand-down, which was added for frozen holds.
+- **The 7-minute silence during a creeper hover:** nothing logs while the keep-away holds.
+- **Picking the bed back up, night-mine climbs home that time out, and `chest_spot_blocked`:** as before.

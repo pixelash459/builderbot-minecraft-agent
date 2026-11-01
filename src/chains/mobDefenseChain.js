@@ -32,6 +32,9 @@ export const CREEPER_CHASE_S=3,CREEPER_CHASED_KEEP=20;
 // one that has not come CREEPER_CLOSE_STEP nearer in CREEPER_STALL_S is left while it stays beyond
 // CREEPER_STALL_NEAR; inside that it is fled again from the start. A fuse is answered either way.
 export const CREEPER_STALL_S=30,CREEPER_STALL_NEAR=6,CREEPER_CLOSE_STEP=1;
+// Round 83: a meal goes ahead through a creeper keep-away with no creeper fusing or nearer than
+// CREEPER_MEAL_NEAR and no other hostile within MEAL_CLEAR.
+export const CREEPER_MEAL_NEAR=5,MEAL_CLEAR=8;
 const ARROW_KEEP_DISTANCE_HORIZONTAL=2;
 const ARROW_KEEP_DISTANCE_VERTICAL=10;
 const DANGER_KEEP_DISTANCE=15*2;
@@ -97,6 +100,15 @@ export class MobDefenseChain extends SingleTaskChain{
   this._hold=null;this._holdOffUntil=now+FLEE_STALL_OFF;this._runAwayTask=null;this._fleeTag=null;
   if(ctx&&ctx.worker&&ctx.worker.log)try{ctx.worker.log('Reflex: the '+r.name+' held '+FLEE_STALL_S+' s without moving the bot (health '+Math.round(bot.health)+', food '+(bot.food|0)+', nothing within '+SAFE_KEEP_DISTANCE+' in sight); standing down for '+FLEE_STALL_OFF+' s');}catch{}
   return true;
+ }
+ // Round 83 (round-82 hard3: hp 2.2 at food 17 for 7 minutes, a creeper hovering 4.7-8.5 away for
+ // 488 s, 13 food items held and no meal - the keep-away read as acrobatics and as a fight, so
+ // FoodChain stood aside the whole time): the creeper keep-away is a walk, and a meal (1.6 s) is
+ // shorter than a creeper's approach from CREEPER_MEAL_NEAR plus its fuse. FoodChain asks this.
+ mealKeepAway(bot,ctx){
+  const r=this.root;
+  if(!r||r.name!=='RunAwayFromCreepersTask'||!this.isActive())return false;
+  return !getHostiles(bot,ctx).some(e=>e.name==='creeper'?(creeperSwell(e).fusing||withinRange(e,bot,CREEPER_MEAL_NEAR)):withinRange(e,bot,MEAL_CLEAR));
  }
  // Fighting or fleeing as of this tick. A gate that skipped priority() leaves a stale cache,
  // which must not read as a fight forever (FoodChain defers meals on it).
@@ -344,7 +356,10 @@ export class MobDefenseChain extends SingleTaskChain{
    return 65;
   }
   // 2. Walk away (sprint if food > 6, break line of sight, keep far more than the 16-block minimum).
-  this._fleeLog(ctx,'unarmed','Reflex: fleeing '+hostiles.map(e=>e.name).join(',')+' (unarmed - COMBAT_SPEC 7f)');
+  // Round 83 (round-82 hard2 fled `(unarmed - COMBAT_SPEC 7f)` holding the iron sword it crafted 55 s
+  // before, health 11 in a canopy crowd): an armed bot's line names the gate that refused the fight.
+  const why=!policy||!policy.weapon?'unarmed':policy.allowed?'armed; creepers only':'armed, but '+policy.reason;
+  this._fleeLog(ctx,'unarmed','Reflex: fleeing '+hostiles.map(e=>e.name).join(',')+' ('+why+' - COMBAT_SPEC 7f)');
   this._runAwayTask=movementTask(ctx,'RunAwayFromHostilesTask',()=>new RunAwayFromHostilesTask(30,true));
   this.root=this._runAwayTask;
   return 80;
