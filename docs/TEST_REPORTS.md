@@ -17637,3 +17637,280 @@ End (2409, -60, 0). Same 34.3 s as rounds 76-79.
 `00:08:12.751 Shelter: morning (tod 1000, nearest hostile none); opening up`
 
 The night mine got back into the shelter (the step-in cell it logged is (3000, -60, 1), north of the box centre; rounds 77-79 logged (3000, -60, -1)), the sump was filled, and the box re-sealed; `end_pos` after the morning opening is (3002, -62, 0), one block east and two down from the box — close to standing in it at (3000, -60, 0). `chest_spot_blocked` remains the expected refusal. `repeated_errors` empty on every scenario. All 11 finished.
+
+## 2026-11-01 06:03 IST – 10:10 IST — round 81 soak on the Nitrous world copy (bot code `f1bb669`)
+
+This soak is the round-81 bot code `f1bb669` (`Round 81: install the sneak-place guard after inject so placing against a chest no longer opens it, keep the flee off lethal drops and drops onto lava, hold the shelter walls while a crowd is around, and throttle the no-avoidance retry line`). HEAD for the run is `f1bb669`, verified with `git log --oneline -1` after `git stash push -u -- data/`, `git pull --rebase` (`Already up to date`), and `git stash pop`. No combat and no integration. Units on this PC before the soak: **748 pass, 0 fail** over every `tests/*.test.js` except `resources.test.js` (`node --max-old-space-size=2048 --test --test-timeout=60000`; 82 files), and `resources.test.js` itself separately under the same flags: **9 pass, 0 fail** — **757 total, 0 fail, which is exactly 4 more than round 80's 753 at `0130591`** (the new `round81.test.js` is the delta; resources' 9 stay inside the live count as in rounds 70-80). `python tests/soak_metrics_check.py` last line, run after the units and before the soak: `round 9 rung table ok`. Model off. `logs/supervisor.log` first line after the restart is `model server disabled (config.model.enabled=false): skipping llama-server, saving ~6.5 GB commit`. Port 8081 stayed closed through the whole round. The launch variables were verified before `python -u tests/soak.py`: `SOAK_SEED`, `SOAK_HARD_SECONDS` and `SOAK_NIGHT_SKIP` unset at User scope, Machine scope and in the launching shell; `AGENT_MODEL=off`; `SOAK_SEED=[]`; and `SOAK_WORLD=D:\Usefu Shi\Epic\SGSMP\minecraft-agent\test-server\nitrous-copy-20261029`. `SOAK_HARD_SECONDS` was not set (hard runs use the harness default 2400 s). `SOAK_NIGHT_SKIP` was not set (harness default 150 s). The source folder was not opened and was not edited. Its directory mtime is still 2026-10-29 01:19:43 IST.
+
+`reset the bot world memory (storage, home, ledger)`
+
+`soak world copy D:\Usefu Shi\Epic\SGSMP\minecraft-agent\test-server\nitrous-copy-20261029 (anchors scouted from spawn)`
+
+`copied the soak world from D:\Usefu Shi\Epic\SGSMP\minecraft-agent\test-server\nitrous-copy-20261029`
+
+The log says a world copy, not a soak seed. Spawn was not set by hand. Scout succeeded, so the six runs were counted. There is no scout air-falling line and no scout drowning line.
+
+`scout base: the spawn at [711, 71, -423]`
+
+`run scout vitals: ok (health 20, food 20)`
+
+`scout: spawn_mobs false confirmed`
+
+`scout: HARD anchor confirmed (gather completed, canopy light 15) at [712, 71, -425]`
+
+`scout: trying the normal anchor an earlier soak confirmed on this world at [722, 71, -424]`
+
+`run scout vitals: ok (health 20, food 20)`
+
+`scout: NORMAL anchor confirmed (open sky 15, gather completed) at [722, 71, -424]`
+
+That is the only `scout: trying the normal anchor` line. It tried the earlier normal `[722, 71, -424]` and confirmed it (sky 15, gather completed). Hard this scout is `[712, 71, -425]` with the logged canopy light **15** — open sky again, the rounds 77-79 landing (round 80's scout took the dark-canopy `[713, 71, -425]` light 0); all three hard runs this round spawned there. Spawn `[711, 71, -423]` (round 80 read `[709, 63, -436]`). The source folder mtime did not change.
+
+The harness window is `2026-11-01T00:33:47Z` (stopping services) to `2026-11-01T04:40:07Z` (the restore's `Disconnected`), 06:04-10:10 IST, with `SOAK DONE (clean)` printed at 10:10 IST. Six valid runs. `tod_end` is **day on all six runs**. `errors` is empty on every run. `invalid_attempts` is empty. The harness printed `clean triple promoted to data/soak-results.json` and `SOAK DONE (clean)`. Hard run lengths from `data/soak-results.json` (last sample `t`): hard1 **2411**, hard2 **2413**, hard3 **2410**; normals 2410/2410/2410.
+
+Dashboard figures below are one pass over that window (snapshot `logs/dashboard-round81-snapshot.log`, taken before the obstruction probe). Counts are `rg -c` of the slice. The pattern is the string after the count.
+
+`3 searching 320`, `9 Job: no path`, `1 Lava guard:`, `4 Bot died at`, `43 PACKET_RATE`, `90 Tool left the inventory`, `2 Fall:`, `0 Ledge guard`, `7 standing down for`, `1 filled the sump`, `1 Night mine: back in`, `2 blocked under rock`, `17 Ascend:`, `0 Respawn point set`, `0 Underground at`, `0 home set to the bed`, `1 air falling`, `5 drowning`, `7 World Survival Chain engaging`, `421 no path with mob avoidance` (throttled — 9 lines carry `(N more here in S s)`, largest N **41**), `0 Uncaught`, `0 kicked`, **`0 Window: closed`**, `12 superseded`, `8 resumed the`, `1 Food: meal failed`, `2 morning in a cave`.
+
+Run windows from `Autopilot started` / `Autopilot stopped` (ten starts = six runs + four death resumes): normal1 `00:37:55Z`–`01:18:05Z`, normal2 `01:18:17Z`–`01:58:28Z`, normal3 `01:58:40Z`–`02:38:51Z` (death resume inside), hard1 `02:39:04Z`–`03:17:31Z` (two death resumes inside), hard2 `03:33:03Z`–`03:59:41Z` (one death resume inside), hard3 `03:59:54Z`–`04:40:04Z`.
+
+### Rungs
+
+End of each run, from the harness `RUNGS` print (same numbers as `wood_at` / `iron_pick_at` / `diamond_pick_at` in `data/soak-results.json`):
+
+```
+run       | wood | stone pick | furnace | iron pick | torches | armour worn | bed | diamonds | diamond pick | food                                            | deaths
+normal1a1 | 151  | 241        | 422     | 512       | 16      | 2 at 844    | -   | 0        | -            | ate 3                                           | 0
+normal2a2 | 151  | 241        | 391     | 723       | 16      | 2 at 1054   | 512 | 2        | 2229         | ate 2                                           | 0
+normal3a3 | 211  | 301        | 482     | 723       | 17      | 0           | -   | 0        | -            | ate 5                                           | 1
+hard1a1   | 271  | 362        | 482     | -         | 0       | 0           | -   | 0        | -            | ate 1                                           | 2
+hard2a2   | 121  | 363        | 604     | -         | 0       | 0           | -   | 0        | -            | ate 3                                           | 1
+hard3a3   | 211  | 362        | 482     | -         | 4       | 0           | -   | 0        | -            | ate 1 (1 failed: Promise timed out. (2 tries))  | 0
+```
+
+Round 80 end rungs were iron **6 of 6** with 1 death (hard3 off a ledge into lava fleeing a crowd 25 s after its box opened), a diamond on normal1, hard1 asleep in its own bed, hard wood 241/271/452, hard furnace 452/512/1235, hard iron 1205/1386/2109. Round 79 was iron 3 of 6 with 6 deaths. This round's iron is **3 of 6** — all three normals; the hard runs took 4 deaths between them (skeleton, spider, lava, and normal3's drown is on normal3) and none reached the pick. The headline is normal2: **the first diamond pickaxe of any soak** (`diamond_pick_at` 2229 s, 2 diamonds mined, `diamond_pickaxe: 1` in the end inventory) plus a bed at 512 s — the furthest any run has climbed the ladder. Food is 6 of 6 by eaten/cooked; the one failed attempt is hard3's `Promise timed out. (2 tries)` (meals failed 0/0/0/0/0/1). The harness `wood=` flag is false on all six runs (it requires a wooden pickaxe still held at the end); the rung column is `wood_at`.
+
+Hard rungs at 1250 s (achievement time kept only when it is ≤ 1250; deaths on the sample at t≈1236):
+
+```
+run     | wood | stone pick | furnace | iron pick | deaths so far | sample near t=1236
+hard1   | 271  | 362        | 482     | -         | 1             | t=1236 hp 20 food 12 step wood gather at (778, 86, -532), sword 0
+hard2   | 121  | 363        | 604     | -         | 1             | t=1238 hp 20 food 11 step dusk-cobble gather at (819, 83, -549), sword 0
+hard3   | 211  | 362        | 482     | -         | 0             | t=1235 hp 11.2 food 16 step iron gather at (905, 59, -547), sword 1
+```
+
+At the end, hard1 adds nothing — its two night deaths cost it the kit twice and it finished on the wood step, hp 18.5 food 6 at (903, 105, -465), `ore 0 ingots 0`. hard2 adds nothing either: furnace 604, ore 3, ingots 0, and the lava death at t≈1760; it ends `working: gather` at (836, 58, -543), hp 20 food 16. hard3 adds no rung but ended death-free on the iron band: hp 11.2 food 8 at (927, 89, -603), `backing off: retry`, its kiln loaded with 3 raw_iron at 04:18:35Z and no time left to collect. Food mins 15/15/9/6/8/6; end health 20/20/20/18.5/20/11.2; end food 20/20/20/6/16/8.
+
+#### Hard runs, furnace, iron pick, nights, second day
+
+**hard1** (2411 s). Wood 271, stone 362, furnace 482, iron never (ore 0 — the deaths kept resetting it). Two deaths, both night-1: the skeleton at 02:55:53Z, **52 s after the night box at (829, 87, -544/-554) opened** (`Shelter: morning (tod 3260, nearest hostile 15.8); opening up` at 02:55:01Z; the last lines before the shot are `Fight result: skeleton tactic=melee hits=2 ... damage taken=0 result=stopped` at 02:55:47Z and `BuilderBot was shot by Skeleton`), respawn (695, 66, -434); and the spider at 03:08:55Z at (794, 88, -539), respawn (697, 66, -428). Night 2 box at (838, 88, -411) 03:14:31Z → morning 03:17:15Z, run end 03:17:31Z. It ends on the wood step with nothing.
+
+**hard2** (2413 s). Wood 121 (the fastest hard wood), stone 363, furnace 604, iron never (ore 3, ingots 0). One death: the **lava** at 03:33:00Z — 23 s after the night box at (824, 64, -541) opened (03:32:33Z, `nearest hostile 20.9`), during the cow fight that followed (`Shelter block remained at 823,63,-541` on the teardown): `WorldSurvival: in lava; escaping at (830, 73, -538) (head air, feet air)` at 03:32:56.807Z, `Lava: heading for 829,73,-539 (0.8 away)`, and `BuilderBot tried to swim in lava` on the server (09:03:00 IST). The dashboard's `Lava guard: stopped at (830, 74, -538) (lava ahead at (831, 72, -539); job none)` fired 0.2 s after the in-lava line — the guard saw the pool as the bot was already in it, and the escape heading `829,73,-539` was 0.8 blocks off; the death at (830, 72, -538) is inside that pool — the same cliff-foot pool that killed round 80's hard3 at (831, 72, -539). Respawn (714, 68, -431). It ends on the iron band, hp 20 food 16, no pick.
+
+**hard3** (2410 s). Wood 211, stone 362, furnace 482, iron never — but death-free and closest to the pick: kiln loaded with 3 raw_iron at 04:18:35Z, the creeper standoff (below) ate the evening, and the run ended `backing off: retry` with hp 11.2 food 8 at (927, 89, -603). Three night boxes, three skips: (896, 69, -546) 04:09:49Z → 04:16:36Z (tod 6000); (908, 63, -547) 04:21:38Z → 04:26:09Z (tod 3000); (932, 66, -604) 04:33:46Z → the 04:37:42Z `morning in a cave (3 hostiles within 24, sky 0); climbing out through the roof` → `Ascend: no path up from y=66; pillaring` → `Ascend: y=66 -> 89 (surface 93)` → `Completed shelter` at 04:38:07Z — the roof climb reached 89 of the logged 93 and the job completed there (round 80's hard1/hard2 pattern again). Its 04:32:32Z meal failure (`Food: meal failed - Promise timed out. (2 tries)`) sits in the food-fight minutes; the nearest sample is t=2290, hp 11.2 food 8, the food fight running.
+
+### Round-81 fix 1: chest windows (the sneak-place guard)
+
+**`Window: closed` is 0 for the whole soak** — by window type and by the words after `left open`, both counts are 0 (`rg -c "Window: closed"` on the slice). Round 80 had 719 (717 `generic_9x3 ... before an equip`, normal3 597 in 22 min on its chest row). There is no first line to quote and no accidental chest opening: no chest window follows a `Pillar:`/`stranded`/scaffold line. The store flow ran clean: `Store:` is 19 lines (normal1 6, normal2 13), and normal2 placed four storage chests at (790, 88, -517), (790, 89, -517), (792, 88, -517), (792, 89, -517) at 01:39-01:41Z and put away `cobblestone x235, dirt x100, diorite x26, andesite x23, gravel x20, flint x1, pink_petals x4, wheat_seeds x1, light_gray_wool x1` — `data/storage.json` at the end lists them by category (stone 235 cobble/100 dirt/26 diorite/23 andesite/20 gravel/1 flint; misc 4 pink_petals; ...), `data/ledger.json` is `{"dirt":36}`. normal1's six `Store:` lines are the same flow without a chest (`put away nothing (0 storage chests)`).
+
+### Round-81 fix 2: flee and drops
+
+`Ledge guard: stopped`: **0** (round 80: 1, the death one). `Fall:` is **2**, both survived:
+
+`2026-11-01T00:55:59.187Z Fall: dropping from (731, 70, -434) (job use, pathing true, sprint true)` — normal1, mid bucket-use, landed 9 down at (731, 61, -434), hp 15.7 on the t=1080 sample; the 10 s before it are the smelt pickup and an iron-chestplate craft, no flee.
+
+`2026-11-01T04:03:23.015Z Fall: dropping from (817, 92, -548) (job gather, pathing false, sprint false)` — hard3, off a wood-gather ledge, hp 11.2 on the nearest sample, no flee within 10 s.
+
+No `Reflex: fleeing ...` line sits within 10 s of either fall, no death is by falling, and the round's lava death (hard2, above) was not a flee-off-a-ledge: the bot was already in the pool when the guard line printed, so the fix's heading rule had no heading left to rule out. Flee holds that stood still 10+ s with hostiles within 8: the 7 `standing down for` lines (below) are exactly that case — each stood down because `nothing within 8 in sight`, so none was a surrounded standstill.
+
+### Round-81 fix 3: crowds at the box
+
+**0 lines.** No `Shelter: N hostiles within 16; keeping the walls up` and no `Shelter: N hostiles within 16[ after S s]; opening the walls` — the cap never armed because no morning opened into a 6+ crowd this round. The 34 `hostiles within 16` matches in the slice are a different, pre-existing line (`Autopilot: dusk/crowd: no hunting (N hostiles within 16)`). The two keep/open pairs that did fire are the single-mob form, both creepers, both 60.0 s apart: hard2 `a creeper 12.5 away; keeping the walls up` 03:48:49Z → `creeper 12.5 away; opening the walls` 03:49:49Z; hard3 `a creeper 10.6 away; keeping the walls up` 04:16:38Z → `creeper 9.6 away; opening the walls` 04:17:38Z. The two deaths within 3 minutes of a box opening (hard1 +52 s, hard2 +23 s) are quoted above; neither opened into a 6+ crowd named within 60 s (nearest hostile 15.8 and 20.9 on the morning lines).
+
+### Round-81 change: the mob-avoidance retry line, throttled
+
+`no path with mob avoidance` is **421** lines (round 80: ~1350), and 9 of them carry the new suffix — `(N more here in S s)` — largest N **41**: `2026-11-01T00:36:27.028Z Navigation: no path with mob avoidance at (712, 71, -425); trying without it (41 more here in 32 s)` and `2026-11-01T00:39:54.827Z ... at (705, 71, -424); trying without it (41 more here in 33 s)` (both the hard-anchor spawn crowd), plus `(20 more here in 39 s)` at (796, 90, -570) on normal3's post-death minutes.
+
+### The round's four deaths
+
+1. **normal3, drowned** — 02:16:42Z, `Bot died at 776, 48, -613` (no killer suffix; server chat `BuilderBot drowned` at 07:46:42 IST). The two minutes: a `use bucket` job at (776, 49, -615) — `Job: Filling the bucket at (776, 49, -615) produced no water bucket (3 tries; no change after the use)` — with the bot standing in the flooded iron-band section, `Water: head under for 8 s ... (job use ...)`, then the kiln loaded 3 raw_iron at (776, 50, -614), then `WorldSurvival: drowning (air 8), swimming up` + `WorldSurvival: open water 4 up (air 8); swimming straight up` at 02:16:09Z — and the death 33 s later anyway, 4 cells of swim not made (the coal_ore gather it queued next stopped on `Tunnel stopped: water under 777,49,-615; no safe way on`). Respawn `(705, 63, -438)` (teleport #82) — world spawn.
+2. **hard1, shot by Skeleton** — 02:55:53Z at (833, 70, -568), 52 s after its night box opened; respawn `(695, 66, -434)` (teleport #149) — world spawn.
+3. **hard1, slain by Spider** — 03:08:55Z at (794, 88, -539); respawn `(697, 66, -428)` (teleport #150) — world spawn.
+4. **hard2, lava** — 03:33:00Z at (830, 72, -538), quoted above; respawn `(714, 68, -431)` (teleport #152) — world spawn.
+
+Server death lines between the soak server's `Done (` at 01:21:51 IST and the restore's at 05:36 IST: exactly 4 (`BuilderBot drowned` 07:46:42, `was shot by Skeleton` 08:25:53, `was slain by Spider` 08:38:55, `tried to swim in lava` 09:03:00). No spot has 3+ deaths within 24 blocks. First respawns per run: none on normal1/normal2/hard3; normal3 world spawn; hard1 (695, 66, -434); hard2 (714, 68, -431). No `Respawn: ...` line of any form; no `Underground at y=`; no sleep job and no `Respawn point set` this round — nobody slept, and the world bed at (728, 71, -525) was not visited (0 mentions).
+
+### Breathing spots, again
+
+**0 lines** — no `the head read under water again at P with the air and health full ...; breathing here` line, and no 3+ minute stretch in water at one cell. The water events were six short ones: `Water: head under` 6 (normal1 1 — the 00:54 bucket-use fall cell; normal3 2 — the death cell and one recovery; hard3 1 — the fuse-flee at 04:19:18Z; +2 in the death contexts), `drowning` 5, `open water N up` 3 (hard3's 04:19:18Z one recovered on the same tick). `no rise in 3 s swimming up`: 0. normal3's death (above) is the one water death.
+
+### Superseded paused jobs, again
+
+`was superseded; cancelled`: **12** — hard1 7 (all 03:02-03:14Z, the post-death rebuild: gather/craft pairs superseded as the reflex re-decided in the night crowd), hard3 5. `resumed the`: **8** — normal1 1 (`2026-11-01T00:48:45.904Z Reflex: resumed the craft job (stepping out of the water first)`), hard1 1 (02:56:15Z, post-respawn), hard1 5 more at 03:18:12-18Z (the one alternation stretch, below), hard3 1. No run queued the same job type 3+ times at once in the samples. The 03:18:12Z-03:18:18Z stretch on hard1 is the round's only 5+ s flee/resume alternation: `resumed the gather job` × 5 and `a creeper has followed for 3 s / 6 s` interleaving for 6 s — under round 79's fix the flee held thereafter (the follow counter climbed to 20 s with no resume after 03:18:18Z).
+
+### Meals, again
+
+`Food: meal failed`: **1**, hard3, quoted in its run paragraph above (`Promise timed out. (2 tries)` at 04:32:32Z, nearest sample hp 11.2 food 8, the food fight running — no smelt involved). The harness `meals` failed count: 0/0/0/0/0/1 (`last_error: Promise timed out. (2 tries)` on hard3 only).
+
+### Stranded pillars, again
+
+The new dig-down lines: **0** (`after N pillars on this column; digging down instead`, `dug down y=A -> B`, `the dig down stopped at y=Y` — none fired; no column hit the two-pillar cap's limit this round). `still stranded ...; pillaring up 3`: **0** — round 80 had 5, round 79 hundreds. `stranded` is 7 lines, `Boxed in` 7 (five `dug N steps up ...` dig-outs — (816, 87, -528), (730, -37, -540), (823, 85, -550), (840, 81, -547), (904, 59, -547) — and two `no way to stair out` at (927, 89, -603) on hard3's endgame ridge), `Pillar:` 2 (`no rise in 3 jump-places at y=64 (held cobbled_deepslate ...)` normal1 01:13:03Z; `at y=88 ... place: Server refused to place dirt` hard1 02:40:54Z). Highest y any run reached in a strand/pillar line: **y=91** (normal2's dig-out). No run sat 3+ minutes within 3 blocks of one spot above the surface.
+
+### Build logs, again
+
+`Gather: search leg`: 24 lines; the wood targets are all natural logs — no `stripped_*` target (0), no build dug (`Dig: broke`: **0**), and `Boxed in: no tool for X ... digging it by hand`: **0** in the soak (the probe's is under Obstructions). Wood times: 151/151/211/271/121/211 — all six runs with wood, hard2's 121 s the fastest hard wood since round 77.
+
+### Roof digs, hover, cave mornings
+
+Roof digs under water: **0** (`roof over the water`, `would take N s to dig under water`, `did not finish in`, `the roof dig at ... failed` — third round without the line). Creeper hover: **1**, hard3, quoted with its 60 s: `2026-11-01T04:18:12.292Z Reflex: the creeper 12.2 away has not come nearer than 9.8 in 30 s; back to the job (fleeing it again inside 6)` — the paused gather was superseded and the wood/iron gather ran on (kiln loaded 04:18:35Z); no `fleeing creeper` within the next 30 s, then the fuse at 04:19:08Z. Cave mornings: **2** — hard2's 03:58:19Z (`3 hostiles within 24, sky 0`; `Boxed in ... dug 4 steps up east to (844, 85, -547)`, `Ascend: y=81 -> 86 (surface 90)`) and hard3's 04:37:42Z (quoted above, `y=66 -> 89 (surface 93)`, shelter completed) — neither reached the logged sky; both stopped at the cave roof and completed there, as in round 80.
+
+### Creepers that follow, again
+
+`a creeper has followed`: **8** (hard1 3 at 03:18:15-18Z: `a creeper has followed for 3 s; keeping 20 away` first; hard3 5: 04:09:22Z `for 3 s`, 04:09:39Z `for 20 s; fighting it from a pillar`, 04:17:45Z, 04:18:05Z `for 23 s; fighting it from a pillar` then `keeping 20 away`). `creeper fuse`: **1** — `2026-11-01T04:19:08.140Z Reflex: creeper fuse (swell 1) sprinting past 7` (hard3), followed by the 13-mob flee line, a `Water: head under` at (905, 61, -550) and its `open water` recovery, then a stand-down at hp 11 — no explosion, no creeper damage. `Reflex: fleeing creeper` per run: hard1 **5**, hard3 **5**. Alternation stretches of 5+ s: **1** (hard1's 03:18:12-18Z, quoted above). `Fight result: creeper`: **2** (hard3, both `tactic=melee hits=0 ... damage taken=0 result=stopped` — engaged and re-decided, no blow landed). Creeper deaths: **0**; creeper damage: **0**.
+
+### Water under builds, again
+
+`Water: head under`: **6** — none still says `head block X ... in water`. The four non-death lines all recovered (`open water` on three of them; normal1's bucket-use one surfaced with the fall quoted above). `drowning`: **5** (normal3's death sequence 2, hard3's fuse-flee 1, plus the recoveries). `Water: stepped out`: **2** (both normal3, around the flooded band). `no dry stand` / `could not step out`: **0**.
+
+### Lava, again
+
+`Lava guard: stopped`: **1** — `2026-11-01T03:32:57.013Z Lava guard: stopped at (830, 74, -538) (lava ahead at (831, 72, -539); job none)` (hard2), quoted with the death above: it fired 0.2 s after `WorldSurvival: in lava; escaping` and the bot died in the pool 3 s later, so the guard had nothing to hold — the sprint/key hold could not help a bot already swimming in it. No flee or fight stood still 10+ s after it. The other lava lines are the same episode (`Lava: heading for 829,73,-539 (0.8 away)`). Rounds 77-80's dashboard: one guard total before this round.
+
+### Climbing out
+
+`Ascend:` is **17** lines: normal1 **12** (its iron-band returns through the mountain — the pairs `no path up from y=35; pillaring` → `pillared y=35 -> 59, 12 below the surface; pillaring on` → `y=35 -> 71 (surface 71)` at 00:55:17-56Z, and `y=-32 -> 65 (surface 71)` at 01:12:01Z), hard2 1 (the cave-morning 81→86), hard3 4 (`no path up from y=66; pillaring` → `y=66 -> 89 (surface 93)` in the cave morning, plus its own returns). Every ascend reached its logged surface or the cave roof; no 5+ repeats at one y. `Autopilot: <step> blocked under rock ...`: **2**, both normal1's iron band — `2026-11-01T01:12:49.184Z Autopilot: iron blocked under rock at y=57 (surface 71); climbing out instead of exploring` and `2026-11-01T01:15:00.790Z Autopilot: iron blocked under rock at y=55 (surface 71); climbing out instead of exploring` — each followed by an iron gather/climb to its logged surface 71. No stretch of `no path for gather log` / `no path for explore` from one spot lasts 5 minutes. `Job: no path` is **9**: `gather log` 3 (normal1 1, normal3 1, hard1 1), `goto` 3 (normal3 2, hard3 1), `explore` 3 (hard1 1, hard3 2 — the (927, 89, -603) ridge at 04:39) — none in water.
+
+### Flee holds
+
+`standing down for`: **7** (normal1 1, normal3 2, hard1 1, hard3 3 by the timestamps; round 80: 3). The one quoted in the creeper section: `2026-11-01T04:19:44.218Z Reflex: the RunAwayFromHostilesTask held 20 s without moving the bot (health 11, food 17, nothing within 8 in sight); standing down for 60 s` (hard3, after the fuse flee). No damage, `fleeing`, `shot by`, `slain by` or `blown up` line within 60 s of any of the seven. `fleeing ... (still recovering)`: **0**; `fleeing ... (vulnerable)`: **20** — 17 on hard3 (the food-fight and night-crowd minutes at hp 6.5-11.2) and 3 in hard1's post-death crowd. Queued/paused stretches of 3+ minutes with the position under 3 blocks: **0** (round 80: 1, round 79: 2).
+
+### Water counts
+
+`searching 320`: **3** — normal3 1 (02:16:16Z, (776, 48, -615), the death cell, 26 s before the drown), hard2 2 (03:33:23Z and 03:33:30Z at (737, 62, -436)/(733, 61, -443), right after its lava-death respawn). `no rise in 3 s`: 0. `stands in water`: 0. `Job: no path` in water: 0 of 9. No 30+ s stretch in water; the one death in water is normal3's drown (2 minutes quoted above).
+
+### Morning boxes
+
+`Shelter: morning`: **8** (six plain openings with nearest hostile 6.5-32.2, plus the two cave mornings). Time from `opening up` to the first job: 2-20 s. Damage/flee/fuse/death in the 60 s after: the two deaths above (hard1 +52 s, hard2 +23 s — the round's only two opening-adjacent deaths). Every death within 3 minutes of a box opening is quoted in its run paragraph; hard1 held a stone sword (skeleton fight hits=2 six seconds before the shot); hard2 held none in the lava (the cow fight had no target yet). The two keep/open pairs are quoted under the crowd fix.
+
+`Shelter: sealed` positions: hard1 (829, 87, -554), (838, 88, -411); hard2 (824, 64, -541), (842, 77, -559), (840, 81, -547); hard3 (896, 69, -546), (908, 63, -547), (932, 66, -604). Minutes in a night box (seal → morning): hard1 7.0 / 2.7; hard2 3.0 / 6.8 / 4.5; hard3 6.8 / 4.5 / 4.0. normal3 survived its night **without a box** — it drowned mid-night in the flooded tunnel and worked the rest of the night after the respawn; the night was neither boxed nor skipped.
+
+### Boxed in
+
+`Boxed in: no tool for X ... digging it by hand`: **0**. The 7 `Boxed in` lines are quoted under Stranded.
+
+### Night mine
+
+One night mine, back in:
+
+`2026-11-01T02:49:27.597Z Night mine: down from the shelter at (829, 87, -554) (tod 12608)`
+
+`2026-11-01T02:50:22.152Z Night mine: could not climb back into (829, 87, -554): Took to long to decide path to goal!`
+
+`2026-11-01T02:50:22.673Z Night mine: one step from the shelter at (829, 87, -555); filled the sump (2 blocks); stepping in`
+
+`2026-11-01T02:50:23.153Z Night mine: back in the shelter (opened onto a cave at 830,76,-545; 10 steps, 0 ore items, 0 wall digs)`
+
+hard1, night 1 — the sump fill then back in, 55 s total. `pillaring up the sump`: **0**. The 2 `Tunnel climb` lines: normal3 (`step 78x,4x,-61x failed ...; digging through natural fill` twice, iron band).
+
+### Tool loss
+
+`Tool left the inventory`: **90** — per run 12/11/14/10/7/10 by timestamp and **46 in the gaps** (the bag clears). `1 uses left, broke`: **18** — 15 stone_pickaxe and 3 stone_shovel; **no iron pick broke or was dropped this round** (normal1's 512 pick, normal2's 723 and normal3's 723 picks are all in their end inventories; the hard runs never made one). Every break is followed by a planks/sticks/stone-pick recraft within ~2 min. `Tunnel needs a suitable tool`: **0**. No run sat 5+ minutes within 3 blocks of one spot underground.
+
+### Round 70, 69, and 68
+
+`WorldSurvival: air falling`: **1** — `2026-11-01T03:10:42.331Z WorldSurvival: air falling (air 10) with no water seen at the head (air) or feet (air) at (747, 63, -450); treating it as water` (hard1, post-death). `drowning (air N)`: 5 (quoted under Water). `preempted by Misc World Survival Chain`: 7 (`World Survival Chain engaging` 7). `roof over the water` / `the roof dig ... failed`: **0** (fourth round).
+
+No path: the 9 `Job: no path` lines grouped — `use bucket` 1 (normal1 (773, -32, -545) toward (766, -18, -561)), `gather iron_ore` 2 (normal3, the flooded band), `gather log` 3 (normal3 1, hard2 2), `goto` 2, `gather coal_ore` 1 (normal1) — none in water.
+
+The scout line is quoted at the top. Food fights: `Fight result` is **28** — sheep 9, cow 4, pig 5, chicken 2, creeper 2 (0-hit stands), skeleton 1, spider 1, `no target` 4. `damage taken=0` on all 28; all melee except the no-targets; no `avoid never fight unarmed` and no `pickaxe only when cornered` against an animal; no bow shots.
+
+`Unknown item`: 0. `stripped_`: 0. `wood failed`: **5** (normal3 2, hard1 1, hard2 2 — all `wood failed 3 times; exploring before retry` with a follow-up leg); each run still got wood (times above).
+
+### Builds
+
+`Dig: broke`: **0** — no player-made block dug. The bot's own builds: normal2's four storage chests at (790-792, 88-89, -517) with the put-away quoted above (its home is (790, 88, -519)); normal1's six `Store:` lines with no chest kept. The world bed-and-chest at (728, 71, -525) was not visited. `Place:` is 0. No `No path`/`stranded`/`Boxed in` line sits inside a build. Spawn `[711, 71, -423]`, hard anchor `[712, 71, -425]`, normal anchor `[722, 71, -424]` — the chest row is ~70-100 blocks from them.
+
+### Sprint, packet, falls, kicks
+
+`Movement: sprinting` is 47 lines, all with a food bar, the lowest food 6 (hard1 03:0x and hard3 04:3x, the low-food fight minutes). `PACKET_RATE`: **43** (normal1 12, normal2 10, normal3 13, hard1 2, hard3 1, rest in resumes), 44-62 per second during combat. `kicked`: 0. The two falls are quoted under the flee fix (both survived, one sprint-on one sprint-off; no ledge guard this round — round 80 had 3 falls and 1 ledge guard).
+
+### Windows and placing
+
+`Window: closed`: **0** (the round's headline fix result). No job ran 8+ minutes with no log line from the bot. `Store:` is 19 lines, quoted under the chest fix.
+
+### Food search
+
+Food-step `explore` jobs: **4**, all hard3, all the same direction in order — `{"type":"explore","distance":32,"direction":"north",...,"forFood":true}` at 04:30:36Z, 04:30:48Z, 04:39:40Z and 04:39:49Z (the direction stayed north leg after leg, twice through the set-aside). `food step set aside`: **1** — `2026-11-01T04:39:57.094Z Autopilot: food step set aside for 8 min (failed 3 times); moving on, back to food when hungry with none held` (hard3, right after the last two north legs). The other 8 explores: normal1's bed-rung sheep searches (north 37, east 75 — after which `Autopilot: no sheep after 3 search legs; bed set aside for 10 min` at 00:57:14Z), 5 wood-failure legs (normal3 2, hard1 2, hard2 1) and hard2's stone leg. Animals first seen: sheep and cows on the anchor slopes, minutes into each food step (normal1's bed aside did not stop its food step from eating). Food mins 15/15/9/6/8/6; end food 20/20/20/6/16/8. No run's food reached 0.
+
+### Harness
+
+No `head in a wall` / `suffocated` line anywhere, no `setup fill` error. Harness interventions: 14 total (0/0/1/5/4/3 per run — the scout vitals, run starts, and the hard-run deaths). Disconnects: 4, all harness (3 in the 00:33-00:42Z setup connect cycling, 1 at 04:40:07Z at the stop). No mid-run disconnect. Uncaught: 0.
+
+### Pickaxes
+
+The 18 broke lines are 15 stone_pickaxe + 3 stone_shovel; every one is followed by a planks/sticks/stone-pick recraft within ~2 min. No iron pick event at all this round (the normals' picks never broke; the hards never made one). No `Tunnel needs a suitable tool`. No 5-minute underground sit.
+
+### Spare tools and drops
+
+`keeping the spare`: 2 (normal1, hard1). `Craft: dropped the ...`: **46** (normal1 6, normal2 5, normal3 11, hard1 9, hard3 8, resumes 7). `came back`: **15** (cobblestone 9, dirt 2, andesite 2, diorite 1, cherry_planks 1 — the longest streak normal1's cobble pair at (731, 61, -434)). At run end no run holds a wooden or golden tool beside a stone-or-better one of the same kind.
+
+### Pillars
+
+`Pillar:` is 2 lines, both `no rise in 3 jump-places` with the new suffix fields (jump peaks, place error) — normal1 y=64 held cobbled_deepslate, hard1 y=88 held dirt with `place: Server refused to place dirt`. `Pillar: stopped`: **0**. `Ascend: no path up` fires 3 times (normal1 y=35 and y=-33, hard3 y=66) — no 5+ repeats at one y.
+
+### The rest
+
+`Health below 8; retreated` / `retreated from the fight`: **0**. Ice: 0. Warden: 0. `Threat:`: 0. `Mob cave:`: 0. Night skips: every night was either boxed (hard1 2, hard2 3, hard3 3) or worked through (normal3's death night); none slept through and none was left unskipped with damage. `Dropped ... came back`: 15, above. Job errors repeated 10+ in a run: `Error:` lines are **107** led by `Reflex: preempted by Mob Defense` (~40, mostly hard1's post-death crowd and hard3's standoff minutes) and `No matching blocks within the allowed radius` (34: normal3 8, hard2 12, hard1 8) — job-level outcomes, not crashes; `no path with mob avoidance` 421 counted separately (throttled, above). `LOOP_SLOW` 34 / `LOOP_STALL` 58 — the 500-750 ms ticks during the hard crowds.
+
+Six valid runs. IST 06:03-10:10 on 2026-11-01. `SOAK DONE (clean)`. Promoted to `data/soak-results.json`.
+
+### Obstructions
+
+Flat world restored by the soak (`agent-test-world`, peaceful, `0.0.0.0`, spawn rules at defaults), model still off, then `python tests/obstruct.py` with `AGENT_MODEL=off`. All 11 ran. 10 complete, 1 expected failure. Rounds 76-80 were each 10 of 11.
+
+```
+scenario             status     seconds  note
+cobble_wall          complete   4.0      Completed and verified
+plank_wall_long      complete   14.1     Completed and verified
+door_wall            complete   14.1     Completed and verified
+cobble_box_pick      complete   6.0      Completed and verified
+cobble_box_bare      complete   34.2     Completed and verified
+plank_box            complete   6.1      Completed and verified
+glass_box            complete   6.1      Completed and verified
+pit                  complete   10.1     Completed and verified
+chest_spot_blocked   failed     2.0      Cannot place at (2802, -60, 0): occupied by cobblestone (EXPECTED)
+chest_spot_flower    complete   2.0      Completed and verified
+shelter_hole         complete   42.3     Completed and verified
+```
+
+Cobble boxes and pit, the `Boxed in` lines and how long:
+
+`cobble_box_pick` (6.0 s): `04:49:32.008 Boxed in at (2300, -60, 0): dug 1 steps up east to (2301, -59, 0)`. End (2309, -60, 0).
+
+`cobble_box_bare` (34.2 s, round 80: 34.3). The by-hand line, then the dig 32 s later:
+
+`04:49:42.809 Boxed in: no tool for cobblestone at (2400, -58, 0); digging it by hand (it drops nothing)`
+
+`04:50:14.694 Boxed in at (2400, -60, 0): dug 1 steps up east to (2401, -59, 0)`
+
+End (2409, -60, 0).
+
+`plank_box` (6.1 s) and `glass_box` (6.1 s): one `dug 1 steps up east` line each (04:50:29Z, 04:50:42Z). `pit` (10.1 s, round 80: 6.0): `04:51:03.928 Boxed in at (2700, -63, 0): dug 3 steps up east to (2703, -60, 0)`. End (2707, -60, 0).
+
+`shelter_hole`. `sealed_after` 58.1, `resealed_after` 4.0, `opened_after` 42.3, `end_pos` **(3001, -60, -2)** (round 80: (3002, -62, 0)). The night mine ran again (tod 14000):
+
+`04:51:54.022 Night mine: down from the shelter at (3000, -60, 0) (tod 14000)`
+
+`04:52:13.904 Tunnel climb: step 3001,-63,0 failed (No path to the goal!); digging through natural fill`
+
+`04:52:28.243 Night mine: could not climb back into (3000, -60, 0): No path to the goal! (empty path at (3000, -60, -1), last path: partial, 0 steps, 250 nodes)`
+
+`04:52:28.306 Night mine: one step from the shelter at (3000, -60, -1); filled the sump (2 blocks); stepping in`
+
+`04:52:28.768 Night mine: back in the shelter (Staircase stalled at (3002, -62, 0); 3 steps, 0 ore items, 0 wall digs)`
+
+`04:52:29.032 Shelter: re-sealing 2 open cell(s)` / `04:52:37.904 Shelter: re-sealing 1 open cell(s)`
+
+`04:52:41.925 Shelter: morning (tod 1000, nearest hostile none); opening up`
+
+The night mine got back into the shelter (the step-in cell it logged is (3000, -60, -1), south of the box centre, as in rounds 77-80), the sump was filled, and the box re-sealed; `end_pos` after the morning opening is (3001, -60, -2), a step east and two down from the box. `chest_spot_blocked` remains the expected refusal. `repeated_errors` empty on every scenario. All 11 finished.
