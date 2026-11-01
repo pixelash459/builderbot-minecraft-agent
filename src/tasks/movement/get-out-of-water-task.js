@@ -195,6 +195,13 @@ export class GetOutOfWaterTask extends Task {
   if(!this.navPromise&&!this.isFinished(bot,ctx)&&Date.now()-(this.searchedAt||0)>=1000){
    this.searchedAt=Date.now();
    const land=findNearestLand(bot,bot.entity.position.floored(),this.radius);
+   // Round 82 (round-81 normal3: `would take 14.1 s to dig under water ...; swimming for air up to
+   // 16 cells off`, then 20 s with nothing logged and drowned): the far air search coming up empty
+   // is said once, with the land leg taken instead.
+   if(this.slowRoofs?.size&&!this.pocket&&headUnderWater(bot)&&!this.noAirLogged){
+    this.noAirLogged=true;const w=ctx?.worker;
+    try{w?.log?.('WorldSurvival: no air within '+POCKET_FAR+' cells through the water (air '+airOf(bot)+'); '+(land?'heading for land at '+land:'no land within '+this.radius+' either'));}catch{}
+   }
    if(land){
     const leg=move.goto(ctx,blockGoal(land.x,land.y,land.z),{seconds:8});
     this.navPromise=leg.finally(()=>{this.navPromise=null;});

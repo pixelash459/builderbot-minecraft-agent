@@ -140,6 +140,20 @@ const IRON_REST=[['iron_axe',3],['iron_helmet',5],['iron_chestplate',8],['iron_l
 export const TORCH_COAL=4,TORCHES=16;
 // Habit 9: water for the bucket is looked for this far.
 export const WATER_NEAR=24;
+// Round 82 (round-81 normal3 drowned at (776, 48, -613): `use bucket` at a source in a flooded
+// iron-band tunnel - `head under for 8 s ... (job use)`, `produced no water bucket (3 tries)`,
+// and the swim out failed): a source needs a dry stand within WATER_BANK of it, at its level or
+// one up (solid ground, the body and the head in air), so the fill is done from the bank.
+export const WATER_BANK=2;
+export function waterBank(at,p){
+ const dryAir=bl=>!!bl&&bl.boundingBox==='empty'&&!/water|lava|bubble|kelp|seagrass/.test(bl.name||'');
+ for(let dx=-WATER_BANK;dx<=WATER_BANK;dx++)for(let dz=-WATER_BANK;dz<=WATER_BANK;dz++)for(const dy of [0,1]){
+  if(!dx&&!dz)continue;
+  const s=p.offset(dx,dy,dz),g=at(s.offset(0,-1,0));
+  if(g&&g.boundingBox==='block'&&!/water|lava|magma/.test(g.name||'')&&!g.isWaterlogged&&dryAir(at(s))&&dryAir(at(s.offset(0,1,0))))return s;
+ }
+ return null;
+}
 export const ARMOUR_CORE=[['iron_helmet',5],['iron_chestplate',8]];
 const ARMOUR_SET=[...ARMOUR_CORE,['iron_leggings',7],['iron_boots',4]];
 const ARMOUR_KINDS=['helmet','chestplate','leggings','boots'];
@@ -1683,7 +1697,7 @@ export class Autopilot{
     // Round 14 (round 13: (317,113,18) then (316,114,15), the same unreachable pool): a
     // failed source rules out every source within 6 of it.
     const near=[...bad].some(([k,until])=>{if(until<=now)return false;const [x,y,z]=k.split(',').map(Number);return Math.abs(x-p.x)<=6&&Math.abs(y-p.y)<=6&&Math.abs(z-p.z)<=6;});
-    return bl&&(bl.metadata??0)===0&&up&&up.boundingBox==='empty'&&up.name!=='water'&&!near;
+    return bl&&(bl.metadata??0)===0&&up&&up.boundingBox==='empty'&&up.name!=='water'&&!near&&!!waterBank(q=>b.blockAt(q),p);
    });
    if(me)ok.sort((a,c)=>(Math.abs(a.y-me.y)>4)-(Math.abs(c.y-me.y)>4)||a.distanceTo(me)-c.distanceTo(me));
    if(ok.length)return {x:ok[0].x,y:ok[0].y,z:ok[0].z};

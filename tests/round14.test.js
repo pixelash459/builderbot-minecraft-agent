@@ -84,7 +84,8 @@ test('autopilot: a failed bucket source rules out the pool around it',()=>{
  try{
   const src=[new Vec3(316,114,15),new Vec3(330,64,0)];
   Object.assign(t.ap.worker.bot,{registry:{...t.ap.worker.bot.registry,blocksByName:{water:{id:9}}},
-   findBlocks:()=>src,blockAt:p=>p.y===115||p.y===65?air:{name:'water',metadata:0,boundingBox:'empty'}});
+   // round 82: each pool has a stone bank two east of its source
+   findBlocks:()=>src,blockAt:p=>(p.y>=115&&p.y<120)||(p.y>=65&&p.y<70)?air:(p.x===318||p.x===332)?{name:'stone',boundingBox:'block'}:{name:'water',metadata:0,boundingBox:'empty'}});
   t.ap.worker.bot.entity.position=new Vec3(316,130,15);
   assert.deepEqual(t.ap.waterSource(t.ap.worker.bot),{x:316,y:114,z:15});
   t.ap.badWater=new Map([['317,113,18',Date.now()+600000]]);

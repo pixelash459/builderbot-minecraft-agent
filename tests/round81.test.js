@@ -66,7 +66,7 @@ test('round 81: the no-avoidance retry line is logged once per cell per 30 s',as
   for(let i=0;i<20;i++){await w.navigateNoAvoid({},0,10);t+=500;}
   assert.equal(logs.length,1);
   t+=NO_AVOID_LOG_MS;await w.navigateNoAvoid({},0,10);
-  assert.equal(logs.length,2);assert.match(logs[1],/trying without it \(19 more here in \d+ s\)$/);
+  assert.equal(logs.length,2);assert.match(logs[1],/trying without it \(19 more within 4 in \d+ s\)$/);
   w.bot.entity.position=new Vec3(820.5,92,-530.5);await w.navigateNoAvoid({},0,10);
   assert.equal(logs.length,3);assert.equal(logs[2],'Navigation: no path with mob avoidance at (820, 92, -531); trying without it');
  }finally{Date.now=real;}

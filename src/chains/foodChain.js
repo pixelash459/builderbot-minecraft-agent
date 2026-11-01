@@ -11,6 +11,7 @@ import {chainConfig,inGame,hasEffect} from './settings.js';
 import {inventoryItems,armorValue} from './combatPolicy.js';
 import {CollectFoodTask} from './fallbackTasks.js';
 import {eatMeal} from '../eating.js';
+import {headUnderWater} from '../tasks/movement/get-out-of-water-task.js';
 export const EAT_RETRY_MS=5000; // a failed meal waits this long before the next try
 // Round 8: a meal still in flight after this is abandoned (counted as failed) so a wedged
 // equip can never hold `_eating` for the rest of the session - round 7 read `due 1, failed 0`
@@ -81,6 +82,10 @@ export class FoodChain extends SingleTaskChain{
   const w=ctx&&ctx.worker;
   const running=w&&Array.isArray(w.jobs)&&w.jobs.find(j=>j.status==='running');
   if(running&&running.spec&&running.spec.type==='eat')return 'the eat job is eating';
+  // Round 82 (round-81 normal3: `Food: ate cooked_mutton (bar 15 -> 20)` 6 s before it drowned,
+  // mid `swimming for air`): a meal slows the swim to a crawl for its 1.6 s, and no food heals the
+  // drowning. Not even a critical one waits less.
+  try{if(headUnderWater(bot))return 'the head is under water';}catch{}
   if(this.needsToEatCritical(bot))return null;
   // Round 80 (round-79 hard3: `ate porkchop` twice while the smelt job loaded the porkchops, then
   // `meal failed - Cannot read properties of null (reading 'name')` and the smelt's `Can't find

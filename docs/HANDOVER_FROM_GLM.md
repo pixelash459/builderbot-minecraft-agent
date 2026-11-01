@@ -2901,3 +2901,44 @@ The round-72 soak on the Nitrous world copy (bot `3fc0f73`) ran all six runs cle
 - **Night-mine climbs home** still time out on `Took to long to decide path to goal!`; the sump step-in covers it.
 - **The unreleased pathfinder fixes** (#384, #375, #393) are still candidates.
 - **`chest_spot_blocked`:** the expected refusal.
+
+## Round 82 (2026-11-01)
+
+**What the round-81 soak showed** (`f1bb669`, report `dbde182`)
+- **The chest-window fix worked:** 0 `Window: closed` lines in the whole soak (round 80: 719). 19 `Store:` lines, and normal2 put 411 items away in four chests.
+- **normal2 made the first diamond pickaxe of any soak** (2229 s), and a bed at 512 s.
+- **Iron on 3 of 6** (all the normals), and **4 deaths**, none of them in the hard runs' first night box:
+  - **hard2, lava**, 23 s after its box opened, during a cow fight. `in lava; escaping at (830, 73, -538) (head air, feet air)`, then `Lava guard: stopped at (830, 74, -538) ... job none` 0.2 s later. The escape logged two `no ground gained` headings, and the bot was dead 3.7 s in. It was the same cliff-foot pool as round 80's hard3.
+  - **normal3, drowned** at (776, 48, -613):
+    - A `use bucket` job went to a source in a flooded iron-band tunnel: `head under for 8 s ... (job use)`, then `produced no water bucket (3 tries)`.
+    - After one swim-up, a coal gather took it back under. The roof was 14.1 s of stone, so the log said `swimming for air up to 16 cells off`.
+    - 20 s with nothing logged, `Food: ate cooked_mutton` 6 s before the end, and drowned.
+  - **hard1:** shot by a skeleton 52 s after its box opened, then a spider.
+- **The no-avoidance line:** down to 421 from ~1350. A night-mine climb home still logged every stair cell, because each step is a new cell.
+- **The crowd hold, flee drops and dig-down** never armed: no 6+ crowd at an opening, no ledge guard, and no strand past the cap.
+
+**Fixes**
+- **Lava guard vs the lava escape** (`worker.js` `lavaGuard`, `lavaHeld`):
+  - The escape steers with the keys too.
+  - With the lava under the feet rather than at them, the guard took the escape for a walk into lava. It stopped it and held its jump and sprint for `LAVA_HOLD_MS`.
+  - Both now stand aside whenever `inLava` holds: lava at the feet, the head, or under the feet.
+- **No meal with the head under water** (`foodChain.js` `deferReason`): `the head is under water` defers even a critical meal. A meal slows the swim for 1.6 s and heals nothing while drowning.
+- **Bucket sources need a dry bank** (`autopilot.js` `waterBank`, used by `waterSource`): a solid, non-wet ground cell within `WATER_BANK` (2) of the source, at its level or one up, with air for the body and the head. A source in a flooded tunnel is not picked.
+- **Air search log** (`get-out-of-water-task.js`): when the far air search (`POCKET_FAR`) comes up empty, it logs once `WorldSurvival: no air within 16 cells through the water (air A); heading for land at P` (or `no land within R either`).
+- **Log throttle** (`navigateNoAvoid`):
+  - It is now once per `NO_AVOID_NEAR` (4) blocks per 30 s, not once per cell.
+  - The suffix reads `(N more within 4 in S s)`.
+- **Water-containing blocks, upstream mineflayer-pathfinder #384** (`worker.js` `waterAware`, inside `guardDiagonals` in both movement builders):
+  - Seagrass, tall seagrass, kelp, kelp plant, bubble columns and every waterlogged block now read as liquid to the planner.
+  - Before this, the planner scaffolded through them, dove from them, and broke blocks beside them, letting the water in.
+  - The waypoint half of the upstream fix lives inside the library's closure and is not taken.
+
+**Tests:** `round82.test.js` (5) and `round82pf.test.js` (1). Fixtures updated:
+- `water-bucket.test.js` and `round14.test.js` give their pools a dry bank;
+- `round81.test.js` matches the new suffix.
+
+**Not changed yet**
+- **The other half of #393:** refusing diagonal moves that land one block up. `guardDiagonals` already refuses a diagonal past a blocked side. This comes next round, so each soak tests one pathfinder change.
+- **Daytime skeletons after a box opens** (hard1): the morning line read nearest hostile 15.8.
+- **Picking the bed back up, cave-morning climbs that stop at the cave roof, and night-mine climbs home that time out:** as in round 81.
+- **`chest_spot_blocked`:** the expected refusal.

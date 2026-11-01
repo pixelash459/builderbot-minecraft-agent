@@ -35,7 +35,9 @@ test('waterSource: a still source with air above, only while an empty bucket is 
  try{
   const items=[{name:'bucket',count:1}];
   const blocks={'3,63,0':{name:'water',metadata:3},'4,63,0':{name:'water',metadata:0},'4,64,0':{name:'air',boundingBox:'empty'},'3,64,0':{name:'air',boundingBox:'empty'},
-   '5,62,0':{name:'water',metadata:0},'5,63,0':{name:'water',metadata:0}};
+   '5,62,0':{name:'water',metadata:0},'5,63,0':{name:'water',metadata:0},
+   // round 82: a dry bank beside the source (stone under, air for the body and the head)
+   '4,64,1':{name:'air',boundingBox:'empty'},'4,65,1':{name:'air',boundingBox:'empty'}};
   const bot={registry:{blocksByName:{water:{id:26}}},inventory:{items:()=>items},
    findBlocks(o){assert.equal(o.maxDistance,WATER_NEAR);return [new Vec3(3,63,0),new Vec3(5,62,0),new Vec3(4,63,0)];},
    blockAt(p){return blocks[p.x+','+p.y+','+p.z]||{name:'stone',boundingBox:'block'};}};

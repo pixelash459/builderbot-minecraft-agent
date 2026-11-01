@@ -24,6 +24,7 @@ import {TaskRunner} from './tasks/runner.js';
 import {defaultChains} from './chains/index.js';
 import {airFall} from './chains/worldSurvivalChain.js';
 import {waterlogged} from './tasks/movement/get-out-of-water-task.js';
+import {inLava} from './tasks/movement/escape-from-lava-task.js';
 import {FightTask} from './chains/fightTask.js';
 import {createTrackers} from './trackers/index.js';
 import {createMoveApi,setDefaultMoveContext} from './tasks/movement/move.js';
@@ -88,6 +89,19 @@ export function waterExits(movement){
 function guardDiagonals(movement){
  const diagonal=movement.getMoveDiagonal.bind(movement);
  movement.getMoveDiagonal=(node,dir,neighbors)=>{for(const [x,z]of [[dir.x,0],[0,dir.z]])for(let dy=0;dy<=2;dy++)if(movement.getBlock(node,x,dy,z).physical)return;diagonal(node,dir,neighbors);};
+ return movement;
+}
+// Round 82: PrismarineJS/mineflayer-pathfinder#384 (merged upstream, not in 2.4.5). The planner
+// read only `water` and `lava` as liquid, so seagrass, kelp, bubble columns and waterlogged blocks
+// looked dry: it planned scaffolding through them, dove where plain water would refuse, and broke
+// blocks beside them. Those are liquid here too (the waypoint half of the fix lives inside the
+// library's closure and is not taken).
+export const WATER_PLANTS=['seagrass','tall_seagrass','kelp','kelp_plant','bubble_column'];
+export function waterAware(movement){
+ const reg=movement.bot?.registry;
+ for(const name of WATER_PLANTS){const id=reg?.blocksByName?.[name]?.id;if(id!==undefined)movement.liquids.add(id);}
+ const get=movement.getBlock.bind(movement);
+ movement.getBlock=(pos,dx,dy,dz)=>{const b=get(pos,dx,dy,dz);if(b&&!b.liquid&&b.isWaterlogged===true)b.liquid=true;return b;};
  return movement;
 }
 // Blocks a gather job may descend for: they live underground when no exposure is in range.
@@ -297,11 +311,16 @@ export function lavaAhead(bot){
 }
 // Stops a key-driven walk (no pathfinder) into lava and steps back, as the ledge guard does at
 // a drop. Not while the bot is in lava itself: the lava escape walks through it.
+// Round 82 (round-81 hard2: `in lava; escaping at (830, 73, -538) (head air, feet air)`, then
+// `Lava guard: stopped at (830, 74, -538)` 0.2 s later, two `no ground gained` headings and dead
+// 3.7 s in): the escape steers with the keys too, and with the lava under the feet rather than at
+// them the guard took it for a walk into lava - it stopped the escape and held its jump and sprint
+// for LAVA_HOLD_MS. The guard and the hold now stand aside whenever the escape would run
+// (inLava: the lava at the feet, the head or under the feet).
 export function lavaGuard(bot){
  const e=bot&&bot.entity;if(!e||!e.position||!bot.getControlState)return null;
  if(bot.pathfinder?.isMoving?.())return null;
- const f=e.position.floored(),here=[bot.blockAt(f),bot.blockAt(f.offset(0,1,0))];
- if(here.some(bl=>bl&&/lava/.test(bl.name||'')))return null;
+ if(inLava(bot))return null;
  const keys=['forward','back','left','right'].filter(k=>bot.getControlState(k));if(!keys.length)return null;
  const at=lavaAhead(bot);if(!at)return null;
  bot._lavaHold={x:at.x+0.5,z:at.z+0.5,until:Date.now()+LAVA_HOLD_MS};
@@ -351,7 +370,7 @@ export function keyHeading(key,yaw){
 export function lavaHeld(bot,name,now=Date.now()){
  const h=bot&&bot._lavaHold,e=bot&&bot.entity;
  if(!h||now>h.until||!e||!e.position)return false;
- try{const f=e.position.floored();if([f,f.offset(0,1,0)].some(p=>/lava/.test(bot.blockAt(p)?.name||'')))return false;}catch{}
+ try{if(inLava(bot))return false;}catch{}
  if(name==='sprint'||name==='jump')return true;
  const d=keyHeading(name,e.yaw||0);if(!d)return false;
  const tx=h.x-e.position.x,tz=h.z-e.position.z,len=Math.hypot(tx,tz)||1;
@@ -710,7 +729,7 @@ export function tunnelHeading(tunnel){
 // reason and the night pillar takes over (round 5 hard1/hard2: 11 min re-walking one
 // unreachable dirt block, cancelled by the soak bell, never sealed).
 const SHELTER_ITEMS=['cobblestone','dirt','cobbled_deepslate','netherrack'];
-export const NO_AVOID_LOG_MS=30000;
+export const NO_AVOID_LOG_MS=30000,NO_AVOID_NEAR=4;
 export const SHELTER_DIG_MS=45000,SHELTER_SEAL_MS=30000,NIGHT_PILLAR_MS=13*60000,SHELTER_EXIT_MARGIN_MS=60000,CREEPER_WAIT_MS=60000,SHELTER_CROWD=6,CROWD_WAIT_MS=180000;
 // Natural plants that fill a shell cell but are not replaceable: a placement into them is
 // refused, so the seal digs them out first (a dark-forest floor is full of mushrooms).
@@ -1312,9 +1331,12 @@ export class Worker extends EventEmitter {
   this._noAvoid=true;mv.exclusionAreasStep=mv.exclusionAreasStep.filter(fn=>fn!==mv._mobAvoidHook);mv._mobAvoidHook=null;
   // Round 81 (round-80 soak: 1350 of these lines, ~2 a second while a gather job retried one
   // block): logged once per cell per NO_AVOID_LOG_MS, with the count of the quiet repeats.
-  const at=String(bot.entity.position.floored()),now=Date.now(),nl=this._noAvoidLog;
-  if(nl&&nl.at===at&&now-nl.t<NO_AVOID_LOG_MS)nl.quiet++;
-  else{this.log('Navigation: no path with mob avoidance at '+at+'; trying without it'+(nl&&nl.at===at&&nl.quiet?' ('+nl.quiet+' more here in '+Math.round((now-nl.t)/1000)+' s)':''));this._noAvoidLog={at,t:now,quiet:0};}
+  // Round 82 (round-81 soak: still 421, a night-mine climb home logging each stair cell 0.5 s
+  // apart): once per NO_AVOID_NEAR blocks, not per cell.
+  const p=bot.entity.position.floored(),at=String(p),now=Date.now(),nl=this._noAvoidLog;
+  const near=nl&&nl.p&&Math.max(Math.abs(nl.p.x-p.x),Math.abs(nl.p.y-p.y),Math.abs(nl.p.z-p.z))<=NO_AVOID_NEAR;
+  if(near&&now-nl.t<NO_AVOID_LOG_MS)nl.quiet++;
+  else{this.log('Navigation: no path with mob avoidance at '+at+'; trying without it'+(near&&nl.quiet?' ('+nl.quiet+' more within '+NO_AVOID_NEAR+' in '+Math.round((now-nl.t)/1000)+' s)':''));this._noAvoidLog={p,t:now,quiet:0};}
   try{return await this.navigate(goal,token,seconds);}finally{this._noAvoid=false;}
  }
  async walk(target,token,range=2,seconds=45){await this.navigate(new goals.GoalNear(target.x,target.y,target.z,range),token,seconds);}
@@ -1371,7 +1393,7 @@ export class Worker extends EventEmitter {
   // ledge guard (round 31) lets go of the sprint key beside any 5+ drop.
   const movement=new Movements(bot);movement.canDig=false;movement.allow1by1towers=false;movement.allowParkour=false;movement.allowSprinting=true;movement.canOpenDoors=false;movement.maxDropDown=3;
   this.applyMobAvoidance(movement,bot);this.avoidHazards(movement,bot);
-  return waterExits(guardDiagonals(movement));
+  return waterExits(guardDiagonals(waterAware(movement)));
  }
  exploreMovements(){
   if(this.exploreMoves)return this.exploreMoves;
@@ -1402,7 +1424,7 @@ export class Worker extends EventEmitter {
    if(!floor)return;
    for(let i=neighbors.length-1;i>=before;i--){const move=neighbors[i];if(move.toBreak.some(p=>p.x===floor.position.x&&p.y===floor.position.y&&p.z===floor.position.z))neighbors.splice(i,1);}
   };
-  return this.exploreMoves=waterExits(guardDiagonals(m));
+  return this.exploreMoves=waterExits(guardDiagonals(waterAware(m)));
  }
  async exploreLeg(token,spec){
   const b=this.bot,dirs={north:[0,-1],south:[0,1],east:[1,0],west:[-1,0]};
