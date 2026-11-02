@@ -141,7 +141,7 @@ export class MobDefenseChain extends SingleTaskChain{
    const info=creeperSwell(swelling);
    this._runAwayTask=null;
    this._doingFunkyStuff=true;
-   this.root=new RunAwayFromCreepersTask(info.keep);
+   this.root=new RunAwayFromCreepersTask(info.keep,{fuse:true});
    this._fleeLog(ctx,'creeper-fuse','Reflex: creeper fuse (swell '+info.swell+(info.powered?', powered':'')+') sprinting past '+info.keep);
    return 96;
   }

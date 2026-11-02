@@ -19,6 +19,7 @@ import {NATURAL_DIG,isGravity} from '../digDown.js';
 import {Vec3} from 'vec3';
 import {fleeHeading,darkNow,leaveRefuge} from '../night.js';
 import {pickCtx} from '../tasks/movement/move.js';
+import {creeperSwell} from '../creeper.js';
 
 const setControl=(bot,name,value)=>{try{bot.setControlState(name,value);}catch{}};
 const look=async(bot,yaw,pitch)=>{try{await bot.look(yaw,pitch,false);}catch{}};
@@ -107,8 +108,67 @@ export class RunAwayFromHostilesTask extends RunAwayTask{
   this.includeSkeletons=includeSkeletons;
  }
 }
+// Round 86 (round-85 hard1: `fleeing creeper` at a crafting table in a y=45 tunnel, the fuse 1.6 s
+// later, blown up 1.4 s after that, one block from the table; hard2: 4 blocks in 5 s on a mountain
+// shelf after its box opened, blown up 1.5 s after the fuse): a fusing creeper within FUSE_WALL_NEAR
+// while the flee has not moved the bot FUSE_STUCK_BLOCKS in FUSE_STUCK_S gets a wall - the feet and
+// head cells beside the bot toward it (both axes when it stands diagonal) - and the bot holds
+// behind the wall until the fuse ends. A blast's damage is cut by every block between.
+export const FUSE_WALL_NEAR=4,FUSE_STUCK_S=0.4,FUSE_STUCK_BLOCKS=0.8,FUSE_WALL_TRIES=2;
+export function fuseWallCells(me,at){
+ const bx=Math.floor(me.x),by=Math.floor(me.y),bz=Math.floor(me.z),dx=at.x-me.x,dz=at.z-me.z;
+ const axes=[];
+ if(Math.abs(dx)>=0.5)axes.push({w:Math.abs(dx),sx:Math.sign(dx),sz:0});
+ if(Math.abs(dz)>=0.5)axes.push({w:Math.abs(dz),sx:0,sz:Math.sign(dz)});
+ axes.sort((a,b)=>b.w-a.w);
+ const cells=[];
+ for(const a of axes)for(const dy of [0,1])cells.push({x:bx+a.sx,y:by+dy,z:bz+a.sz,sx:a.sx,sz:a.sz});
+ return cells;
+}
 export class RunAwayFromCreepersTask extends RunAwayTask{
- constructor(distance){super('RunAwayFromCreepersTask',distance,{kinds:new Set(['creeper'])});}
+ constructor(distance,{fuse=false}={}){super('RunAwayFromCreepersTask',distance,{kinds:new Set(['creeper'])});this.fuse=fuse;this.wallTries={};}
+ onTick(bot,ctx){
+  if(this.fuse&&this._wall(bot,ctx))return null;
+  return super.onTick(bot,ctx);
+ }
+ // True while the wall owns the bot (equipping, placing, or holding behind it).
+ _wall(bot,ctx){
+  const me=bot.entity.position,now=Date.now()/1000;
+  const c=this.targets(bot,ctx).filter(e=>creeperSwell(e).fusing&&withinRange(e,bot,FUSE_WALL_NEAR)).sort((a,b)=>distanceTo(a,bot)-distanceTo(b,bot))[0];
+  if(!c){this.walling=false;this._track=null;return false;}
+  if(!this.walling){
+   if(!this._track||Math.hypot(me.x-this._track.x,me.z-this._track.z)>=FUSE_STUCK_BLOCKS){this._track={x:me.x,z:me.z,t:now};return false;}
+   if(now-this._track.t<FUSE_STUCK_S)return false;
+   const blocks=pillarBlocks(bot);
+   if(!blocks)return false;
+   this.walling=true;
+   const n=fuseWallCells(me,c.position).filter(q=>!solidAt(bot,q.x,q.y,q.z)).length;
+   const w=pickCtx(this,ctx)?.worker;
+   if(w&&w.log)try{w.log('Reflex: creeper fuse at '+distanceTo(c,bot).toFixed(1)+' and the flee is not moving the bot; walling '+n+' cell(s) toward it');}catch{}
+  }
+  forget(bot,'forward','sprint');
+  if(now-(this.wallAt||-1e9)<0.25)return true;
+  const occupied=q=>Math.abs(c.position.x-(q.x+0.5))<0.8&&Math.abs(c.position.z-(q.z+0.5))<0.8&&c.position.y<q.y+1&&c.position.y+1.7>q.y;
+  for(const q of fuseWallCells(me,c.position)){
+   const key=q.x+','+q.y+','+q.z;
+   if(solidAt(bot,q.x,q.y,q.z)||occupied(q)||(this.wallTries[key]||0)>=FUSE_WALL_TRIES)continue;
+   // against the floor under it, the ceiling over it, or the block beyond it
+   const ref=[[0,-1,0],[0,1,0],[q.sx,0,q.sz]].map(([ox,oy,oz])=>({b:bot.blockAt&&bot.blockAt(new Vec3(q.x+ox,q.y+oy,q.z+oz)),f:new Vec3(-ox,-oy,-oz)})).find(r=>r.b&&r.b.boundingBox==='block');
+   if(!ref)continue;
+   const blocks=pillarBlocks(bot);
+   if(!blocks)break;
+   if(!bot.heldItem||!PILLAR_ITEMS.some(re=>re.test(bot.heldItem.name))){
+    if(now-(this._equipAt||-1e9)>=0.25){this._equipAt=now;equipSafe(bot,blocks.item,'hand');}
+    return true;
+   }
+   this.wallAt=now;this.wallTries[key]=(this.wallTries[key]||0)+1;
+   try{const p=bot.placeBlock(ref.b,ref.f);p&&p.catch&&p.catch(()=>{});}catch{}
+   return true;
+  }
+  // nothing left to place: hold behind what stands, or flee when no wall went up
+  return fuseWallCells(me,c.position).some(q=>solidAt(bot,q.x,q.y,q.z));
+ }
+ isEqual(o){return super.isEqual(o)&&!!o.fuse===!!this.fuse;}
 }
 // 7f daylight-burn ladder step: undead burn in the sun, so merely staying out of reach wins.
 export class KeepDistanceTask extends Task{

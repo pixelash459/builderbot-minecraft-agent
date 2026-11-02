@@ -3038,3 +3038,32 @@ The round-72 soak on the Nitrous world copy (bot `3fc0f73`) ran all six runs cle
 - **hard3's creeper at the box opening.** One case, and the override and the flee both fired.
 - **Cave-morning roof stops** (hard2 `y=87 -> 91 (surface 98)`). Left alone, as in rounds 79-84.
 - **From round 84:** the hard-crowd thrash, a second lava pool (none this round), skeleton-reach stand-downs, the hover silence, picking the bed back up, night-mine climbs that time out, and `chest_spot_blocked`.
+
+## Round 86 (2026-11-02)
+
+**What the round-85 soak showed** (`7e26437`, report `5db178e`)
+- **Iron on 6 of 6 with 2 deaths** (0/0/0/1/1/0). This is the fourth perfect-iron round (80, 82, 83, 85). Hard iron came at 1507/512/1989 s, and hard1 slept twice in its own beds.
+- **The round-84 spawn-kill loop is gone.** No death was a night respawn, so the round-85 respawn guard never fired (0 `after a night respawn` lines) and was not exercised. No run died within 120 s of a respawn.
+- **The round-84 night-mine line worked again** (hard2): `a zombie within 8 on the night mine; Mob Defense answers`, then `moved from 847,97,-516`, then `sealed` 7 s later, with no damage.
+- **Both deaths were creeper fuses with the flee going nowhere:**
+  - **hard1** was at a crafting table in a y=45 tunnel. `fleeing creeper` came at 09:00:01.5, `creeper fuse (swell 1) sprinting past 7` at 09:00:03.1, and it was blown up 1.4 s later, one block from the table at (850, 45, -538). The tunnel gave the flee nowhere to go.
+  - **hard2** was on a mountain shelf 10 s after its box came down at dawn. `fleeing creeper` came at 09:18:32, then `followed for 3 s; keeping 20 away`, then the fuse at 09:18:36.1, and it was blown up 1.5 s later, 4 blocks from where the flee began. It held no sword, because its pick had just broken.
+  - hard1 held 157 cobblestone. A fusing creeper stops walking, so a block between it and the bot cuts the blast.
+- **Path counts:** `Job: no path` 44 vs 9, mostly the bag-full wood searches at the west river on normal2 and hard2 (25 `searching 320` each). No-avoidance 304 (largest N 46), took-too-long 23, `Cannot reach` 12. There were 0 lava lines, 0 `Window: closed`, and probe 10/11.
+
+**Fix**
+- **The fuse wall** (`fallbackTasks.js`: `RunAwayFromCreepersTask(distance,{fuse:true})`, `fuseWallCells`; `FUSE_WALL_NEAR` 4, `FUSE_STUCK_S` 0.4, `FUSE_STUCK_BLOCKS` 0.8, `FUSE_WALL_TRIES` 2):
+  - When does it fire? The fuse flee (`mobDefenseChain.js`, the swelling band) now walls when a fusing creeper is within 4 and the flee has not moved the bot 0.8 blocks in 0.4 s.
+  - Which cells? The feet and head cells beside the bot toward the creeper, on both axes when it stands diagonal, larger axis first.
+  - How is each block placed? Against the floor under the cell, the ceiling over it, or the block beyond it, with a pillar block (cobble, deepslate, netherrack, dirt or planks). Placements are one per 0.25 s, and a cell gets 2 tries at most.
+  - A cell the creeper stands in is not built into.
+  - The bot holds behind the wall until the fuse ends. If no wall cell stands, it keeps fleeing.
+  - Logged `Reflex: creeper fuse at D and the flee is not moving the bot; walling N cell(s) toward it`.
+  - The keep-away flees (10 and 20) never wall.
+
+**Tests:** `round86.test.js` (4): the wall cells and the diagonal; the round-85 hard1 tunnel walled in two placements with one log line and the bot holding; no wall while moving, with no blocks, without a fuse, with the creeper beyond 4, or from the keep-away flee; the block-beyond reference and a creeper standing in the cells.
+
+**Not changed yet**
+- **The round-85 respawn guard:** still to be exercised.
+- **The bag-full wood searches at the west river** (normal2 and hard2: 25 `searching 320`, `No matching blocks` 22-24). The runs still reached iron. Look again if the count holds.
+- **From round 85:** hard3's creeper at a box opening (round 84), cave-roof stops, the hard-crowd thrash, skeleton-reach stand-downs, the hover silence, picking the bed back up, night-mine climbs that time out, and `chest_spot_blocked`.
