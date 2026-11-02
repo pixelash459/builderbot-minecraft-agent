@@ -3084,16 +3084,23 @@ The round-72 soak on the Nitrous world copy (bot `3fc0f73`) ran all six runs cle
   - `GetOutOfWaterTask`'s straight-up branch looks at that centre and holds forward with jump until the body is in the open column. Logged once: `WorldSurvival: the body at P is under a roof beside the column; centring to (x, z) to swim up`.
   - The no-rise clock now restarts on a rise or a horizontal move of 1 block, not when the floored column changes.
   - The sink guard (`worker.js` `sinkGuard`, the 8 s backstop) does the same centring while no path is steering. The head-under line ends `; centring to (x, z) off a roof beside the column`, or a later line says it once.
+- **A window-click runaway fails its click** (`compat.js`, `WINDOW_CLICK_RUNAWAY` 200 a second). This is hard3's wedge 10 min after the drown:
+  - What happened: `Runner: closed the open crafting window for Mob Defense` at 17:16:51.8, then from 17:17:11Z about 2 million `window_click` a second for 28 min. 3.1 billion were dropped by the packet budget, the event loop stalled, and the server kicked the bot for keepalive.
+  - Why the loop never ends: mineflayer's `putSelectedItemRange` loops while the window it was handed has a cursor item, but `clickWindow` clicks `bot.currentWindow || bot.inventory`. Once that window is closed, the loop clicks the inventory forever.
+  - It is not new: an early round in the snapshots shows the same storm (1.06 million a second) right after a preemption stop.
+  - The fix: the 201st click in 1 s throws from the write. `clickWindow` rejects and the loop ends. It logs `PACKET_RUNAWAY window_click N in 1 s (window W slot S); failing the click to end the loop`, at most every 10 s.
+  - Real play peaks at 88 a second (all snapshots), and our crafting clicks are paced 240 ms apart.
 - **The fuse wall says how it ended** (diagnostic only, `fallbackTasks.js` `_wallDone`): `Reflex: the fuse wall is done: N block(s) placed, S of C cell(s) standing (held ITEM COUNT)`, once per wall.
 
-**Tests:** `round87.test.js` (5):
+**Tests:** `round87.test.js` (6):
 - the centre for a side overlap, a floored-into-the-roof overlap, a diagonal, an inside position, no roof, and all roofed;
 - the task centring and then rising straight;
 - a corner flip between two open columns now tripping the no-rise line, while a real rise does not;
 - the sink guard centring with no path steering, letting go when centred or out of water, the late line, and leaving a path alone;
-- the wall done line.
+- the wall done line;
+- a closed-window click loop ended at click 201, with other packets still going and paced clicks never tripping it.
 
 **Not changed yet**
-- **hard3's `window_click` packet storm** after the respawn (1519 PACKET_RATE lines from 17:17:11Z, then the keepalive kick). The report gives no job context for it. Ask for the lines before it next round.
+- **Why the crafting window was still open** when Mob Defense closed it (the table kept by `keepTable` after the wooden-pickaxe craft), and which mineflayer call was mid-loop. The guard ends the loop. The caller is not known yet; the job error `Window click runaway` will name it.
 - **The round-85 respawn guard:** still to be exercised.
 - **From round 86:** cave-roof stops (hard2 stopped 2 below the surface), the hard-crowd thrash, skeleton-reach stand-downs, picking the bed back up, night-mine climbs that time out, and `chest_spot_blocked`.

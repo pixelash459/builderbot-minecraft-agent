@@ -11,13 +11,22 @@
 // runaway loop loses its newest packets, never memory). keep_alive, teleport_confirm and the
 // tick boundary after a sent movement always go out. Swings are also capped at SWING_PER_SECOND on their own.
 export const PACKET_BUDGET=200,PACKET_QUEUE=256,SWING_PER_SECOND=10;
+// Round 87 (round-86 hard3: `Runner: closed the open crafting window for Mob Defense`, then from
+// 17:17:11Z about 2 million window_click a second for 28 min - 3.1 billion dropped here - the event
+// loop wedged and the server kicked the bot for keepalive): mineflayer's putSelectedItemRange loops
+// while the window it was handed still has a cursor item, but clickWindow clicks
+// bot.currentWindow || bot.inventory, so once that window is closed the loop never ends. Queueing
+// and dropping cannot stop it. WINDOW_CLICK_RUNAWAY clicks in 1 s (our own crafting clicks are
+// paced 240 ms apart) fail the next click - the write throws, clickWindow rejects, the loop ends.
+export const WINDOW_CLICK_RUNAWAY=200;
 const SUPERSEDED=new Set(['position','position_look','look','flying','player_input','tick_end','arm_animation']);
 const ALWAYS=new Set(['keep_alive','teleport_confirm']);
 const DROPPED=Symbol('dropped');
 export function installMovementFix(bot){
  const client=bot._client,write=client.write.bind(client);
  let enabled=false;
- const sentAt=[],queue=[],swings=[];
+ const sentAt=[],queue=[],swings=[],clicks=[];
+ let lastRunawayLog=0;
  const stats=bot.packetStats={sent:0,dropped:0,queued:0,droppedByName:{},peak:0};
  let lastBudgetLog=0;
  const trim=(list,now)=>{while(list.length&&now-list[0]>=1000)list.shift();};
@@ -31,6 +40,15 @@ export function installMovementFix(bot){
   if(client.state!=='play')return write(name,data);
   const now=Date.now();
   if(ALWAYS.has(name))return out(name,data,now);
+  if(name==='window_click'){
+   trim(clicks,now);
+   if(clicks.length>=WINDOW_CLICK_RUNAWAY){
+    stats.runaway=(stats.runaway||0)+1;
+    if(now-lastRunawayLog>10000){lastRunawayLog=now;console.log('PACKET_RUNAWAY window_click',clicks.length,'in 1 s (window',data?.windowId,'slot',data?.slot+'); failing the click to end the loop');}
+    throw Error('Window click runaway: '+clicks.length+' clicks in 1 s');
+   }
+   clicks.push(now);
+  }
   if(name==='arm_animation'){trim(swings,now);if(swings.length>=SWING_PER_SECOND){note(name,'dropped');return DROPPED;}swings.push(now);}
   drain(now);
   if(!queue.length&&sentAt.length<PACKET_BUDGET)return out(name,data,now);

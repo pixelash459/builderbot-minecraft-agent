@@ -4,6 +4,8 @@ import {Vec3} from 'vec3';
 import {sinkGuard,SINK_MS} from '../src/worker.js';
 import {GetOutOfWaterTask,riseBlockedCentre,NO_RISE_MS} from '../src/tasks/movement/get-out-of-water-task.js';
 import {RunAwayFromCreepersTask} from '../src/chains/fallbackTasks.js';
+import {EventEmitter} from 'node:events';
+import {installMovementFix,WINDOW_CLICK_RUNAWAY,PACKET_BUDGET} from '../src/compat.js';
 
 // Round 87: the round-86 soak on the Nitrous world copy (hard3 drowned on a cell corner under a neighbouring roof).
 // Four water columns x,z in {0,1}, the floor at y=59: an open column holds water at y 60-62 with
@@ -107,4 +109,31 @@ test('round 87: the fuse wall says how it ended - blocks placed, cells standing,
   assert.deepEqual(logs,['Reflex: creeper fuse at 2.0 and the flee is not moving the bot; walling 2 cell(s) toward it',
    'Reflex: the fuse wall is done: 2 block(s) placed, 2 of 2 cell(s) standing (held dirt 12)']);
  }finally{Date.now=real;}
+});
+
+test('round 87: a window-click runaway fails its click and ends the loop; paced clicks and other packets pass',async t=>{
+ t.mock.timers.enable({apis:['Date','setInterval'],now:5_000_000});
+ const quiet=console.log;console.log=()=>{};
+ try{
+  const b=new EventEmitter(),packets=[];
+  b.registry={version:{'>=':()=>true}};b.entity={position:{x:1,y:64,z:2},yaw:0,pitch:0,onGround:true};
+  b._client={state:'play',write:(name,data)=>packets.push({name,data})};
+  installMovementFix(b);b.emit('login');
+  assert.equal(WINDOW_CLICK_RUNAWAY,PACKET_BUDGET);
+  // mineflayer's putSelectedItemRange on a closed window: the cursor of the window it holds never clears
+  const closed={selectedItem:{name:'cherry_planks'}};
+  const clickWindow=async slot=>{b._client.write('window_click',{windowId:3,slot});};
+  let n=0;
+  const loop=async()=>{while(closed.selectedItem){n++;await clickWindow(36);}};
+  await assert.rejects(loop(),/^Error: Window click runaway: 200 clicks in 1 s$/);
+  assert.equal(n,WINDOW_CLICK_RUNAWAY+1);assert.equal(b.packetStats.runaway,1);
+  // other packets queue behind the full window and still go; a second later clicks go again,
+  // and clicks paced like a craft never trip it
+  b._client.write('block_dig',{status:0});
+  t.mock.timers.tick(1000);
+  assert.ok(packets.some(p=>p.name==='block_dig'),'other packets still go');
+  for(let i=0;i<40;i++){await clickWindow(i);t.mock.timers.tick(240);}
+  assert.equal(b.packetStats.runaway,1);
+  b.emit('end');
+ }finally{console.log=quiet;}
 });
