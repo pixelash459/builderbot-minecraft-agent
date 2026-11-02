@@ -3067,3 +3067,33 @@ The round-72 soak on the Nitrous world copy (bot `3fc0f73`) ran all six runs cle
 - **The round-85 respawn guard:** still to be exercised.
 - **The bag-full wood searches at the west river** (normal2 and hard2: 25 `searching 320`, `No matching blocks` 22-24). The runs still reached iron. Look again if the count holds.
 - **From round 85:** hard3's creeper at a box opening (round 84), cave-roof stops, the hard-crowd thrash, skeleton-reach stand-downs, the hover silence, picking the bed back up, night-mine climbs that time out, and `chest_spot_blocked`.
+
+## Round 87 (2026-11-03)
+
+**What the round-86 soak showed** (`8075696`, report `2ce4ec6`)
+- **Iron on 5 of 6 with 1 death** (0/0/0/0/0/1). It was not promoted: hard3's connection wedged ten minutes after its death (a `window_click` PACKET_RATE storm, then a keepalive kick), and its last samples and final read timed out. Hard iron came at 2200/1990 s and hard3 had none. normal3 reached a diamond pickaxe at 1928 s.
+- **No creeper death for the first time since round 83.** All three `creeper fuse (swell 1)` lines (hard3) had a walling line within 0.5 s. No `blown up by Creeper` appeared anywhere. The log cannot show whether a block went down: wall 1 held 107 cobble (one went between samples), and walls 2 and 3 came after the respawn with no cobble or planks on the samples.
+- **The one death was a drown in hard3's iron staircase.** `Water: head under for 8 s at (788, 60, -610) with no swim-up; holding jump` came three times over 23 s with no rise. Then `drowning (air 8), swimming up`, `air at (788, 63, -610), 3 cell(s) through the water`, `open water 1 up (air 5); swimming straight up`, and 11 s later the drown at (789, 61, -610). The floored position flipped between x 788/789 and z -609/-610. So the body (0.6 wide) stood on a cell corner, held under the roof of a neighbouring column, and every flip restarted the 3 s no-rise clock, so `no rise` never fired.
+- **The round-85 respawn guard was not exercised** (0 lines; 0 deaths within 120 s of a respawn).
+- **The round-84 night-mine line fired twice** (hard2, hard3), both sealed with no damage. One `not from a box with 1 open cell(s)` was air, not a torch.
+- **Path counts:** `Job: no path` 4 (vs 44), took-too-long 7, no-avoidance 216 (largest N 41), `Cannot reach` 14, `searching 320` 1. The round-85 bag-full river searches did not recur. 1 `Window: closed`, 0 lava lines. Probe 10/11, the same shape as round 85 (the shelter_hole `end_pos` one cell off the box).
+
+**Fix**
+- **Swim up from a corner** (`get-out-of-water-task.js`: `riseBlockedCentre`, `BODY_HALF` 0.3):
+  - When the body overlaps a column with a solid block where the head rises next (the head-top cell and the one above), it returns the centre of an overlapped column that is open there, the floored one first. If nothing overlapped is blocked, or no overlapped column is open, it returns null (the pocket search handles that).
+  - `GetOutOfWaterTask`'s straight-up branch looks at that centre and holds forward with jump until the body is in the open column. Logged once: `WorldSurvival: the body at P is under a roof beside the column; centring to (x, z) to swim up`.
+  - The no-rise clock now restarts on a rise or a horizontal move of 1 block, not when the floored column changes.
+  - The sink guard (`worker.js` `sinkGuard`, the 8 s backstop) does the same centring while no path is steering. The head-under line ends `; centring to (x, z) off a roof beside the column`, or a later line says it once.
+- **The fuse wall says how it ended** (diagnostic only, `fallbackTasks.js` `_wallDone`): `Reflex: the fuse wall is done: N block(s) placed, S of C cell(s) standing (held ITEM COUNT)`, once per wall.
+
+**Tests:** `round87.test.js` (5):
+- the centre for a side overlap, a floored-into-the-roof overlap, a diagonal, an inside position, no roof, and all roofed;
+- the task centring and then rising straight;
+- a corner flip between two open columns now tripping the no-rise line, while a real rise does not;
+- the sink guard centring with no path steering, letting go when centred or out of water, the late line, and leaving a path alone;
+- the wall done line.
+
+**Not changed yet**
+- **hard3's `window_click` packet storm** after the respawn (1519 PACKET_RATE lines from 17:17:11Z, then the keepalive kick). The report gives no job context for it. Ask for the lines before it next round.
+- **The round-85 respawn guard:** still to be exercised.
+- **From round 86:** cave-roof stops (hard2 stopped 2 below the surface), the hard-crowd thrash, skeleton-reach stand-downs, picking the bed back up, night-mine climbs that time out, and `chest_spot_blocked`.

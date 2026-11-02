@@ -23,7 +23,7 @@ import * as combat from './combat.js';
 import {TaskRunner} from './tasks/runner.js';
 import {defaultChains} from './chains/index.js';
 import {airFall} from './chains/worldSurvivalChain.js';
-import {waterlogged} from './tasks/movement/get-out-of-water-task.js';
+import {waterlogged,riseBlockedCentre} from './tasks/movement/get-out-of-water-task.js';
 import {inLava} from './tasks/movement/escape-from-lava-task.js';
 import {FightTask} from './chains/fightTask.js';
 import {createTrackers} from './trackers/index.js';
@@ -508,15 +508,26 @@ export function sinkGuard(bot,st,now){
  const wet=seen||falling;
  if(!wet){
   if(st.held){try{bot.setControlState('jump',false);}catch{}}
-  st.since=null;st.held=false;st.logged=false;return null;
+  if(st.fwd){try{bot.setControlState('forward',false);}catch{}}
+  st.since=null;st.held=false;st.logged=false;st.fwd=false;st.centred=false;return null;
  }
  if(st.since==null)st.since=now;
  if(now-st.since<SINK_MS)return null;
  if(!bot.getControlState?.('jump')){try{bot.setControlState('jump',true);}catch{}}
  st.held=true;
+ // Round 87 (round-86 hard3: 23 s holding jump at (788, 60, -610) with no rise, the body on a cell
+ // corner under a neighbouring roof): with no path steering, step into the open column.
+ const ctr=bot.pathfinder?.isMoving?.()?null:riseBlockedCentre(bot);
+ if(ctr){
+  try{const r=bot.lookAt?.(new Vec3(ctr.x,e.position.y+1.62,ctr.z),true);r&&r.catch&&r.catch(()=>{});}catch{}
+  try{bot.setControlState('forward',true);}catch{}
+  st.fwd=true;
+ }else if(st.fwd){try{bot.setControlState('forward',false);}catch{}st.fwd=false;}
+ if(ctr&&st.logged&&!st.centred){st.centred=true;return 'Water: the body at '+e.position.floored()+' is under a roof beside the column; centring to ('+Math.floor(ctr.x)+', '+Math.floor(ctr.z)+')';}
  if(st.logged)return null;
+ if(ctr)st.centred=true;
  st.logged=true;
- return 'Water: head under for '+Math.round((now-st.since)/1000)+' s at '+e.position.floored()+' with no swim-up; holding jump (air '+(bot.oxygenLevel??'?')+', isInWater '+!!e.isInWater+(seen?'':', head block '+(head?.name||'?')+' at eye y '+(e.position.y+1.62).toFixed(1)+(e.isInWater?', in water':'')+' - the air is falling')+')';
+ return 'Water: head under for '+Math.round((now-st.since)/1000)+' s at '+e.position.floored()+' with no swim-up; holding jump (air '+(bot.oxygenLevel??'?')+', isInWater '+!!e.isInWater+(seen?'':', head block '+(head?.name||'?')+' at eye y '+(e.position.y+1.62).toFixed(1)+(e.isInWater?', in water':'')+' - the air is falling')+')'+(ctr?'; centring to ('+Math.floor(ctr.x)+', '+Math.floor(ctr.z)+') off a roof beside the column':'');
 }
 export const SPRINT_FOOD=6;
 export function sprintAssist(bot){

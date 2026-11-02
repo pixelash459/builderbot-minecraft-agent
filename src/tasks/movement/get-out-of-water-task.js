@@ -97,6 +97,27 @@ export function airPocket(bot,max=POCKET_MAX,stuck=null){
 // that has not lifted the bot NO_RISE_BLOCKS in NO_RISE_MS is given up for that column; the
 // pocket search then swims round it.
 export const NO_RISE_MS=3000,NO_RISE_BLOCKS=0.5;
+// Round 87 (round-86 hard3 drowned at (789, 61, -610): 23 s holding jump at (788, 60, -610) with no
+// rise, then `open water 1 up (air 5); swimming straight up` and 11 s more at the same height, the
+// floored position flipping between x 788/789 and z -609/-610 - the body, 0.6 wide, stood on a cell
+// corner under the roof of a neighbouring column, and every flip restarted the no-rise clock): when
+// the body overlaps a column with a solid block where the head rises next, the centre of an
+// overlapped column that is open there (the floored one first). null when nothing overlapped is
+// blocked, or when no overlapped column is open (the pocket search swims round that).
+export const BODY_HALF=0.3;
+export function riseBlockedCentre(bot){
+ const p=bot.entity?.position;if(!p||!bot.blockAt)return null;
+ const y0=Math.floor(p.y+1.8-0.01),ys=[y0,y0+1];
+ const span=v=>[...new Set([Math.floor(v-BODY_HALF),Math.floor(v+BODY_HALF-1e-6)])];
+ const own={x:Math.floor(p.x),z:Math.floor(p.z)};
+ const cols=[];for(const x of span(p.x))for(const z of span(p.z))cols.push({x,z});
+ cols.sort((a,b)=>(b.x===own.x&&b.z===own.z)-(a.x===own.x&&a.z===own.z));
+ const blocked=c=>ys.some(y=>{const b=bot.blockAt(new Vec3(c.x,y,c.z));return !!b&&b.boundingBox==='block';});
+ const shut=cols.filter(blocked);
+ if(!shut.length)return null;
+ const open=cols.find(c=>!blocked(c));
+ return open?new Vec3(open.x+0.5,p.y,open.z+0.5):null;
+}
 // Round 79 (round-78 normal3 drowned at (837, 100, -446): `roof over the water at (837, 102, -446)
 // (air 8, cherry_slab); digging it`, then 23 s with no dig or fail line - a slab dug by hand while
 // floating under water takes 25x as long, and mineflayer's digTime counts the water only when the
@@ -144,7 +165,8 @@ export class GetOutOfWaterTask extends Task {
    const stuckHere=this.stuck&&this.stuck.x===col.x&&this.stuck.z===col.z;
    if(up&&up.open!=null&&!stuckHere){
     const r=this.rise;
-    if(!r||r.x!==col.x||r.z!==col.z||me.y>=r.y+NO_RISE_BLOCKS)this.rise={x:col.x,z:col.z,y:me.y,at:Date.now()};
+    // Round 87: restarted by a rise or a real move, not by the floored column flipping on a corner.
+    if(!r||Math.hypot(me.x-r.px,me.z-r.pz)>=1||me.y>=r.y+NO_RISE_BLOCKS)this.rise={x:col.x,z:col.z,px:me.x,pz:me.z,y:me.y,at:Date.now()};
     else if(Date.now()-r.at>=NO_RISE_MS){
      this.stuck=col;this.pocketAt=0;this.pocketLogged=false;
      const w=ctx?.worker;try{w?.log?.('WorldSurvival: no rise in '+(NO_RISE_MS/1000)+' s swimming up at '+me.floored()+' (air '+air+'); swimming round it');}catch{}
@@ -152,7 +174,12 @@ export class GetOutOfWaterTask extends Task {
    }
    if(up&&up.open!=null&&!(this.stuck&&this.stuck.x===col.x&&this.stuck.z===col.z)){
     if(this.navPromise){move.cancel(ctx);this.navPromise=null;}
-    move.setControls(ctx,{jump:true,forward:false,sprint:false});
+    const ctr=riseBlockedCentre(bot);
+    if(ctr){
+     try{const r=bot.lookAt?.(new Vec3(ctr.x,me.y+1.62,ctr.z),true);r&&r.catch&&r.catch(()=>{});}catch{}
+     if(!this.centreLogged){this.centreLogged=true;const w=ctx?.worker;try{w?.log?.('WorldSurvival: the body at '+me.floored()+' is under a roof beside the column; centring to ('+Math.floor(ctr.x)+', '+Math.floor(ctr.z)+') to swim up');}catch{}}
+    }
+    move.setControls(ctx,{jump:true,forward:!!ctr,sprint:false});
     if(!this.upLogged){this.upLogged=true;const w=ctx?.worker;try{w?.log?.('WorldSurvival: open water '+up.open+' up (air '+air+'); swimming straight up');}catch{}}
     return null;
    }

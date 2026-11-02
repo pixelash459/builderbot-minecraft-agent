@@ -135,14 +135,15 @@ export class RunAwayFromCreepersTask extends RunAwayTask{
  _wall(bot,ctx){
   const me=bot.entity.position,now=Date.now()/1000;
   const c=this.targets(bot,ctx).filter(e=>creeperSwell(e).fusing&&withinRange(e,bot,FUSE_WALL_NEAR)).sort((a,b)=>distanceTo(a,bot)-distanceTo(b,bot))[0];
-  if(!c){this.walling=false;this._track=null;return false;}
+  if(!c){if(this.walling)this._wallDone(bot,ctx);this.walling=false;this._track=null;return false;}
   if(!this.walling){
    if(!this._track||Math.hypot(me.x-this._track.x,me.z-this._track.z)>=FUSE_STUCK_BLOCKS){this._track={x:me.x,z:me.z,t:now};return false;}
    if(now-this._track.t<FUSE_STUCK_S)return false;
    const blocks=pillarBlocks(bot);
    if(!blocks)return false;
    this.walling=true;
-   const n=fuseWallCells(me,c.position).filter(q=>!solidAt(bot,q.x,q.y,q.z)).length;
+   this._wall0={cells:fuseWallCells(me,c.position),placed:0,held:blocks.item.name+' '+blocks.count};
+   const n=this._wall0.cells.filter(q=>!solidAt(bot,q.x,q.y,q.z)).length;
    const w=pickCtx(this,ctx)?.worker;
    if(w&&w.log)try{w.log('Reflex: creeper fuse at '+distanceTo(c,bot).toFixed(1)+' and the flee is not moving the bot; walling '+n+' cell(s) toward it');}catch{}
   }
@@ -162,11 +163,20 @@ export class RunAwayFromCreepersTask extends RunAwayTask{
     return true;
    }
    this.wallAt=now;this.wallTries[key]=(this.wallTries[key]||0)+1;
-   try{const p=bot.placeBlock(ref.b,ref.f);p&&p.catch&&p.catch(()=>{});}catch{}
+   const w0=this._wall0;
+   try{const p=bot.placeBlock(ref.b,ref.f);if(p&&p.then)p.then(()=>{if(w0)w0.placed++;},()=>{});}catch{}
    return true;
   }
   // nothing left to place: hold behind what stands, or flee when no wall went up
   return fuseWallCells(me,c.position).some(q=>solidAt(bot,q.x,q.y,q.z));
+ }
+ // Round 87 (round-86 report: three walling lines and nothing to show whether a block went down):
+ // once per wall, when the fuse is over or the creeper is past FUSE_WALL_NEAR.
+ _wallDone(bot,ctx){
+  const w0=this._wall0;this._wall0=null;if(!w0)return;
+  const standing=w0.cells.filter(q=>solidAt(bot,q.x,q.y,q.z)).length;
+  const w=pickCtx(this,ctx)?.worker;
+  if(w&&w.log)try{w.log('Reflex: the fuse wall is done: '+w0.placed+' block(s) placed, '+standing+' of '+w0.cells.length+' cell(s) standing (held '+w0.held+')');}catch{}
  }
  isEqual(o){return super.isEqual(o)&&!!o.fuse===!!this.fuse;}
 }
