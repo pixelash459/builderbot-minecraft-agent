@@ -3104,3 +3104,27 @@ The round-72 soak on the Nitrous world copy (bot `3fc0f73`) ran all six runs cle
 - **Why the crafting window was still open** when Mob Defense closed it (the table kept by `keepTable` after the wooden-pickaxe craft), and which mineflayer call was mid-loop. The guard ends the loop. The caller is not known yet; the job error `Window click runaway` will name it.
 - **The round-85 respawn guard:** still to be exercised.
 - **From round 86:** cave-roof stops (hard2 stopped 2 below the surface), the hard-crowd thrash, skeleton-reach stand-downs, picking the bed back up, night-mine climbs that time out, and `chest_spot_blocked`.
+
+## Round 88 (2026-11-03)
+
+**What the round-87 soak showed** (`ef17573`, report `ae1919d`)
+- **Iron on 5 of 6 with 3 deaths** (0/0/0/1/2/0), the triple promoted, every run its full length, `errors` empty. normal1 wore the full iron kit at 906 s. hard2 missed iron: it lost both lives in its first 28 minutes and rebuilt to a furnace at 2411.
+- **Neither round-87 fix was exercised.** 0 centring lines (the one head-under episode, hard3's, surfaced straight up), 0 `no rise`, 0 `PACKET_RUNAWAY`, 0 `last: window_click`, 0 kicks. The round-86 fuse wall did not fire either: no creeper reached fuse range. 0 creeper deaths.
+- **The three deaths** (all in the hard crowd east of spawn, ~90 hostiles loaded on every flee line there):
+  - **hard1** (zombie): the morning box at (845, 103, -470) opened at tod 1022 with the nearest hostile 21.5, took 40 s to come down, and the bot was dead 4 s after `Completed shelter`. Health was 20 on the sample 13 s before. It held a stone sword; the flee was `(vulnerable)` (armour 0, health under 18).
+  - **hard2** (zombie): mid stone-gather at t 321, two one-hit fights 0.4 s apart, a `(vulnerable)` flee, dead 2 s later. It held wooden tools only.
+  - **hard2** (skeleton): `morning in a cave (8 hostiles within 24, sky 0)`, the stair-out `dug 3 steps up east`, `Ascend: y=85 -> 88 (surface 90)`, `Completed shelter`, shot 9 s later. The climb out ended under the cave roof.
+- **Cave climb-outs end under the roof often.** In the logs since 2026-10-26, 11 of 26 cave mornings ended 1-22 under the surface after a stair-out (`74 -> 78 (surface 88)`, `64 -> 68 (surface 90)`, `87 -> 91 (surface 98)` ...). Why: the round-40 pillar only runs when the climb rose 2 or less, and the stair-out rises 3-4, so `ascend` returned with no sky and the shelter job completed.
+- The round-84 night-mine line fired twice (moved and re-sealed, no damage), the round-83 crowd hold once (180 s), probe 10/11.
+
+**Fix**
+- **A sky climb pillars on to the sky** (`worker.js` `ascend`): when an ascend that wants the sky (`sky` from the cave morning, or `forFood`) has risen but is still under the surface anchor with no sky over the head, it pillars up (`pillarUp` with the same `safe` ceiling rule, up to `ASCEND_PILLAR` 24 digs) until the head cell reads sky. Logged `Ascend: no sky at y=N after the climb (surface Y); pillaring to the sky`. It stays out of a climb that reached the sky, a bot at or over the anchor (a canopy), and an ascend that does not want the sky.
+- `pillarUp` takes an `until` stop condition.
+- **The death line says what happened** (diagnostic only, `deathContext`): after `Bot died at`, `Death: health 20 -> 15.5 -> ... -> 0 in the last 10 s; armour A; held ITEM; N hostile(s) within 8: zombie 0.8, ...`. The health trail is kept from `onHealth` for `DEATH_TRAIL_MS` 10 s.
+
+**Tests:** `round88.test.js` (5): the round-87 hard2 climb pillaring to the sky; no pillar after a climb that reached the sky, at the anchor under a canopy, or on a plain ascend, and a food ascend pillaring; `pillarUp` stopping on `until`; the death line's trail, armour, held item and near hostiles; `onDeath` logging it and clearing the trail.
+
+**Not changed yet**
+- **The `(vulnerable)` flee with a sword held** (hard1): with no armour any hit under 18 makes the bot flee rather than fight, in a crowd it cannot outrun. The new death line should show whether the flee or the fight would have been better before this is touched.
+- **The 40 s morning box takedown** (hard1): the walls come down cell by cell with zombies approaching; the round-72 creeper/skeleton wait does not count zombies.
+- **From round 87:** why the crafting window was still open (the click guard has not fired yet), the round-85 respawn guard (still unexercised), the hard-crowd thrash, skeleton-reach stand-downs, picking the bed back up, night-mine climbs that time out, and `chest_spot_blocked`.

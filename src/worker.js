@@ -36,7 +36,7 @@ import {createMoveTasks} from './tasks/movement/factories.js';
 import {createLoopWatch} from './loop-watch.js';
 import {installToolWear,watchToolLoss} from './toolWear.js';
 import {darkNow,stillNight,leaveRefuge,shelterShell,shellGaps,holdableShell,placementPlan,shelterTarget,deepWaterCost,fleeHeading,nightMineWanted,tunnelBreach,REFUGE_CLEAR,SUNSET,DUSK_PREP,NIGHT_MINE_MS,NIGHT_MINE_STOP,NIGHT_MINE_DEPTH,NIGHT_MINE_STRIP} from './night.js';
-import {bestWeapon,attackCooldown,leaveAlone} from './chains/combatPolicy.js';
+import {bestWeapon,attackCooldown,leaveAlone,armorValue} from './chains/combatPolicy.js';
 const {pathfinder,Movements,goals}=pathfinderPackage;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const pos=p=>new Vec3(p.x,p.y,p.z);
@@ -605,6 +605,21 @@ export function openSurface(b,floor){
 export function headSky(b,p){
  try{const h=b.blockAt(new Vec3(p.x,p.y+1,p.z));return h&&Number.isFinite(h.skyLight)?h.skyLight:0;}catch{return 0;}
 }
+// Round 88 (round-87: hard1 went from health 20 on its last sample to dead 13 s later, 4 s after
+// its morning box came down, and hard2 died 2 s after a `(vulnerable)` flee - the log names the
+// killer and nothing of what hit it): the death line is followed by the health over the last
+// DEATH_TRAIL_MS, the armour, the held item and the hostiles within DEATH_NEAR.
+export const DEATH_TRAIL_MS=10000,DEATH_NEAR=8;
+export function deathContext(bot,trail,now){
+ const at=bot.entity?.position;
+ const hp=(trail||[]).filter(h=>now-h.t<=DEATH_TRAIL_MS).map(h=>Math.round(h.hp*10)/10);
+ const steps=hp.filter((h,i)=>i===0||h!==hp[i-1]);
+ const near=at?Object.values(bot.entities||{}).filter(e=>e&&e!==bot.entity&&(e.type==='hostile'||provoked(bot,e))&&e.position&&e.isValid!==false&&e.position.distanceTo(at)<=DEATH_NEAR)
+  .map(e=>({name:e.name,d:e.position.distanceTo(at)})).sort((x,y)=>x.d-y.d):[];
+ let armour=0;try{armour=armorValue(bot);}catch{}
+ return 'Death: health '+(steps.length?steps.join(' -> '):'unknown')+' in the last '+DEATH_TRAIL_MS/1000+' s; armour '+armour+'; held '+(bot.heldItem?.name||'nothing')+'; '
+  +near.length+' hostile(s) within '+DEATH_NEAR+(near.length?': '+near.slice(0,8).map(n=>n.name+' '+n.d.toFixed(1)).join(', ')+(near.length>8?', ...':''):'');
+}
 // Round 31 (round-30 normal2 fell 34 climbing a mountainside toward y=137, its wood-step stand,
 // for food): a food ascend ends at open sky - grazing needs the surface, not the anchor's height.
 // Like GoalY otherwise (a cave with no sky still climbs to y).
@@ -1167,6 +1182,8 @@ export class Worker extends EventEmitter {
   const at=bot.entity?.position;
   const killer=at?Object.values(bot.entities).filter(e=>e!==bot.entity&&e.type==='hostile'&&e.position&&e.position.distanceTo(at)<=8).sort((x,y)=>x.position.distanceTo(at)-y.position.distanceTo(at))[0]:null;
   this.log('Bot died at '+(at?Math.floor(at.x)+', '+Math.floor(at.y)+', '+Math.floor(at.z):'an unknown position')+(killer?' (killed by '+killer.name+')':''));
+  try{this.log(deathContext(bot,this.hpTrail,Date.now()));}catch{}
+  this.hpTrail=[];
   this.lastDeath={pos:at?{x:at.x,y:at.y,z:at.z}:null,t:Date.now()};
   // Monotonic, session-wide: the soak counts a run's deaths as this counter's rise (the
   // 100-entry event window scrolls a 'Bot died at' line out within one 30 s sample under a
@@ -1201,6 +1218,7 @@ export class Worker extends EventEmitter {
   // Round 85: the death itself is not a hit (the respawn guard reads hurtAt).
   if(this._lastHp!=null&&bot.health>0&&bot.health<this._lastHp-0.01)this.hurtAt=Date.now();
   this._lastHp=bot.health;
+  {const now=Date.now();this.hpTrail=[...(this.hpTrail||[]).filter(h=>now-h.t<=DEATH_TRAIL_MS),{t:now,hp:bot.health}];}
   if(this.busy&&!this.survivalJob&&(bot.health<this.config.limits.minHealth||bot.food<this.config.limits.minFood))this.stop('Health or food is low','health');}
  disconnect(){this.stop('Disconnected by user','user');this.bot?.quit();this.bot=null;this.ready=false;}
  // keepHolds: a survival job the autopilot sends while a death holds the ladder (the
@@ -2391,10 +2409,10 @@ export class Worker extends EventEmitter {
  // Jump-place held blocks under the feet until the feet stand at targetY: hold jump, place on
  // the block under the old feet cell at the apex, land. Never into a ceiling (the cell above
  // the head must be open, or a block `clear` accepts, which is dug); three tries per level.
- async pillarUp(targetY,token,{clear=null,maxDigs=TRUNK_PILLAR}={}){
+ async pillarUp(targetY,token,{clear=null,maxDigs=TRUNK_PILLAR,until=null}={}){
   const b=this.bot;
   let digs=0,tries=0;const peaks=[];
-  for(;b.entity.position.floored().y<targetY&&tries<3;){
+  for(;b.entity.position.floored().y<targetY&&tries<3&&!(until&&until());){
    this.check(token);
    const f=b.entity.position.floored(),y0=f.y;
    const roof=b.blockAt(f.offset(0,2,0));
@@ -4645,8 +4663,9 @@ export class Worker extends EventEmitter {
   // Round 40 (round-39 normal: `ascend` for food from y=53 x16, every one `No path to the goal!
   // (empty path ...)` - an enclosed cell with no way up the pathfinder can see): pillar straight
   // up instead, digging any ceiling that has no fluid or falling block over it.
+  const safe=bl=>{const up=b.blockAt(bl.position.offset(0,1,0));return !/bedrock|obsidian|chest|furnace|crafting_table|spawner/.test(bl.name)&&!isFluid(bl)&&!isFluid(up)&&!isGravity(up);};
+  const skyOpen=()=>headSky(b,b.entity.position.floored())>=SKY_OPEN;
   if(Math.floor(b.entity.position.y)<=start+2&&Math.floor(b.entity.position.y)<y-4){
-   const safe=bl=>{const up=b.blockAt(bl.position.offset(0,1,0));return !/bedrock|obsidian|chest|furnace|crafting_table|spawner/.test(bl.name)&&!isFluid(bl)&&!isFluid(up)&&!isGravity(up);};
    this.log('Ascend: no path up from y='+start+'; pillaring');
    // Round 76 (round-75 normal1: the iron pick broke at y=38, `Ascend: y=38 -> 62 (surface 71)`
    // - the one ASCEND_PILLAR segment ran out 9 below the surface - then 15 minutes of `no path for
@@ -4659,10 +4678,20 @@ export class Worker extends EventEmitter {
     if(to>=y-4||to<target||seg===ASCEND_SEGMENTS-1)break; // short of its own target: a ceiling or no blocks
     this.log('Ascend: pillared y='+from+' -> '+to+', '+(y-to)+' below the surface; pillaring on');
    }
+  }else if(toSky&&Math.floor(b.entity.position.y)<y&&!skyOpen()){
+   // Round 88 (round-87 hard2: `morning in a cave (8 hostiles within 24, sky 0)`, the stair-out
+   // `dug 3 steps up east`, `Ascend: y=85 -> 88 (surface 90)` and `Completed shelter` under the
+   // cave roof - shot by a skeleton 9 s later; 11 of the 26 cave mornings in the logs since
+   // 2026-10-26 ended like that, 1-22 under the surface, the stair-out's rise skipping the pillar):
+   // a sky climb that rose but still has a roof over the head pillars on, digging the roof, until
+   // the sky is open.
+   const from=Math.floor(b.entity.position.y);
+   this.log('Ascend: no sky at y='+from+' after the climb (surface '+y+'); pillaring to the sky');
+   try{await this.pillarUp(from+ASCEND_PILLAR,token,{clear:safe,maxDigs:ASCEND_PILLAR,until:skyOpen});}catch(e){this.check(token);this.log('Ascend: pillar stopped ('+String(e.message).slice(0,60)+')');}
   }
   const now=Math.floor(b.entity.position.y);
   this.log('Ascend: y='+start+' -> '+now+' (surface '+y+')');
-  if(toSky&&headSky(b,b.entity.position.floored())>=SKY_OPEN)return; // round 31: on the surface
+  if(toSky&&skyOpen())return; // round 31: on the surface
   if(now<=start+2)throw Error('Could not climb toward the surface from y='+start);
  }
  // A dropped item entity the bot tossed as junk a moment ago (drop job): not worth a walk.
