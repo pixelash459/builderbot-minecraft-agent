@@ -44,7 +44,7 @@ test('round 84: on the night mine, a hostile within 8 or a fresh hit lets Mob De
  const w=Object.assign(Object.create(Worker.prototype),{jobs:[shelter]});
  // sealed in the box: no mining hold, Mob Defense stays off
  w.shelterSealed=true;w.nightMining=true;
- assert.deepEqual(w.survivalHold(),{job:shelter,sealed:true,mining:false});
+ assert.deepEqual(w.survivalHold(),{job:shelter,sealed:true,mining:false,respawned:false});
  // round-83 hard3: down the staircase, the box open behind it
  w.shelterSealed=false;
  assert.equal(w.survivalHold().mining,true);

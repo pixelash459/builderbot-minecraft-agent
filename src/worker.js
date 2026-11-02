@@ -714,7 +714,13 @@ const WORLD_CHAIN='Misc World Survival Chain';
 // MINE_HURT_MS lets Mob Defense through. Its preemption pauses the shelter job, and the resumed
 // job seals a new box where the bot stands.
 export const NIGHT_MINE_GUARD=8,MINE_HURT_MS=3000;
-export function nightMineOverride(chainName,hold,threat){return chainName==='Mob Defense'&&!!hold&&!!hold.mining&&!!threat;}
+// Round 85 (round-84 hard1: nine deaths in 110 s at the world spawn - each night respawn queued
+// `shelter at the spawn point first`, the hold switched Mob Defense off while the empty-handed
+// bot tried to burrow in a crowd of 12-90, and a zombie killed it 10-40 s later): for
+// RESPAWN_GUARD_MS after a death, until the shelter seals, the same threat lets Mob Defense
+// through (hold.respawned). The resumed shelter builds where the flee left it.
+export const RESPAWN_GUARD_MS=180000;
+export function nightMineOverride(chainName,hold,threat){return chainName==='Mob Defense'&&!!hold&&!!(hold.mining||hold.respawned)&&!!threat;}
 // Round 11: the bucket's eye ray from `from` to `to` (the fluid surface): the first solid
 // block it passes through (blocked) or the first water source it meets (fluid). Fine steps.
 export const BUCKET_TRIES=3,BUCKET_REACH=4.4;
@@ -965,7 +971,7 @@ export class Worker extends EventEmitter {
     const creeper=creeperNow||(creeperLatched&&!!hold&&chain.name==='Mob Defense'&&!hold.sealed&&!bot.isSleeping&&creeperDistance(bot)<=CREEPER_RELEASE);
     if(chain.name==='Mob Defense')creeperLatched=creeper;
     if(creeper&&!wasActive)self.log('Reflex: creeper at '+creeperThreat(bot).toFixed(1)+' overrides the '+hold.job.spec.type+' hold');
-    const threat=chain.name==='Mob Defense'&&hold&&hold.mining?self.mineThreat(bot):null;
+    const threat=chain.name==='Mob Defense'&&hold&&(hold.mining||hold.respawned)?self.mineThreat(bot):null;
     const mineOverride=nightMineOverride(chain.name,hold,threat);
     if(hold&&chain.name!==WORLD_CHAIN&&!creeper&&!mineOverride){
      const building=hold.job.status==='running'&&hold.job.spec.type==='shelter'&&!hold.sealed;
@@ -973,7 +979,7 @@ export class Worker extends EventEmitter {
      wasActive=false;return -1;
     }
     const p=chain.priority(bot,ctx);
-    if(mineOverride&&p>=0&&!wasActive)self.log('Reflex: '+threat+' on the night mine; Mob Defense answers');
+    if(mineOverride&&p>=0&&!wasActive)self.log('Reflex: '+threat+(hold.mining?' on the night mine':' after a night respawn')+'; Mob Defense answers');
     // Observability contract (the suite and the dashboard watch for 'Reflex:'): log each
     // survival chain engagement, exactly like the retired reflex loop announced itself.
     const activeNow=p>=0;
@@ -1002,10 +1008,12 @@ export class Worker extends EventEmitter {
  // running shelter has closed its box.
  survivalHold(){
   const running=this.jobs.find(j=>j.status==='running');
-  if(running)return SURVIVAL_JOBS.has((running.spec||{}).type)?{job:running,sealed:running.spec.type==='shelter'&&!!this.shelterSealed,mining:running.spec.type==='shelter'&&!!this.nightMining&&!this.shelterSealed}:null;
+  if(running)return SURVIVAL_JOBS.has((running.spec||{}).type)?{job:running,sealed:running.spec.type==='shelter'&&!!this.shelterSealed,mining:running.spec.type==='shelter'&&!!this.nightMining&&!this.shelterSealed,respawned:running.spec.type==='shelter'&&!this.shelterSealed&&this.respawnGuard()}:null;
   const waiting=this.jobs.find(j=>SURVIVAL_JOBS.has((j.spec||{}).type)&&(j.status==='queued'||reflexPaused(j)));
-  return waiting?{job:waiting,sealed:false}:null;
+  return waiting?{job:waiting,sealed:false,respawned:waiting.spec.type==='shelter'&&this.respawnGuard()}:null;
  }
+ // Round 85: within RESPAWN_GUARD_MS of the last death (nightMineOverride).
+ respawnGuard(){return !!this.lastDeath&&Date.now()-this.lastDeath.t<=RESPAWN_GUARD_MS;}
  // Round 84: what Mob Defense answers on the night mine (nightMineOverride), or null.
  mineThreat(bot=this.bot){
   const me=bot?.entity?.position;if(!me)return null;
@@ -1179,7 +1187,8 @@ export class Worker extends EventEmitter {
   return true;
  }
  onHealth(bot){
-  if(this._lastHp!=null&&bot.health<this._lastHp-0.01)this.hurtAt=Date.now();
+  // Round 85: the death itself is not a hit (the respawn guard reads hurtAt).
+  if(this._lastHp!=null&&bot.health>0&&bot.health<this._lastHp-0.01)this.hurtAt=Date.now();
   this._lastHp=bot.health;
   if(this.busy&&!this.survivalJob&&(bot.health<this.config.limits.minHealth||bot.food<this.config.limits.minFood))this.stop('Health or food is low','health');}
  disconnect(){this.stop('Disconnected by user','user');this.bot?.quit();this.bot=null;this.ready=false;}

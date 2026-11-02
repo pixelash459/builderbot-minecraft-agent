@@ -3004,3 +3004,37 @@ The round-72 soak on the Nitrous world copy (bot `3fc0f73`) ran all six runs cle
 - **The hard crowd thrash** (hard1): strike, flee and job resumes alternating in a crowd of 77. It needs more than one death to shape.
 - **normal3's second lava pool:** no escape line before the death. Needs the next soak's lava lines.
 - **From round 83:** keep-distance stand-downs in reach of a skeleton, the silence during a creeper hover, picking the bed back up, night-mine climbs home that time out, and `chest_spot_blocked`.
+
+## Round 85 (2026-11-02)
+
+**What the round-84 soak showed** (`77339a2`, report `2f1deef`)
+- **Iron on 4 of 6, 12 deaths: hard1 11, hard3 1.**
+  - The normals were clean: 0 deaths, iron at 602/633/693, and beds on normal1 and normal3.
+  - hard2 was the model hard run: 0 deaths, iron at 1356 s, a bed at 1055 s, and the round's one ore-bearing night mine (back in, sump filled, 6 ore items).
+- **The round-84 night-mine fix worked on its first live use** (hard2). `Reflex: a skeleton within 8 on the night mine; Mob Defense answers` led to `Shelter: moved from 803,90,-500 to (803, 87, -499); building a new box here`, then `sealed` 6 s later. Health stayed at 20, with no damage in the 2 minutes after.
+  - The open-box hold and the torch dig-out were not exercised: no seal left an open cell this round.
+- **The round-83 no-weapon crowd hold fired for the first time** (hard3): `8 hostiles within 32 (no weapon held); keeping the walls up`, then `opening the walls` 180 s later, with no damage after it.
+- **hard1's spawn-kill loop, the round's story.** Nine deaths in 110 s at the world spawn (01:17:06 → 01:18:56Z), with 12-90 hostiles named on the flee lines there:
+  - Each night respawn logged `Autopilot: respawned at night; shelter at the spawn point first`.
+  - The shelter job's hold then switched Mob Defense off, the same hold that round 84 opened for the night mine.
+  - Meanwhile the empty-handed bot tried to burrow (`not here (open wall beside ...)`, `no block for the cap`, `did not sink`) or found `Short of shelter blocks: 0 held`.
+  - A zombie (once a drowned) killed it 10-40 s after each respawn.
+  - The only `Reflex: fleeing` lines in the loop came in the instant after a death, when the death pause had lifted the hold. Dawn ended the loop.
+- **hard3:** a creeper 24 s after its box opened at dawn (`creeper at 6.0 overrides the shelter hold`, then the flee, then `blown up`). That was the first creeper kill since round 81, a single case. After that it worked the round-79 river cell, and the round-80 dig-down fallback fired 15 times.
+- **Path counts against round 83:** `Job: no path` 9 vs 8, took-too-long 13 vs 26, no-avoidance 244 vs 201 (largest N 43), `Cannot reach` 13 vs 20. There were no lava lines at all, `Window: closed` was 0 for the third round running, and probe 10/11.
+
+**Fix**
+- **A shelter after a death is guarded** (`worker.js`: `survivalHold` gains `respawned`; `respawnGuard`, `RESPAWN_GUARD_MS` 180 s):
+  - For 3 minutes after the last death, until the shelter seals (box or burrow), the night-mine threat test applies to the shelter hold too: a hostile within 8 or a hit in the last 3 s lets Mob Defense through.
+  - This covers a shelter queued behind the death pause as well as a running one.
+  - Logged `Reflex: <a zombie within 8 | a hit> after a night respawn; Mob Defense answers`.
+  - Its preemption pauses the shelter. The resumed job builds where the flee left the bot (`Shelter: moved from ...`), away from the spawn crowd.
+  - With no recent death, or once sealed, nothing changes.
+- **The death is not a hit:** `onHealth` no longer marks `hurtAt` when the health falls to 0, so the guard does not read the death itself as a fresh hit.
+
+**Tests:** `round85.test.js` (3): the hold flag and the override truth table; the death and the respawn heal are not hits; the real gate lets Mob Defense answer a zombie at 5 after a death, and does not without one or once sealed. In `round84.test.js`, the `survivalHold` deep-equal now carries `respawned:false`.
+
+**Not changed yet**
+- **hard3's creeper at the box opening.** One case, and the override and the flee both fired.
+- **Cave-morning roof stops** (hard2 `y=87 -> 91 (surface 98)`). Left alone, as in rounds 79-84.
+- **From round 84:** the hard-crowd thrash, a second lava pool (none this round), skeleton-reach stand-downs, the hover silence, picking the bed back up, night-mine climbs that time out, and `chest_spot_blocked`.
