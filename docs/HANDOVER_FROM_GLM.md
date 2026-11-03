@@ -3128,3 +3128,24 @@ The round-72 soak on the Nitrous world copy (bot `3fc0f73`) ran all six runs cle
 - **The `(vulnerable)` flee with a sword held** (hard1): with no armour any hit under 18 makes the bot flee rather than fight, in a crowd it cannot outrun. The new death line should show whether the flee or the fight would have been better before this is touched.
 - **The 40 s morning box takedown** (hard1): the walls come down cell by cell with zombies approaching; the round-72 creeper/skeleton wait does not count zombies.
 - **From round 87:** why the crafting window was still open (the click guard has not fired yet), the round-85 respawn guard (still unexercised), the hard-crowd thrash, skeleton-reach stand-downs, picking the bed back up, night-mine climbs that time out, and `chest_spot_blocked`.
+
+## Round 89 (2026-11-03)
+
+**What the round-88 soak showed** (`63915fc`, report `828cd20`)
+- **Iron on 6 of 6, 1 death** (0/0/0/1/0/0), the triple promoted, every run its full length, `errors` empty, 0 kicks, 0 uncaught. Path counts 9 / 0 / 206 / 14 / 2 (no path / took-too-long / no-avoidance / Cannot reach / searching 320), probe 10/11.
+- **The round-87 click guard fired for the first time** (hard3, 15:47:13Z): Mob Defense closed the crafting window, then `PACKET_RUNAWAY window_click 200 in 1 s (window 0 slot 10); failing the click to end the loop`. The loop stopped, no kick, and the bot crafted and gathered on 30 s later. No `Window click runaway` job error followed: the loop was not inside a job's own click (the gather had been preempted), so the caller is still not named. Window 0 is the player inventory, so the loop moved from the closed table to the inventory.
+- **The one death** (hard1, skeleton): `morning in a cave (4 hostiles within 24, sky 0)`, the stair-out `dug 2 steps up east` inside the navigation, `no path up from y=62; pillaring`, `Ascend: y=62 -> 88 (surface 92)`, `Completed shelter`, fleeing `(armed, but health 11 below 14 - COMBAT_SPEC 7f)`, shot 8 s later. The new death line: `health 11 -> 11.8 -> ... -> 14.2 -> 5.2 -> 6.2 -> 0; armour 0; held dirt; 0 hostile(s) within 8` (shot from beyond 8). The sample at y=73 mid-pillar was health 20, so it lost 9 on the 27 s climb with nothing in the log.
+- **Why the round-88 sky pillar missed it:** the stair-out rose only 2, so the round-40 no-path pillar ran instead, and its segments stop at the surface - 4 (88 under 92). The round-88 branch was an `else` of that pillar, so it never looked at the sky there.
+- **The round-88 sky pillar fired once** (hard3): `no sky at y=59 after the climb (surface 89); pillaring to the sky`, ending `y=55 -> 76`. No damage after; it fought two skeletons and went on. The pillar stops on the head-sky reading, so 76 was most likely open sky in a ravine under a surface anchor of 89, but nothing in the log said so. The other two cave mornings (hard2, `80 -> 84 (surface 89)` and `86 -> 90 (surface 91)`) did not take the branch, which means the head read sky there.
+- 0 fuse walls, 0 creeper deaths, 0 night respawns, 0 centring lines.
+
+**Fix**
+- **The sky pillar also follows a no-path pillar** (`worker.js` `ascend`): the round-88 sky pillar is no longer an `else` of the round-40 pillar. A sky climb whose no-path pillar reached the surface - 4 with no sky over the head pillars on to the sky. A no-path pillar that stopped short of its own target (a ceiling it may not dig, or no blocks) is not tried again. Escape ascends are unchanged.
+- **A sky climb says how it ended** (diagnostic only): before the `Ascend: y=` line, `Ascend: head sky S at y=N; health A -> B on the climb`.
+
+**Tests:** `round89.test.js` (2): the round-88 hard1 climb (stair-out 2, no-path pillar to 88 under 92, then the sky pillar, with the head-sky and health line); a pillar short of its own target not retried, and an escape ascend keeping its old lines. `round88.test.js` updated for the new head-sky line. 783 pass, resources 9.
+
+**Not changed yet**
+- **The flee at health 11 in a cave-morning crowd** (hard1): the climb came out at health 11 into a crowd at tod ~1000 and the bot fled under skeleton fire. The new climb line will show how much health climbs cost.
+- **The flee that does not move** (hard3, 15:47:43Z): `RunAwayFromHostilesTask held 20 s without moving the bot (health 20, food 20, nothing within 8 in sight); standing down for 60 s`, the run-up to the click runaway.
+- **From round 88:** the `(vulnerable)` flee with a sword held, the 40 s morning box takedown, the click-loop caller, the round-85 respawn guard (unexercised), the hard-crowd thrash, skeleton-reach stand-downs, picking the bed back up, night-mine climbs that time out, and `chest_spot_blocked`.

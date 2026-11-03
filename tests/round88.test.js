@@ -20,13 +20,13 @@ test('round 88: a cave climb out that ends under the roof pillars on to the sky'
  assert.equal(pillars.length,1);
  assert.equal(pillars[0].target,88+ASCEND_PILLAR);assert.equal(pillars[0].opts.maxDigs,ASCEND_PILLAR);
  assert.equal(typeof pillars[0].opts.clear,'function');
- assert.deepEqual(logs,['Ascend: no sky at y=88 after the climb (surface 90); pillaring to the sky','Ascend: y=85 -> 90 (surface 90)']);
+ assert.deepEqual(logs,['Ascend: no sky at y=88 after the climb (surface 90); pillaring to the sky','Ascend: head sky 15 at y=90; health ? -> ? on the climb','Ascend: y=85 -> 90 (surface 90)']);
 });
 
 test('round 88: the sky pillar stays out of a climb that reached the sky, a canopy over the anchor and a plain ascend',async()=>{
  const open=cave({skyAfter:15});
  await open.w.ascend({spec:{type:'ascend',y:90,sky:true}},0);
- assert.equal(open.pillars.length,0);assert.deepEqual(open.logs,['Ascend: y=85 -> 88 (surface 90)']);
+ assert.equal(open.pillars.length,0);assert.deepEqual(open.logs,['Ascend: head sky 15 at y=88; health ? -> ? on the climb','Ascend: y=85 -> 88 (surface 90)']);
  // at the anchor height under leaves: no pillar through the canopy
  const canopy=cave({to:90});
  await canopy.w.ascend({spec:{type:'ascend',y:90,sky:true}},0);

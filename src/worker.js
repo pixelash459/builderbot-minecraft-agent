@@ -4650,7 +4650,7 @@ export class Worker extends EventEmitter {
  // Round 18: back up to the surface (y) from deep underground - the recorded tunnel first (it
  // is open by construction), then a path up with the normal movements (they dig and pillar).
  async ascend(job,token){
-  const b=this.bot,y=job.spec.y,start=Math.floor(b.entity.position.y);
+  const b=this.bot,y=job.spec.y,start=Math.floor(b.entity.position.y),hp0=b.health;
   if(this.strandedTunnel?.points?.length){
    try{await this.climbTunnel({tunnel:this.strandedTunnel.points},token);this.strandedTunnel=null;}
    catch(e){this.check(token);this.log('Ascend: tunnel climb stopped ('+String(e.message).slice(0,60)+')');}
@@ -4665,7 +4665,8 @@ export class Worker extends EventEmitter {
   // up instead, digging any ceiling that has no fluid or falling block over it.
   const safe=bl=>{const up=b.blockAt(bl.position.offset(0,1,0));return !/bedrock|obsidian|chest|furnace|crafting_table|spawner/.test(bl.name)&&!isFluid(bl)&&!isFluid(up)&&!isGravity(up);};
   const skyOpen=()=>headSky(b,b.entity.position.floored())>=SKY_OPEN;
-  if(Math.floor(b.entity.position.y)<=start+2&&Math.floor(b.entity.position.y)<y-4){
+  const pillared=Math.floor(b.entity.position.y)<=start+2&&Math.floor(b.entity.position.y)<y-4;
+  if(pillared){
    this.log('Ascend: no path up from y='+start+'; pillaring');
    // Round 76 (round-75 normal1: the iron pick broke at y=38, `Ascend: y=38 -> 62 (surface 71)`
    // - the one ASCEND_PILLAR segment ran out 9 below the surface - then 15 minutes of `no path for
@@ -4678,7 +4679,13 @@ export class Worker extends EventEmitter {
     if(to>=y-4||to<target||seg===ASCEND_SEGMENTS-1)break; // short of its own target: a ceiling or no blocks
     this.log('Ascend: pillared y='+from+' -> '+to+', '+(y-to)+' below the surface; pillaring on');
    }
-  }else if(toSky&&Math.floor(b.entity.position.y)<y&&!skyOpen()){
+  }
+  // Round 89 (round-88 hard1: `morning in a cave (4 hostiles within 24, sky 0)`, `no path up from
+  // y=62; pillaring`, `Ascend: y=62 -> 88 (surface 92)` - the segments stop at 4 under the surface,
+  // a sky climb's roof still over the head - and shot by a skeleton 8 s after `Completed shelter`):
+  // the sky pillar below also follows a no-path pillar that got there. A pillar that stopped short
+  // of its own target (a ceiling it may not dig, or no blocks) is not tried again.
+  if(toSky&&Math.floor(b.entity.position.y)<y&&!skyOpen()&&(!pillared||Math.floor(b.entity.position.y)>=y-4)){
    // Round 88 (round-87 hard2: `morning in a cave (8 hostiles within 24, sky 0)`, the stair-out
    // `dug 3 steps up east`, `Ascend: y=85 -> 88 (surface 90)` and `Completed shelter` under the
    // cave roof - shot by a skeleton 9 s later; 11 of the 26 cave mornings in the logs since
@@ -4690,6 +4697,9 @@ export class Worker extends EventEmitter {
    try{await this.pillarUp(from+ASCEND_PILLAR,token,{clear:safe,maxDigs:ASCEND_PILLAR,until:skyOpen});}catch(e){this.check(token);this.log('Ascend: pillar stopped ('+String(e.message).slice(0,60)+')');}
   }
   const now=Math.floor(b.entity.position.y);
+  // Round 89 (round-88 hard1 went from health 20 at y=73 to 11 at the top of its 27 s pillar with
+  // nothing in the log): a sky climb says the head sky and the health it lost on the way.
+  if(toSky){const hp=h=>h==null?'?':Math.round(h*10)/10;this.log('Ascend: head sky '+headSky(b,b.entity.position.floored())+' at y='+now+'; health '+hp(hp0)+' -> '+hp(b.health)+' on the climb');}
   this.log('Ascend: y='+start+' -> '+now+' (surface '+y+')');
   if(toSky&&skyOpen())return; // round 31: on the surface
   if(now<=start+2)throw Error('Could not climb toward the surface from y='+start);
