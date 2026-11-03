@@ -590,6 +590,8 @@ export function burrowPlan(at3,feet,pickaxe=false){
 }
 // Round 31: the sky light at the head cell over feet `p` (0 when unknown).
 export const SKY_OPEN=12;
+// Round 90: how far over the surface anchor a sky pillar may go looking for the sky.
+export const SKY_OVER=6;
 // Round 59 (round-58 hard runs, seed 6274947974391380586: `Navigation left the surface` on every
 // wood gather from the y=71 hard anchor - the ground rolls down to y=61-66 there, and the wood
 // step never finished on any hard run): under open sky the bot is still on the surface, down to
@@ -4694,7 +4696,10 @@ export class Worker extends EventEmitter {
    // the sky is open.
    const from=Math.floor(b.entity.position.y);
    this.log('Ascend: no sky at y='+from+' after the climb (surface '+y+'); pillaring to the sky');
-   try{await this.pillarUp(from+ASCEND_PILLAR,token,{clear:safe,maxDigs:ASCEND_PILLAR,until:skyOpen});}catch(e){this.check(token);this.log('Ascend: pillar stopped ('+String(e.message).slice(0,60)+')');}
+   // Round 90 (round-89 hard1: `no sky at y=62 after the climb (surface 89)`, the pillar to its
+   // own target 62+24 and `head sky 0 at y=86` - 3 under the surface, the roof still on): the
+   // target is at least SKY_OVER over the surface anchor, so the pillar stops on the sky, not short.
+   try{await this.pillarUp(Math.max(from+ASCEND_PILLAR,y+SKY_OVER),token,{clear:safe,maxDigs:ASCEND_PILLAR,until:skyOpen});}catch(e){this.check(token);this.log('Ascend: pillar stopped ('+String(e.message).slice(0,60)+')');}
   }
   const now=Math.floor(b.entity.position.y);
   // Round 89 (round-88 hard1 went from health 20 at y=73 to 11 at the top of its 27 s pillar with

@@ -3149,3 +3149,23 @@ The round-72 soak on the Nitrous world copy (bot `3fc0f73`) ran all six runs cle
 - **The flee at health 11 in a cave-morning crowd** (hard1): the climb came out at health 11 into a crowd at tod ~1000 and the bot fled under skeleton fire. The new climb line will show how much health climbs cost.
 - **The flee that does not move** (hard3, 15:47:43Z): `RunAwayFromHostilesTask held 20 s without moving the bot (health 20, food 20, nothing within 8 in sight); standing down for 60 s`, the run-up to the click runaway.
 - **From round 88:** the `(vulnerable)` flee with a sword held, the 40 s morning box takedown, the click-loop caller, the round-85 respawn guard (unexercised), the hard-crowd thrash, skeleton-reach stand-downs, picking the bed back up, night-mine climbs that time out, and `chest_spot_blocked`.
+
+## Round 90 (2026-11-04)
+
+**What the round-89 soak showed** (`ae8e24c`, report `28955b9`)
+- **Iron on 5 of 6, 3 deaths** (0/0/0/1/0/2), the triple promoted, every run its full length, `errors` empty, 0 kicks, 0 uncaught, 0 `PACKET_RUNAWAY`. Path counts 11 / 11 / 214 / 20 (no path / took-too-long / no-avoidance / Cannot reach), probe 10/11. hard2 set a respawn point and placed a bed; hard1 never got a furnace.
+- **hard1, zombie, 11 s after a cave morning.** The night box at (806, 58, -534) sealed with silverfish inside (`Shelter: hitting silverfish inside the box`); health went 20 -> 7.3 -> 4 and stayed 4 for five minutes at food 17, saturation 0 and no food in the bag (no regeneration under 18). Then `morning in a cave (6 hostiles within 24, sky 0)`, a 4-step stair-out to y=62, `no sky at y=62 after the climb (surface 89); pillaring to the sky`, `head sky 0 at y=86; health 4 -> 4 on the climb`, `Completed shelter`, a `(vulnerable)` flee from 97 loaded hostiles, and `Death: health 4 -> 0; armour 0; held stone_sword; 1 hostile(s) within 8: zombie 1.3`.
+- **Why the sky pillar stopped short:** its target was `from + ASCEND_PILLAR` (62 + 24 = 86), 3 under the surface of 89, so `pillarUp` stopped on the target with the roof still on.
+- **hard3, creeper, 79 s after a morning box:** `creeper fuse (swell 1) sprinting past 7`, then `creeper fuse at 1.1 and the flee is not moving the bot; walling 2 cell(s)`, blown up 1.0 s later from health 20, no `the fuse wall is done` line. The other wall (2.6) survived.
+- **hard3, zombie:** after that respawn with an empty bag, `(unarmed - COMBAT_SPEC 7f)` in an 83-hostile crowd at food 6.
+- The second cave morning (hard1) took the no-path pillar to `head sky 14 at y=86 (surface 86)`. No climb lost health (largest loss 0). The night-mine Mob Defense line fired once (hard2), moving to a new box.
+
+**Fix**
+- **The sky pillar goes up to the sky over the surface** (`worker.js` `ascend`): its target is `max(from + ASCEND_PILLAR, surface + SKY_OVER)`, `SKY_OVER` 6, so a long climb stops on the head-sky reading, not 24 above where it started. The dig budget is still `ASCEND_PILLAR`.
+
+**Tests:** `round90.test.js` (2): the round-89 hard1 climb (target 95, not 86, stopping at the sky at y=90); a short climb under a low surface keeping the 24 target. 785 pass, resources 9.
+
+**Not changed yet**
+- **Silverfish in a night box** (hard1): the box sealed in an infested patch and the bot lost 16 health inside it. And with no food, health 4 at food 17 does not regenerate.
+- **The late fuse wall** (hard3): the swell was first seen 7 away while the flee sprinted past it; the wall at 1.1 came too late.
+- **From round 89:** the flee at low health in a cave-morning crowd, the flee that does not move, the `(vulnerable)` flee with a sword held, the 40 s morning box takedown, the click-loop caller, the round-85 respawn guard (unexercised), skeleton-reach stand-downs, picking the bed back up, night-mine climbs that time out, and `chest_spot_blocked`.
