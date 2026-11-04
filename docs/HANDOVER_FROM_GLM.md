@@ -3270,3 +3270,38 @@ The round-72 soak on the Nitrous world copy (bot `3fc0f73`) ran all six runs cle
 - **The respawn with an empty bag:** 23 blocks needed, 1 held; it held at the spawn to the end.
 - **From round 92:** the creeper parked at about 6 (the stall rule), the 5-minute sealed morning, and deaths in huge crowds.
 - **From rounds 90-91:** the cornered fight is still unexercised, health 11.7 for two minutes, silverfish, no regeneration without food, the click-loop caller, night-mine climbs that time out, and `chest_spot_blocked`.
+
+## Round 94 (2026-11-05)
+
+**What the round-93 soak showed** (`20a7d93`, report `cc6237d`)
+- **Iron on 4 of 6, 1 death** (0/0/0/0/1/0), the triple promoted, every run its full length, `errors` empty, 0 kicks, 0 uncaught, 0 `PACKET_RUNAWAY`. Probe 10/11. normal3 and hard3 crafted beds; nobody slept.
+- **The round-93 line fired once**, hard2: `Reflex: a spider within 8 with the box open; Mob Defense answers`. The shelter resumed 0.85 s later and was superseded 18 s after that, with no damage. Not a test of skeleton fire.
+- **The cornered fight ran once** (hard2, a drowned at 3.0, `held dirt`), 4.3 s before the death. No `Combat:` line after it.
+- **hard2, no wood for 10 minutes, then the death:**
+  - The hard anchor `[704, 71, -423]` sits on a plains strip with the ocean west and a lake east. The soak world's region files show no log within ~100 blocks of it after the soak; the nearest are the cherry grove ~100-150 east and south-east.
+  - Six `wood failed 3 times; exploring before retry` legs, each `direction:"random"`, took the bot ~220 blocks south down the strip. Three ended `Boxed in at ... no way to stair out` on the water cells (708, 62, -598), (724, 62, -641), (726, 62, -667), with `Water: no dry stand within 12`.
+  - Biome samples from three of those explore starts ((694, -491), (699, -515), (707, -575)) read `cherry_grove` 96 east; west and north were ocean everywhere.
+  - Night came at (727, 61, -639): `Could not seal the shelter: 26 open cells` (water), a night pillar at (761, 63, -640). Phantoms hit it three times on the perch (20 -> 11).
+  - At dawn, still at 11 with no sword and no food, it went for wood 80+ blocks east into the morning crowd, and `Death: health 6.5 -> 2 -> 0; armour 0; held dirt; 1 hostile(s) within 8: drowned 1.5` in the water at (842, 62, -715). Wood came at 1717 s, after the respawn; no furnace, no iron.
+- **hard3 never reached iron:** its day went to the furnace, food and the bed (bed at 1416 s), and the iron gather only started at 18:01. Its creeper `has followed ...; fighting it from a pillar` / `keeping 20 away` alternated every 0.1-0.3 s for 41 s (17:47:21-17:48:02, 47 pillar lines and 43 `Fight result: creeper ... hits=0 ... result=stopped`), with three `pillar-up failed (left the column)`.
+
+**Fix**
+- **The wood step's explore heads somewhere** (`autopilot.js`).
+  - New `woodHeading(bot)`: samples the biome at `WOOD_SAMPLES` 16/48/96/128 blocks in each cardinal, the same way `grazeDirection` does. A `TREE` biome scores +2 (+3 at 96 and beyond); a `WET` biome (ocean, river, beach, stony shore) scores -2 within 48 and -1 beyond. Unloaded columns are neutral.
+  - It picks the best score, splitting ties at random. With no column loaded it stays `random`.
+  - The blocked-step branch now submits `this.blockedExplore(step,surface)`. For wood that is `woodHeading`'s direction, logged as `Autopilot: the wood explore heads <dir> (<biome> at <dist>)` or `(the least water)`. Every other step explores `random` as before, 64 blocks; wood is still 48.
+  - Nothing else changes: the gather's own search legs still aim at logs seen within `SEARCH_SCAN` 96, and the fixed east/north/west/south order when none is seen.
+
+**Tests:** `round94.test.js` (3):
+- from (694, -491) with the soak world's biomes, the heading is east with `cherry_grove` at 96; a near forest beats a far grove;
+- from the hard anchor with no tree biome in reach, north or south (both least wet), the tie split both ways; nothing loaded is `random`;
+- `blockedExplore` gives wood the heading and the line, stone stays `random` 64 with no line, and the blocked branch submits it.
+
+800 pass, resources 9.
+
+**Not changed yet**
+- **The creeper pillar flip-flop** on hard3: `fighting it from a pillar` and `keeping 20 away` alternating for 41 s.
+- **Leaving the night pillar at dawn** hurt (11), unarmed and without food, into the morning crowd. The box has the crowd/unarmed hold; the perch only checks the nearest hostile.
+- **Phantoms on the perch** (the bot never sleeps, so they come after the third night).
+- **hard3's pacing:** the bed and food before iron on a hard run.
+- **From round 93:** the 60 s skeleton wait, the respawn with an empty bag, the creeper parked at about 6, the 5-minute sealed morning, deaths in huge crowds, silverfish, no regeneration without food, the click-loop caller, night-mine climbs that time out, and `chest_spot_blocked`.

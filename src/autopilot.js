@@ -64,6 +64,36 @@ export function grazeDirection(bot){
  }
  return bestScore>0?best:'random';
 }
+// Round 94 (round-93 hard2: wood at 1717 s - six `wood failed 3 times; exploring before retry`
+// legs in a random direction took the bot ~220 blocks south down a plains strip between the
+// ocean and a lake, three of them ending `Boxed in ... no way to stair out` in the water, while
+// the cherry grove lay ~100 east of three of those starts; caught there at nightfall with no
+// shelter, and slain by a drowned after the night pillar): the wood step's explore heads for a
+// tree biome sampled at WOOD_SAMPLES (TREE), else for the heading with the least water (WET).
+// Random only when no sampled column is loaded.
+const TREE=new Set(['forest','flower_forest','birch_forest','old_growth_birch_forest','dark_forest','pale_garden','taiga','old_growth_pine_taiga','old_growth_spruce_taiga','snowy_taiga','jungle','sparse_jungle','bamboo_jungle','cherry_grove','savanna','savanna_plateau','windswept_forest','windswept_savanna','mangrove_swamp','swamp','wooded_badlands','grove']);
+const WET=new Set(['ocean','deep_ocean','warm_ocean','lukewarm_ocean','deep_lukewarm_ocean','cold_ocean','deep_cold_ocean','frozen_ocean','deep_frozen_ocean','river','frozen_river','beach','snowy_beach','stony_shore']);
+export const WOOD_SAMPLES=[16,48,96,128];
+export function woodHeading(bot,rand=Math.random){
+ const me=bot&&bot.entity&&bot.entity.position;
+ if(!me)return {direction:'random',tree:null};
+ const y=Math.floor(me.y),scored=[];let loaded=false;
+ for(const [direction,dx,dz] of [['north',0,-1],['south',0,1],['east',1,0],['west',-1,0]]){
+  let score=0,tree=null;
+  for(const dist of WOOD_SAMPLES){
+   const biome=biomeName(bot,Math.floor(me.x+dx*dist),y,Math.floor(me.z+dz*dist));
+   if(!biome)continue; // unloaded: neutral
+   loaded=true;
+   if(TREE.has(biome)){score+=dist>=96?3:2;if(!tree)tree={biome,dist};}
+   else if(WET.has(biome))score-=dist<=48?2:1;
+  }
+  scored.push({direction,score,tree});
+ }
+ if(!loaded)return {direction:'random',tree:null};
+ const top=Math.max(...scored.map(s=>s.score)),ties=scored.filter(s=>s.score===top);
+ const pick=ties[Math.min(ties.length-1,Math.floor(rand()*ties.length))];
+ return {direction:pick.direction,score:top,tree:top>0?pick.tree:null};
+}
 // M5 (iron): [item, ingots, sticks] crafted first, in this order; then the rest of the kit.
 const IRON_CORE=[['iron_pickaxe',3,2],['iron_sword',2,1],['shield',1,0]];
 // The food graze may go this far below its anchor (hills, not caves).
@@ -1152,6 +1182,15 @@ export class Autopilot{
   if(!(p.y<top-SHALLOW_BELOW))return false;
   try{const head=b.blockAt(p.offset(0,1.6,0));return !!head&&head.skyLight===0;}catch{return false;}
  }
+ // The explore leg a blocked step takes before its retry (round 94: wood heads by woodHeading).
+ blockedExplore(step,surface={}){
+  let direction='random';
+  if(step==='wood'){
+   const h=woodHeading(this.worker.bot);direction=h.direction;
+   if(direction!=='random')this.log('Autopilot: the wood explore heads '+direction+(h.tree?' ('+h.tree.biome+' at '+h.tree.dist+')':' (the least water)'));
+  }
+  return {type:'explore',direction,distance:step==='wood'?48:64,...surface};
+ }
  deepUnderground(){
   const b=this.worker.bot,p=b?.entity?.position,y=p?.y,top=this.lastSurfaceY??this.foodAnchorY;
   if(!(Number.isFinite(y)&&Number.isFinite(top)&&y<top-ASCEND_BELOW))return false;
@@ -1505,7 +1544,7 @@ export class Autopilot{
     this.submit('escape',{type:'ascend',y:escapeY(this.lastSurfaceY)});
     return;
    }
-   this.submit(step,{type:'explore',direction:'random',distance:step==='wood'?48:64,...surface});
+   this.submit(step,this.blockedExplore(step,surface));
    this.failures[step]=0;
    this.state='retry: '+step; // unblocked: the explore was the cooldown
    return;
