@@ -3232,3 +3232,41 @@ The round-72 soak on the Nitrous world copy (bot `3fc0f73`) ran all six runs cle
 - **hard3's death in a 90-mob crowd** while armed at 12 health.
 - **From round 91:** why the flees did not move the bot in round 90's hard2 (the cornered line still has not fired), health 11.7 for two minutes, and bed prep at dusk with a creeper following.
 - **From round 90:** silverfish, no regeneration without food, the late fuse wall, the click-loop caller, the round-85 respawn guard, night-mine climbs that time out, and `chest_spot_blocked`.
+
+## Round 93 (2026-11-04)
+
+**What the round-92 soak showed** (`e7f1d03`, report `68373cd`)
+- **Iron on 6 of 6, 1 death** (0/0/0/1/0/0), the triple promoted, every run its full length, `errors` empty, 0 kicks, 0 uncaught, 0 `PACKET_RUNAWAY`. Probe 10/11. normal3 crafted a bed; nobody slept.
+- **The round-92 fix was not exercised:** 0 `overrides the shelter hold` lines, and no morning opening named a creeper. No day stand of 3 minutes or more; round 91's hard2 shape did not come back.
+- **Round 91's done line worked:** 2 fuse walls, each 0.41 s after the swell, both with `the fuse wall is done ... - the fuse flee was replaced`. hard2's stood (2 of 2); hard3's held dirt and stood 0 of 4. No creeper death. The cornered fight still did not run (0 lines).
+- **The sky pillar ran twice**, hard2, both to head sky 15, with no health lost.
+- **hard1, skeleton, as its noon box came down:**
+  - `Shelter: morning (tod 6000, nearest hostile 11.3); opening up`.
+  - `a skeleton 7.7 away; keeping the walls up`, then 60 s later `skeleton 13.5 away; opening the walls` (`CREEPER_WAIT_MS` cap).
+  - 19 s of digging the walls down, then `Death: health 15.4 -> 15.8 -> 16.2 -> 11.7 -> 10.2 -> ... -> 11.3 -> 5.3 -> 6.3 -> 0; armour 0; held stone_pickaxe; 2 hostile(s) within 8: skeleton 4.9, skeleton 5.8`, with 83 loaded hostiles.
+  - Not one Reflex line from the opening to the death. The shelter hold kept Mob Defense off for everything but a creeper while the box came down, and the stone sword in the bag was never drawn.
+  - After the respawn: `Short of shelter blocks: 1 held, 23 needed`, and it held at the spawn to the end.
+- **hard3's second noon box** opened with a skeleton at 4.5. The gather after it was hit (Mob Defense struck once and took 6), and health fell 20 -> 10. It did not die.
+
+**Fix**
+- **An open box lets Mob Defense through** (`worker.js`).
+  - The trigger is the night mine's threat (round 84): a hostile within 8, or a hit in the last 3 s.
+  - The gate computes `exposed` for a shelter coming down (`opening`, round 92) once `walledIn(bot)` is false. `nightMineOverride` accepts `hold.exposed`.
+  - The override marks the job `openedUnder`. The paused job, in `survivalHold()`'s waiting branch, reports `opened` for `OPENED_GUARD_MS` 60 s, and that keeps the override while the threat lasts.
+  - With the threat gone, the job resumes: it re-seals where the bot stands while the morning is not safe, or takes the rest down.
+  - New log line: `Reflex: <threat> with the box open; Mob Defense answers`.
+  - While the column stands (the outer cells and the creeper/skeleton wait), nothing changes.
+
+**Tests:** `round93.test.js` (4):
+- `nightMineOverride` with `exposed`;
+- the hard1 shape: a skeleton at 4.9 is held off by a standing column, and gets Mob Defense once a head cell is dug (the job is marked and the line logged);
+- a hit is the threat, and nothing near with no hit is not;
+- the paused job keeps the override for 60 s and then gives the job its turn; a sealed box and a box still building keep the old hold.
+
+797 pass, resources 9.
+
+**Not changed yet**
+- **The 60 s skeleton wait** opens the walls while the skeleton is still around (13.5 here, 4.5 on hard3). Consider re-checking it, or fighting from the box first.
+- **The respawn with an empty bag:** 23 blocks needed, 1 held; it held at the spawn to the end.
+- **From round 92:** the creeper parked at about 6 (the stall rule), the 5-minute sealed morning, and deaths in huge crowds.
+- **From rounds 90-91:** the cornered fight is still unexercised, health 11.7 for two minutes, silverfish, no regeneration without food, the click-loop caller, night-mine climbs that time out, and `chest_spot_blocked`.

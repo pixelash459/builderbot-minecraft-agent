@@ -763,7 +763,16 @@ export const NIGHT_MINE_GUARD=8,MINE_HURT_MS=3000;
 // RESPAWN_GUARD_MS after a death, until the shelter seals, the same threat lets Mob Defense
 // through (hold.respawned). The resumed shelter builds where the flee left it.
 export const RESPAWN_GUARD_MS=180000;
-export function nightMineOverride(chainName,hold,threat){return chainName==='Mob Defense'&&!!hold&&!!(hold.mining||hold.respawned)&&!!threat;}
+// Round 93 (round-92 hard1: `Shelter: skeleton 13.5 away; opening the walls` at noon, then 19 s of
+// digging the walls down with the pickaxe held, `Death: health 15.4 -> ... -> 11.7 -> ... -> 5.3 ->
+// 6.3 -> 0; held stone_pickaxe; 2 hostile(s) within 8: skeleton 4.9, skeleton 5.8` and not one
+// Reflex line - the shelter hold kept Mob Defense off while the box came down): once the walls
+// beside the bot are open (walledIn false), the night mine's threat lets Mob Defense through as
+// well (hold.exposed). The preempted job keeps that override for OPENED_GUARD_MS while it waits
+// (hold.opened); the resumed job re-seals where the bot stands, or takes the rest down once the
+// morning is safe.
+export const OPENED_GUARD_MS=60000;
+export function nightMineOverride(chainName,hold,threat){return chainName==='Mob Defense'&&!!hold&&!!(hold.mining||hold.respawned||hold.exposed)&&!!threat;}
 // Round 11: the bucket's eye ray from `from` to `to` (the fluid surface): the first solid
 // block it passes through (blocked) or the first water source it meets (fluid). Fine steps.
 export const BUCKET_TRIES=3,BUCKET_REACH=4.4;
@@ -1016,15 +1025,17 @@ export class Worker extends EventEmitter {
     const creeper=creeperNow||(creeperLatched&&!!hold&&chain.name==='Mob Defense'&&!walls&&!bot.isSleeping&&creeperDistance(bot)<=CREEPER_RELEASE);
     if(chain.name==='Mob Defense')creeperLatched=creeper;
     if(creeper&&!wasActive)self.log('Reflex: creeper at '+creeperThreat(bot).toFixed(1)+' overrides the '+hold.job.spec.type+' hold');
-    const threat=chain.name==='Mob Defense'&&hold&&(hold.mining||hold.respawned)?self.mineThreat(bot):null;
-    const mineOverride=nightMineOverride(chain.name,hold,threat);
+    const exposed=chain.name==='Mob Defense'&&!!hold&&(hold.opening||hold.opened)&&!walledIn(bot);
+    const threat=chain.name==='Mob Defense'&&hold&&(hold.mining||hold.respawned||exposed)?self.mineThreat(bot):null;
+    const mineOverride=nightMineOverride(chain.name,exposed?{...hold,exposed}:hold,threat);
+    if(mineOverride&&exposed)hold.job.openedUnder=Date.now();
     if(hold&&chain.name!==WORLD_CHAIN&&!creeper&&!mineOverride){
      const building=hold.job.status==='running'&&hold.job.spec.type==='shelter'&&!hold.sealed;
      if(chain.name==='Food'&&!building)try{chain.priority(bot,ctx);}catch{}
      wasActive=false;return -1;
     }
     const p=chain.priority(bot,ctx);
-    if(mineOverride&&p>=0&&!wasActive)self.log('Reflex: '+threat+(hold.mining?' on the night mine':' after a night respawn')+'; Mob Defense answers');
+    if(mineOverride&&p>=0&&!wasActive)self.log('Reflex: '+threat+(hold.mining?' on the night mine':exposed?' with the box open':' after a night respawn')+'; Mob Defense answers');
     // Observability contract (the suite and the dashboard watch for 'Reflex:'): log each
     // survival chain engagement, exactly like the retired reflex loop announced itself.
     const activeNow=p>=0;
@@ -1055,7 +1066,7 @@ export class Worker extends EventEmitter {
   const running=this.jobs.find(j=>j.status==='running');
   if(running)return SURVIVAL_JOBS.has((running.spec||{}).type)?{job:running,sealed:running.spec.type==='shelter'&&!!this.shelterSealed,opening:running.spec.type==='shelter'&&!!this.shelterOpening,mining:running.spec.type==='shelter'&&!!this.nightMining&&!this.shelterSealed,respawned:running.spec.type==='shelter'&&!this.shelterSealed&&this.respawnGuard()}:null;
   const waiting=this.jobs.find(j=>SURVIVAL_JOBS.has((j.spec||{}).type)&&(j.status==='queued'||reflexPaused(j)));
-  return waiting?{job:waiting,sealed:false,respawned:waiting.spec.type==='shelter'&&this.respawnGuard()}:null;
+  return waiting?{job:waiting,sealed:false,respawned:waiting.spec.type==='shelter'&&this.respawnGuard(),opened:waiting.spec.type==='shelter'&&Date.now()-(waiting.openedUnder||0)<=OPENED_GUARD_MS}:null;
  }
  // Round 85: within RESPAWN_GUARD_MS of the last death (nightMineOverride).
  respawnGuard(){return !!this.lastDeath&&Date.now()-this.lastDeath.t<=RESPAWN_GUARD_MS;}
