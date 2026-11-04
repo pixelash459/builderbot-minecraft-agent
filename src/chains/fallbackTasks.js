@@ -92,7 +92,7 @@ class RunAwayTask extends Task{
   const list=this.targets(bot,ctx).filter(e=>withinRange(e,bot,Math.max(this.distance,16)));
   if(!list.length){forget(bot,'forward','sprint');return null;}
   const c=pickCtx(this,ctx),w=c&&c.worker;
-  const h=fleeHeading(cellAt(bot),bot.entity.position,list,{shelter:w&&w.shelterSpot||null,inWater:swimming(bot),health:bot.health});
+  const h=this.heading=fleeHeading(cellAt(bot),bot.entity.position,list,{shelter:w&&w.shelterSpot||null,inWater:swimming(bot),health:bot.health});
   look(bot,yawToward(h.x,h.z),0); // along the chosen away vector (heading.js convention)
   // Every heading is a hazard (cornered against a lake or a cliff): stand, do not walk in.
   setControl(bot,'forward',!h.blocked);
@@ -142,9 +142,9 @@ export class RunAwayFromCreepersTask extends RunAwayTask{
    const blocks=pillarBlocks(bot);
    if(!blocks)return false;
    this.walling=true;
-   this._wall0={cells:fuseWallCells(me,c.position),placed:0,held:blocks.item.name+' '+blocks.count};
-   const n=this._wall0.cells.filter(q=>!solidAt(bot,q.x,q.y,q.z)).length;
    const w=pickCtx(this,ctx)?.worker;
+   this._wall0={cells:fuseWallCells(me,c.position),placed:0,held:blocks.item.name+' '+blocks.count,w};
+   const n=this._wall0.cells.filter(q=>!solidAt(bot,q.x,q.y,q.z)).length;
    if(w&&w.log)try{w.log('Reflex: creeper fuse at '+distanceTo(c,bot).toFixed(1)+' and the flee is not moving the bot; walling '+n+' cell(s) toward it');}catch{}
   }
   forget(bot,'forward','sprint');
@@ -175,9 +175,12 @@ export class RunAwayFromCreepersTask extends RunAwayTask{
  _wallDone(bot,ctx){
   const w0=this._wall0;this._wall0=null;if(!w0)return;
   const standing=w0.cells.filter(q=>solidAt(bot,q.x,q.y,q.z)).length;
-  const w=pickCtx(this,ctx)?.worker;
-  if(w&&w.log)try{w.log('Reflex: the fuse wall is done: '+w0.placed+' block(s) placed, '+standing+' of '+w0.cells.length+' cell(s) standing (held '+w0.held+')');}catch{}
+  const w=pickCtx(this,ctx)?.worker||w0.w;
+  if(w&&w.log)try{w.log('Reflex: the fuse wall is done: '+w0.placed+' block(s) placed, '+standing+' of '+w0.cells.length+' cell(s) standing (held '+w0.held+')'+(ctx?'':' - the fuse flee was replaced'));}catch{}
  }
+ // Round 91 (round-90: six walls and no done line - the chain swaps the fuse flee for a plain one
+ // as the swell ends, and the stopped task never saw the fuse end): a stopped wall logs too.
+ onStop(bot,interrupt){if(this._wall0)this._wallDone(bot,null);super.onStop(bot,interrupt);}
  isEqual(o){return super.isEqual(o)&&!!o.fuse===!!this.fuse;}
 }
 // 7f daylight-burn ladder step: undead burn in the sun, so merely staying out of reach wins.
@@ -191,7 +194,7 @@ export class KeepDistanceTask extends Task{
   const dx=near.position.x-bot.entity.position.x,dz=near.position.z-bot.entity.position.z;
   const tooClose=d<this.distance;
   // Opening the gap walks forward: the same water/drop-aware crowd heading as the run-away.
-  const h=tooClose?fleeHeading(cellAt(bot),bot.entity.position,getHostiles(bot,ctx).filter(e=>withinRange(e,bot,16)),{inWater:swimming(bot),health:bot.health}):null;
+  const h=this.heading=tooClose?fleeHeading(cellAt(bot),bot.entity.position,getHostiles(bot,ctx).filter(e=>withinRange(e,bot,16)),{inWater:swimming(bot),health:bot.health}):null;
   look(bot,h?yawToward(h.x,h.z):yawToward(-dx,-dz),0); // face AWAY from the threat: forward opens the gap
   const go=tooClose&&!(h&&h.blocked);
   setControl(bot,'forward',go);

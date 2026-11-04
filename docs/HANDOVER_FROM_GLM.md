@@ -3169,3 +3169,29 @@ The round-72 soak on the Nitrous world copy (bot `3fc0f73`) ran all six runs cle
 - **Silverfish in a night box** (hard1): the box sealed in an infested patch and the bot lost 16 health inside it. And with no food, health 4 at food 17 does not regenerate.
 - **The late fuse wall** (hard3): the swell was first seen 7 away while the flee sprinted past it; the wall at 1.1 came too late.
 - **From round 89:** the flee at low health in a cave-morning crowd, the flee that does not move, the `(vulnerable)` flee with a sword held, the 40 s morning box takedown, the click-loop caller, the round-85 respawn guard (unexercised), skeleton-reach stand-downs, picking the bed back up, night-mine climbs that time out, and `chest_spot_blocked`.
+
+## Round 91 (2026-11-04)
+
+**What the round-90 soak showed** (`020da7f`, report `39d88b0`)
+- **Iron on 6 of 6, 1 death** (0/0/0/0/1/0), the triple promoted, every run its full length, `errors` empty, 0 kicks, 0 uncaught, 0 `PACKET_RUNAWAY`. Path counts 4 / 3 / 226 / 10, probe 10/11. hard1 crafted a bed and wore 2 armour pieces; nobody slept.
+- **The round-90 sky pillar did not run:** 0 `no sky at y=N ... pillaring to the sky` lines. Three head-sky lines: hard2 sky 15 at y=87 and y=85, and hard3 `head sky 0 at y=80` with the logged surface also 80, 3.8 s before the run stopped. No climb lost health. 0 silverfish boxes.
+- **hard2, zombie, at dusk in bed prep.** By day at (827, 65, -612) a gather was stopped by `Health or food is low` with about 80 loaded hostiles, and health sat at 11.7 for two minutes. At dusk it finished the furnace, hunted sheep and queued `craft white_bed` at (847, 71, -625), with health 18.2 on the t=2018 sample. A creeper had followed it: `keeping 20 away`, then two fuses (2.7 and 1.9), each walled, neither blew. Then 44 s of `has not come nearer than 2.9`, a `(vulnerable)` flee, and `Death: health 3.7 -> 4.7 -> 5.7 -> 1.2 -> 0; armour 0; held stone_sword; 1 hostile(s) within 8: zombie 1.2`. The samples at t=2018 and t=2048 and the death are all at (847, 71, -625). The flees held the bot in one cell for its last minute while health went 18.2 -> 3.7, and the zombie at 1.2 was never hit back.
+- **Six fuse walls, no done line:** each swell was first seen `sprinting past 7`, and the wall followed in under 0.5 s at 1.9-2.8. No creeper death. The chain swaps the fuse flee for a plain flee when the swell ends, so the stopped task never logged its wall.
+
+**Fix**
+- **A pinned flee is cornered** (`mobDefenseChain.js`). A run-away, creeper keep-away or keep-distance that has kept the bot within `FLEE_PINNED_BLOCKS` 1 for `FLEE_PINNED_S` 2 s, with a melee mob (not a creeper) within `PINNED_NEAR` 3 in sight, becomes the 7f last-resort fight (`KillEntitiesTask` lastResort, best weapon). It keeps on while one stays within `PINNED_KEEP` 5, and logs `Reflex: the TASK has kept the bot in one spot for N s with MOB D away (health H, held ITEM, heading hazard X [blocked]); cornered - fighting back`. It sits after the fuse flee and the night pillar, before the creeper keep-away and the vulnerable flee.
+- **Diagnostic:** the run-away and keep-distance tasks keep the heading they chose (`task.heading`). A fuse flee stopped while walling logs `the fuse wall is done ... - the fuse flee was replaced`.
+
+**Tests:** `round91.test.js` (4):
+- the hard2 shape: a vulnerable flee pinned 2 s with a zombie at 1.2, then a fight that keeps on at 4 and ends past 5;
+- no cornered fight for a flee that moves, a zombie behind a wall, a creeper only, or a skeleton;
+- a creeper keep-away pinned with a zombie fights the zombie only, and the line names the heading;
+- the done line on stop, once.
+
+789 pass, resources 9.
+
+**Not changed yet**
+- **Why the flees did not move the bot** at (847, 71, -625): the new line's heading hazard should say whether it was cornered (100, blocked) or walking into a wall (20).
+- **Health 11.7 for two minutes** at food 15-18 by day, before the dusk bed prep. And bed prep at dusk with a creeper following.
+- **The hard3 cave morning** that stopped at `head sky 0 at y=80` with a surface of 80 (the sky pillar only runs under the surface).
+- **From round 90:** silverfish in a night box, no regeneration without food, the late fuse wall, the 40 s morning box takedown, the click-loop caller, the round-85 respawn guard (unexercised), picking the bed back up, night-mine climbs that time out, and `chest_spot_blocked`.

@@ -10,7 +10,7 @@
 // Copyright (c) 2020 Adris Jautakas. See third_party/ALTOCLEF_LICENSE.
 import {SingleTaskChain} from './singleTaskChain.js';
 import {chainConfig,inGame,onFire} from './settings.js';
-import {getHostiles,nearestDistance,withinRange,distanceTo,armorValue,BURNS_IN_SUNLIGHT,canDealWithCount,evaluateFight,isCornered,canCraftWoodenSword,hasItemName,inventoryItems,nightish} from './combatPolicy.js';
+import {getHostiles,nearestDistance,withinRange,distanceTo,armorValue,BURNS_IN_SUNLIGHT,canDealWithCount,evaluateFight,isCornered,canCraftWoodenSword,hasItemName,inventoryItems,nightish,isMeleeMob} from './combatPolicy.js';
 import {movementTask,RunAwayFromHostilesTask,RunAwayFromCreepersTask,DodgeProjectilesTask,KeepDistanceTask,KillEntitiesTask,CraftWeaponTask,ShelterTask,SleepTask,NightPillarTask,pillarBlocks,cellAt,projectileClose,approachingProjectiles} from './fallbackTasks.js';
 import {nightRefuge,pillarRoom,DAY_CROWD} from '../night.js';
 import {dayTicks} from '../daytime.js';
@@ -63,6 +63,13 @@ export const canHeal=bot=>(bot.food|0)>=18||inventoryItems(bot).some(i=>{const m
 // job resumes. A hostile within 8 in sight ends the stand-down at once.
 export const FLEE_STALL_S=20,FLEE_STALL_BLOCKS=3,FLEE_STALL_OFF=60;
 const HOLDS=new Set(['RunAwayFromHostilesTask','KeepDistanceTask']);
+// Round 91 (round-90 hard2: health 18.2 to 3.7 in 30 s at (847, 71, -625), a creeper keep-away
+// then a `(vulnerable)` flee holding it in that cell, and `slain by Zombie` with `held stone_sword;
+// 1 hostile(s) within 8: zombie 1.2`): a flee that has kept the bot within FLEE_PINNED_BLOCKS for
+// FLEE_PINNED_S, with a melee mob (not a creeper) within PINNED_NEAR in sight, is cornered - the 7f
+// last resort fights it with the best weapon, and keeps on while one stays within PINNED_KEEP.
+export const FLEE_PINNED_S=2,FLEE_PINNED_BLOCKS=1,PINNED_NEAR=3,PINNED_KEEP=5;
+const FLEES=new Set(['RunAwayFromHostilesTask','RunAwayFromCreepersTask','KeepDistanceTask']);
 export class MobDefenseChain extends SingleTaskChain{
  constructor({food=null,mlg=null}={}){
   super('Mob Defense');
@@ -86,6 +93,14 @@ export class MobDefenseChain extends SingleTaskChain{
   if(p>=0&&this._holdStood(bot,ctx))p=-1;
   this._cachedLastPriority=p;this._cachedAt=Date.now();
   return p;
+ }
+ // Seconds the flee this chain ran on its last tick has kept the bot within FLEE_PINNED_BLOCKS.
+ _pinnedFor(bot){
+  const r=this.root,me=bot.entity.position,now=this.now();
+  if(!(this._cachedLastPriority>=0)||!r||!FLEES.has(r.name)){this._pin=null;return 0;}
+  const p=this._pin;
+  if(!p||now-p.seen>2||Math.hypot(me.x-p.x,me.z-p.z)>FLEE_PINNED_BLOCKS){this._pin={x:me.x,z:me.z,at:now,seen:now};return 0;}
+  p.seen=now;return now-p.at;
  }
  _holdStood(bot,ctx){
   const r=this.root;
@@ -123,6 +138,7 @@ export class MobDefenseChain extends SingleTaskChain{
   // prioritizeEating: let FoodChain's critical eat happen before dodging anything.
   if(this.food&&this.food.needsToEatCritical&&this.food.needsToEatCritical(bot))return -1;
   this._doingFunkyStuff=false;
+  const flee=this.root,pinned=this._pinnedFor(bot);
   // Round 22 (round-21 normal3: `fleeing silverfish x4` and then 17 min of nothing, a drop job
   // queued behind the flee): silverfish and endermites (1 damage, slow) are not worth a flee
   // or a reflex unless one is within MINOR_NEAR - then it is fought like any other mob.
@@ -151,6 +167,22 @@ export class MobDefenseChain extends SingleTaskChain{
    this.root=pillar;
    this._fleeLog(ctx,'pillar',pillar.hold?'Reflex: no shelter tonight; night pillar until morning':'Reflex: night crowd ('+hostiles.filter(e=>withinRange(e,bot,16)).length+' hostiles); pillaring up instead of fleeing');
    return 72;
+  }
+  // Cornered by a pinned flee (round 91, above).
+  if(this._cornered||pinned>=FLEE_PINNED_S){
+   const near=r=>e=>e.name!=='creeper'&&isMeleeMob(e.name)&&withinRange(e,bot,r)&&canSee(bot,e,r);
+   const close=hostiles.filter(near(this._cornered?PINNED_KEEP:PINNED_NEAR)).sort((a,b)=>distanceTo(a,bot)-distanceTo(b,bot));
+   if(close.length){
+    if(!this._cornered){
+     const h=flee&&flee.heading,hp=Math.round(bot.health*10)/10;
+     this._fleeTag=null;
+     this._fleeLog(ctx,'pinned','Reflex: the '+flee.name+' has kept the bot in one spot for '+pinned.toFixed(1)+' s with '+close[0].name+' '+distanceTo(close[0],bot).toFixed(1)+' away (health '+hp+', held '+(bot.heldItem?bot.heldItem.name:'nothing')+(h?', heading hazard '+h.hazard+(h.blocked?' blocked':''):'')+'); cornered - fighting back');
+    }
+    this._cornered=true;this._runAwayTask=null;this._doingFunkyStuff=true;
+    this.root=new KillEntitiesTask((b,c)=>getHostiles(b,c).filter(near(PINNED_KEEP)),{lastResort:true});
+    return 85;
+   }
+   this._cornered=false;
   }
   // Run away from the closest creeper (AltoClef: 50 + fuse*50; mineflayer does not expose
   // the client fuse, so proximity stands in for urgency — 7f says walk away regardless).
