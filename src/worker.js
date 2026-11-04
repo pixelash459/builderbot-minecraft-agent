@@ -724,6 +724,21 @@ export function creeperDistance(bot){
  for(const e of Object.values(bot.entities||{})){if(!e||e.name!=='creeper'||!e.position||e.isValid===false)continue;const d=e.position.distanceTo?e.position.distanceTo(me):Infinity;if(d<best)best=d;}
  return best;
 }
+// Round 92 (round-91 hard2: `morning (tod 7020, nearest hostile 6.2); opening up`, `creeper at 6.0
+// overrides the shelter hold` 1.5 s later while the outer cells came down, then 4.5 min of
+// `fleeing creeper` / `keeping 20 away` that never moved the bot off (817, 88, -552) - the walls
+// beside it were still up - the shelter job superseded, and the day gone to the next night): a box
+// coming down still holds against a creeper while the bot's own column stands - the four feet and
+// four head cells beside it and the roof over it. removeShelter takes those last, after its
+// creeper wait.
+export function walledIn(bot){
+ const p=bot&&bot.entity&&bot.entity.position;if(!p||!bot.blockAt)return false;
+ const x=Math.floor(p.x),y=Math.floor(p.y),z=Math.floor(p.z);
+ const solid=(dx,dy,dz)=>{try{return bot.blockAt(new Vec3(x+dx,y+dy,z+dz))?.boundingBox==='block';}catch{return false;}};
+ if(!solid(0,2,0))return false;
+ for(const dy of [0,1])for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]])if(!solid(dx,dy,dz))return false;
+ return true;
+}
 export function creeperThreat(bot){
  const me=bot&&bot.entity&&bot.entity.position;if(!me)return null;
  let best=null;
@@ -994,9 +1009,11 @@ export class Worker extends EventEmitter {
     // Round 8: a creeper within 6 (or fusing within 10) always gets Mob Defense, even over an
     // eat job, a bed walk or a shelter still placing its walls - only a sealed box or a bed
     // the bot is already in keeps the hold (the walls are the answer there).
-    const creeperNow=hold&&chain.name==='Mob Defense'&&!hold.sealed&&!bot.isSleeping?creeperThreat(bot)!=null:false;
+    // Round 92: a box coming down holds too while the bot's own column is walled (walledIn).
+    const walls=!!hold&&(hold.sealed||(hold.opening&&walledIn(bot)));
+    const creeperNow=hold&&chain.name==='Mob Defense'&&!walls&&!bot.isSleeping?creeperThreat(bot)!=null:false;
     // Round 24: hysteresis - an override that is on stays on while a creeper is within 9.
-    const creeper=creeperNow||(creeperLatched&&!!hold&&chain.name==='Mob Defense'&&!hold.sealed&&!bot.isSleeping&&creeperDistance(bot)<=CREEPER_RELEASE);
+    const creeper=creeperNow||(creeperLatched&&!!hold&&chain.name==='Mob Defense'&&!walls&&!bot.isSleeping&&creeperDistance(bot)<=CREEPER_RELEASE);
     if(chain.name==='Mob Defense')creeperLatched=creeper;
     if(creeper&&!wasActive)self.log('Reflex: creeper at '+creeperThreat(bot).toFixed(1)+' overrides the '+hold.job.spec.type+' hold');
     const threat=chain.name==='Mob Defense'&&hold&&(hold.mining||hold.respawned)?self.mineThreat(bot):null;
@@ -1036,7 +1053,7 @@ export class Worker extends EventEmitter {
  // running shelter has closed its box.
  survivalHold(){
   const running=this.jobs.find(j=>j.status==='running');
-  if(running)return SURVIVAL_JOBS.has((running.spec||{}).type)?{job:running,sealed:running.spec.type==='shelter'&&!!this.shelterSealed,mining:running.spec.type==='shelter'&&!!this.nightMining&&!this.shelterSealed,respawned:running.spec.type==='shelter'&&!this.shelterSealed&&this.respawnGuard()}:null;
+  if(running)return SURVIVAL_JOBS.has((running.spec||{}).type)?{job:running,sealed:running.spec.type==='shelter'&&!!this.shelterSealed,opening:running.spec.type==='shelter'&&!!this.shelterOpening,mining:running.spec.type==='shelter'&&!!this.nightMining&&!this.shelterSealed,respawned:running.spec.type==='shelter'&&!this.shelterSealed&&this.respawnGuard()}:null;
   const waiting=this.jobs.find(j=>SURVIVAL_JOBS.has((j.spec||{}).type)&&(j.status==='queued'||reflexPaused(j)));
   return waiting?{job:waiting,sealed:false,respawned:waiting.spec.type==='shelter'&&this.respawnGuard()}:null;
  }
@@ -2697,6 +2714,10 @@ export class Worker extends EventEmitter {
   }else this.resealIdleUntil=0;
  }
  async removeShelter(job,token){
+  this.shelterOpening=true;
+  try{await this._removeShelter(job,token);}finally{this.shelterOpening=false;}
+ }
+ async _removeShelter(job,token){
   const b=this.bot;
   this.update(job,0,'Removing the shelter');
   const seen=new Set(),cells=[];

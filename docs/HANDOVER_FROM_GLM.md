@@ -3195,3 +3195,40 @@ The round-72 soak on the Nitrous world copy (bot `3fc0f73`) ran all six runs cle
 - **Health 11.7 for two minutes** at food 15-18 by day, before the dusk bed prep. And bed prep at dusk with a creeper following.
 - **The hard3 cave morning** that stopped at `head sky 0 at y=80` with a surface of 80 (the sky pillar only runs under the surface).
 - **From round 90:** silverfish in a night box, no regeneration without food, the late fuse wall, the 40 s morning box takedown, the click-loop caller, the round-85 respawn guard (unexercised), picking the bed back up, night-mine climbs that time out, and `chest_spot_blocked`.
+
+## Round 92 (2026-11-04)
+
+**What the round-91 soak showed** (`11ec45b`, report `73d2ba1`)
+- **Iron on 5 of 6, 1 death** (0/0/0/0/0/1), the triple promoted, every run its full length, `errors` empty, 0 kicks, 0 uncaught, 0 `PACKET_RUNAWAY`. Probe 10/11. normal1 made a diamond pick at 2288 s; hard1 crafted a bed at 2198 s; nobody slept.
+- **The round-91 cornered fight did not run:** 0 `cornered - fighting back` lines. 0 fuse walls, so the new done-line ending was not exercised either.
+- **The sky pillar ran twice** (hard1 and hard2 cave mornings). Both reached head sky 12 or more, with no health lost.
+- **hard3, skeleton**, at (933, 53, -431) in a crowd of 89-91 loaded hostiles, ledge-guarding a drop, `held iron_sword`, health 17.6 -> 11.6 -> 0. The last flee was `(armed, but health 12 below 14 - COMBAT_SPEC 7f)`. It was not pinned: the bot moved about 1.4 blocks in its last 30 s.
+- **hard2 lost its last day in its box** at (817, 88, -552), from t=1505 to the end, with no furnace and no iron.
+  - The box was sealed at 07:46:32, and dawn came at 07:49:30. It stayed sealed for 5 minutes, waiting for a clear morning.
+  - `Shelter: morning (tod 7020, nearest hostile 6.2); opening up` at 07:54:30.
+  - 1.5 s later: `Reflex: creeper at 6.0 overrides the shelter hold`. removeShelter takes the outer cells first and the bot's own walls last, after its creeper wait. So the walls beside the bot were still standing when Mob Defense preempted it.
+  - Then 4.5 minutes of `fleeing creeper` / `keeping 20 away` and three `fighting it from a pillar` (hits 0) that never moved the bot. The creeper could not reach it, and the stall rule never fired: the creeper stayed at about 6, and the chase restarted every 20-30 s.
+  - The shelter job and then the goto were superseded. Dusk came at 07:59 and it sealed again.
+
+**Fix**
+- **A box coming down holds against a creeper while the bot's column stands** (`worker.js`).
+  - `removeShelter` now sets `shelterOpening` for the whole takedown, and `survivalHold()` reports it as `opening`.
+  - New `walledIn(bot)`: true when the four feet cells and four head cells beside the bot, and the roof over it, are all solid.
+  - The gate's creeper override (within 6, or fusing within 10, plus the round-24 latch) now treats `sealed || (opening && walledIn)` as the walls being the answer.
+  - Once the walls beside the bot come down (after `waitCreeperClear`, at most 60 s), the override is back as before.
+  - A shelter still placing its walls, and the eat and sleep holds, are unchanged.
+
+**Tests:** `round92.test.js` (4); round84's deep-equal now includes `opening:false`:
+- `walledIn`: every column cell is needed;
+- the hard2 shape: a creeper at 6, and a fusing one at 3, wait on the walls; with a feet cell open the override is back and logs;
+- a shelter still building, and an eat hold, keep the override;
+- `removeShelter` sets the mark and clears it, also on a throw.
+
+793 pass, resources 9.
+
+**Not changed yet**
+- **The creeper stall rule** misses a creeper parked at about 6 that never comes nearer. A flee that cannot move the bot, with a creeper that cannot reach it, has no exit except the walls coming down.
+- **The 5-minute sealed morning:** a box held from dawn to noon by a hostile at about 6.
+- **hard3's death in a 90-mob crowd** while armed at 12 health.
+- **From round 91:** why the flees did not move the bot in round 90's hard2 (the cornered line still has not fired), health 11.7 for two minutes, and bed prep at dusk with a creeper following.
+- **From round 90:** silverfish, no regeneration without food, the late fuse wall, the click-loop caller, the round-85 respawn guard, night-mine climbs that time out, and `chest_spot_blocked`.
