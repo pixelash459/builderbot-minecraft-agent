@@ -3436,3 +3436,32 @@ The round-72 soak on the Nitrous world copy (bot `3fc0f73`) ran all six runs cle
 - **The close-in creeper pillar is 2-3 high and the creeper still swells** (not exercised this round).
 - **Hard pacing:** food timeouts, the pre-iron wool hunt, broken stone picks; `Only the block under the bot is in reach` three times on the iron step before its explore.
 - Cave-morning exits into crowds, a fuse during a pillar climb, phantoms on the perch, the respawn with an empty bag, night-mine climbs, `chest_spot_blocked`.
+
+## Round 99 (2026-11-06)
+
+**What the round-98 soak showed** (report `ece98b4`, bot code `aace128`, promoted): iron on 4 of 6 (every run but hard1 and hard2), 3 deaths (0/0/0/1/2/0). Hard wood 361/362/271, hard furnace 602/542/1144, hard iron -/-/1837 s.
+- **The round-98 witch cover never fired:** 0 `fleeing witch`, 0 cover lines, no witch death. It is still untested live.
+- **The round-97 canopy dig fired once** (normal3, oak leaves, 3 to the ground, gather done 27 s later, no damage).
+- **Both iron losses were the bag, not the fight.** Each death was before iron, 100-150 blocks from the respawn, and the ladder started again from nothing:
+  - **hard1, 899 s:** `speared by Zombie` at (793, 89, -530) by day, on a sheep hunt, `health 9.5 -> 0`: two spear hits took 20 to 0 in about a second, armour 0. The bag held two stone picks, a stone sword, a furnace and two tables. At 1235 s it held a wooden pick again; it never made iron.
+  - **hard2, 804 s:** `shot by Skeleton` at (782, 68, -549). A chicken hunt walked it under a cave roof, `Ledge guard` twice, a mob cave of 7, then `Fall: dropping from (781, 78, -565)` during the zombie's `group-spacing`, and four arrows 20 -> 0 in 7 s. The bag held two stone picks, a stone sword, a furnace, a table, 17 cobblestone.
+  - **hard2, 1017 s:** `slain by Zombie` at (735, 61, -519), held dirt, on the way back to wood. It later held 3 ingots and never crafted a pick.
+
+**Fix**
+- **The bag run** (`autopilot.js`, `worker.js`, `schema.js`). The drops lie for 5 minutes and the walk back takes about one.
+  - `onDeath` records `lastDeath.bag` from the bag as the bot dies: `deathBag(bot,at)` gives the item count, the kit names worth a walk (tools, armour, furnace, table, shield, bucket, raw iron, ingots, diamonds), and whether the cell is lava.
+  - In the idle branch, after `recovering` and off the shelter hours, `Autopilot.bagRun(b)` sends one `{type:'bagrun',position}` job under the step `bag`, up to `BAG_RUN_TRIES` 3 for a failed run. A run a reflex paused holds the ladder (a new job would supersede it) until `BAG_RUN_MS` 270 s after the death.
+  - `bagRunSkip` logs `Bag run: skipped (...)` for no kit in the bag, lava, more than `BAG_RUN_FAR` 220 away, more than `BAG_RUN_DEEP` 32 above or below, or two deaths within 16 blocks in 10 minutes (no spiral at a spot that kills).
+  - `Worker.bagRun` logs `Bag run: walking D back to the death at P (kit; N s left on the drops)`, walks straight-line legs of `BAG_RUN_LEG` 48, closes on the cell, runs `sweepDrops` within 24 for up to 30 s, and logs `Bag run: at the death after N s; picked up ...` or `no drops picked up`. The other ends are `out of time after N run(s)`, `given up after N run(s)`, `too late for the drops`, and a job failure `Bag run: stopped D short of the death at P`.
+  - Night still wins: the running job is not in the protected list, so the night branch cancels it.
+
+**Tests:** `round99.test.js` (6): the bag read and every skip reason; one run per death, the reflex hold and the next death's run; retries, the time limits, one line per end; the legs and sweep with the final line; a failed leg and time running out; the wiring. 818 pass, resources 9.
+
+**Not changed yet**
+- **Cornered with no weapon:** two rounds running the cornered line was followed by no `Combat:` strike before the death (round 97 hard1 2.2 s, round 98 hard2 1.9 s), both held dirt.
+- **Spear zombies:** two hits kill an unarmoured bot; a flee in a line stays in the spear's reach.
+- **Group-spacing beside a drop:** hard2's fall into the cave came during `group-spacing` right after two `Ledge guard` stops.
+- **A food hunt that follows an animal under a roof** into a cave.
+- **Creeper flees ignore skeletons** (round 97), the lava death at y=-25 (round 97), the close-in creeper pillar still sees a swell.
+- **Hard pacing:** hard3's furnace at 1144 s and iron at 1837 s; normal2's 662 s `bag full` stand at (765, 13, -523).
+- Cave-morning exits into crowds, a fuse during a pillar climb, phantoms on the perch, night-mine climbs, `chest_spot_blocked`.

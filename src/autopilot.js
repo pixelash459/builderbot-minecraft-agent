@@ -880,6 +880,33 @@ export const DIAMOND_OFF_MS=20*60000;
 export const COAL_OFF_MS=10*60000;
 // A respawn counts as 'just died' for this long (the death screen plus a slow respawn).
 const RESPAWN_FRESH_MS=60000;
+// Round 99 (round-98 hard1: `speared by Zombie` at (793, 89, -530) with two stone picks, a stone
+// sword, a furnace and two tables, the respawn 140 blocks away, and no iron pick in the 25 minutes
+// left; hard2: shot at (782, 68, -549), then a zombie 3.5 minutes later with only dirt held, and no
+// iron pick either): the drops lie for 5 minutes and the walk back takes about one, so after a
+// death with a kit in the bag the ladder walks back for it before it starts over.
+export const BAG_RUN_MS=270000,BAG_RUN_FAR=220,BAG_RUN_DEEP=32,BAG_RUN_TRIES=3,BAG_RUN_AGAIN=16,BAG_RUN_AGAIN_MS=600000;
+const BAG_WORTH=/_(pickaxe|sword|axe|shovel|helmet|chestplate|leggings|boots)$|^(furnace|crafting_table|shield|bucket|water_bucket|raw_iron|iron_ingot|diamond)$/;
+// What a death leaves on the ground, read as it happens (the slots empty a moment later).
+export function deathBag(bot,at){
+ try{
+  const items=bot.inventory.items(),worth=[...new Set(items.filter(i=>BAG_WORTH.test(i.name)).map(i=>i.name))];
+  const cell=at&&bot.blockAt?bot.blockAt(at.floored?at.floored():at):null;
+  return {items:items.reduce((a,i)=>a+i.count,0),worth,lava:!!cell&&/lava/.test(cell.name)};
+ }catch{return null;}
+}
+// Why no bag run goes out for this death, or null for one that does. `before` is the death before it.
+export function bagRunSkip(death,before,me,now){
+ const p=death.pos,bag=death.bag;
+ if(!p)return 'no death position';
+ if(!bag||!bag.worth.length)return 'nothing worth the walk in the bag';
+ if(bag.lava)return 'the drops went in the lava';
+ const far=Math.hypot(p.x-me.x,p.z-me.z),dy=Math.abs(p.y-me.y);
+ if(far>BAG_RUN_FAR)return Math.round(far)+' away';
+ if(dy>BAG_RUN_DEEP)return Math.round(dy)+' above or below';
+ if(before&&before.pos&&death.t-Date.parse(before.t)<=BAG_RUN_AGAIN_MS&&Math.hypot(p.x-before.pos.x,p.y-before.pos.y,p.z-before.pos.z)<=BAG_RUN_AGAIN)return 'two deaths at that spot';
+ return null;
+}
 export function bedPrepJob(counts,ctx){
  const c=countFactory(counts);
  ctx=woodTotals(counts,{...ctx});
@@ -1017,6 +1044,7 @@ export class Autopilot{
   if(this.current)this.settle(w.jobs.find(j=>j.id===this.current.id)||{status:'complete',id:this.current.id});
   this.publishReserve(b);
   if(!shelterDue(dayTicks(b))&&this.recovering(b))return; // the night job (shelter or sleep) still goes out
+  if(!shelterDue(dayTicks(b))&&this.bagRun(b))return;
   this.rememberHome(b);
   // Dusk prep: without a bed the night shelter needs 25 dirt/cobble in the inventory, so
   // gather the dirt while there is still daylight (once per day). Grass blocks drop dirt.
@@ -1161,6 +1189,24 @@ export class Autopilot{
   this.submit('night',job,{keepHolds:true});
   return true;
  }
+ // Round 99: true while the ladder gives way to a bag run. A run a reflex paused holds the ladder
+ // (a new job would supersede it) until the drops are too old to walk for.
+ bagRun(b){
+  const w=this.worker,d=w.lastDeath,me=b.entity?.position;
+  if(!d||!me||this.bagDone===d.t)return false;
+  const r=this.bag?.t===d.t?this.bag:(this.bag={t:d.t,tries:0});
+  const end=why=>{this.bagDone=d.t;this.log('Bag run: '+why);return false;};
+  if(Date.now()-d.t>=BAG_RUN_MS)return end(r.tries?'out of time after '+r.tries+' run(s); the ladder starts over':'too late for the drops; the ladder starts over');
+  if(w.jobs.some(j=>j.status==='paused'&&j.spec?.type==='bagrun'&&/^(Preempted by|Job interrupted|Reflex:)/.test(String(j.message)))){this.state='bag: waiting on a reflex';return true;}
+  if(!r.tries){
+   const skip=bagRunSkip(d,(w.deathLog||[]).at(-2),me,Date.now());
+   if(skip)return end('skipped ('+skip+')');
+  }
+  if(r.tries>=BAG_RUN_TRIES)return end('given up after '+r.tries+' run(s); the ladder starts over');
+  r.tries++;
+  this.submit('bag',{type:'bagrun',position:{x:Math.floor(d.pos.x),y:Math.floor(d.pos.y),z:Math.floor(d.pos.z)}});
+  return true;
+ }
  // Round 19: the bot stands more than ASCEND_BELOW under its surface anchor with no sky above
  // it (a valley under a stale anchor is not underground).
  // Round 76 (round-75 normal1: 15 minutes of `wood failed 3 times; exploring before retry` and
@@ -1283,6 +1329,7 @@ export class Autopilot{
    if(this.current.spec?.type==='gather'&&this.current.spec.block==='coal_ore')this.coalFails=0;
    // Round 11: the inventory step's placed chest is the home chest (and home, when none is set).
    const sp=this.current.spec;
+   if(this.current.step==='bag')this.bagDone=this.bag?.t;
    if(this.current.step==='inventory'&&sp?.type==='place'&&sp.block==='chest'&&sp.position){
     this.homeChestAt={x:sp.position.x,y:sp.position.y,z:sp.position.z};this.homeChest=true;
     if(!this.home)this.home={...this.homeChestAt};

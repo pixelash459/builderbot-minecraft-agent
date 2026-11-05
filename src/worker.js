@@ -16,7 +16,7 @@ import {craftConfirmedRetry as craftConfirmed} from './crafting.js';
 import {survey} from './observe.js';
 import {dayTicks,isNight} from './daytime.js';
 import {installProvoked,provoked} from './provoked.js';
-import {Autopilot,escapeY} from './autopilot.js';
+import {Autopilot,escapeY,deathBag,BAG_RUN_MS} from './autopilot.js';
 import {SMELTING} from './smelting.js';
 import {buildChain,BREED_FOOD} from './howto.js';
 import * as combat from './combat.js';
@@ -804,6 +804,10 @@ export const NIGHT_MINE_GUARD=8,MINE_HURT_MS=3000;
 // RESPAWN_GUARD_MS after a death, until the shelter seals, the same threat lets Mob Defense
 // through (hold.respawned). The resumed shelter builds where the flee left it.
 export const RESPAWN_GUARD_MS=180000;
+// Round 99 (bagRunSkip in autopilot.js): the walk back goes in straight-line legs of BAG_RUN_LEG, a
+// long goal being over the path search's budget; within BAG_RUN_NEAR it closes on the death cell,
+// then sweeps the drops within BAG_RUN_SWEEP for up to BAG_RUN_SWEEP_MS.
+export const BAG_RUN_LEG=48,BAG_RUN_NEAR=6,BAG_RUN_SWEEP=24,BAG_RUN_SWEEP_MS=30000,BAG_RUN_STOP_S=5;
 // Round 93 (round-92 hard1: `Shelter: skeleton 13.5 away; opening the walls` at noon, then 19 s of
 // digging the walls down with the pickaxe held, `Death: health 15.4 -> ... -> 11.7 -> ... -> 5.3 ->
 // 6.3 -> 0; held stone_pickaxe; 2 hostile(s) within 8: skeleton 4.9, skeleton 5.8` and not one
@@ -1255,7 +1259,7 @@ export class Worker extends EventEmitter {
   this.log('Bot died at '+(at?Math.floor(at.x)+', '+Math.floor(at.y)+', '+Math.floor(at.z):'an unknown position')+(killer?' (killed by '+killer.name+')':''));
   try{this.log(deathContext(bot,this.hpTrail,Date.now()));}catch{}
   this.hpTrail=[];
-  this.lastDeath={pos:at?{x:at.x,y:at.y,z:at.z}:null,t:Date.now()};
+  this.lastDeath={pos:at?{x:at.x,y:at.y,z:at.z}:null,t:Date.now(),bag:deathBag(bot,at)};
   // Monotonic, session-wide: the soak counts a run's deaths as this counter's rise (the
   // 100-entry event window scrolls a 'Bot died at' line out within one 30 s sample under a
   // flee storm - round 4 recorded 1 death of 4).
@@ -1740,8 +1744,27 @@ export class Worker extends EventEmitter {
   }
   if(targets.length&&b.inventory.items().reduce((a,i)=>a+i.count,0)-before<targets.length)throw Error('Drops were seen but not picked up');
  }
- async sweepDrops(token,radius=8){
-  const b=this.bot,deadline=Date.now()+10000;
+ // Round 99: the walk back to the last death, then the drops. A reflex-paused run starts again from
+ // wherever the flee left it.
+ async bagRun(job,token){
+  const b=this.bot,at=pos(job.spec.position),until=(this.lastDeath?.t??Date.now())+BAG_RUN_MS;
+  const left=()=>Math.floor((until-Date.now())/1000),flat=()=>Math.hypot(b.entity.position.x-at.x,b.entity.position.z-at.z);
+  const bag=()=>{const m={};for(const i of b.inventory.items())m[i.name]=(m[i.name]||0)+i.count;return m;};
+  if(!job.bagFrom){job.bagFrom={t:Date.now(),had:bag()};this.log('Bag run: walking '+Math.round(flat())+' back to the death at '+at+' ('+(this.lastDeath?.bag?.worth||[]).join(', ')+'; '+left()+' s left on the drops)');}
+  for(let legs=Math.ceil(flat()/BAG_RUN_LEG)+4;flat()>BAG_RUN_NEAR;legs--){
+   this.check(token);
+   if(legs<=0||left()<BAG_RUN_STOP_S)throw Error('Bag run: stopped '+Math.round(flat())+' short of the death at '+b.entity.position.floored());
+   const d=flat(),p=b.entity.position,k=BAG_RUN_LEG/d;
+   if(k<1)await this.navigate(new goals.GoalXZ(Math.floor(p.x+(at.x-p.x)*k),Math.floor(p.z+(at.z-p.z)*k)),token,Math.min(45,left()));
+   else await this.walk(at,token,BAG_RUN_NEAR-1,Math.min(45,left()));
+  }
+  try{await this.walk(at,token,2,Math.max(1,Math.min(15,left())));}catch(e){this.check(token);}
+  await this.sweepDrops(token,BAG_RUN_SWEEP,BAG_RUN_SWEEP_MS);
+  const now=bag(),got=Object.keys(now).filter(n=>now[n]>(job.bagFrom.had[n]||0)).map(n=>n+' '+(now[n]-(job.bagFrom.had[n]||0)));
+  this.log('Bag run: at the death after '+Math.round((Date.now()-job.bagFrom.t)/1000)+' s; '+(got.length?'picked up '+got.join(', '):'no drops picked up'));
+ }
+ async sweepDrops(token,radius=8,ms=10000){
+  const b=this.bot,deadline=Date.now()+ms;
   while(Date.now()<deadline){
    this.check(token);
    const drop=Object.values(b.entities).filter(e=>e.name==='item'&&e.position&&e.position.distanceTo(b.entity.position)<=radius&&!this.isDroppedJunk?.(e)).sort((a,c)=>a.position.distanceTo(b.entity.position)-c.position.distanceTo(b.entity.position))[0];
@@ -3260,6 +3283,7 @@ export class Worker extends EventEmitter {
    if(points){this.log('Climbing out of the tunnel an interrupted gather left ('+points.length+' steps)');try{await this.climbTunnel({tunnel:points},token);}catch(e){this.check(token);this.log('Could not climb back up the tunnel: '+e.message);}}
   }
   if(spec.type==='goto'){await this.walk(pos(spec.position),token,1);return;}
+  if(spec.type==='bagrun')return this.bagRun(job,token);
   if(spec.type==='ascend')return this.ascend(job,token);
   if(spec.type==='gather')return this.gather(job,token);
   if(spec.type==='craft')return this.craft(job,token);
