@@ -607,6 +607,27 @@ export function openSurface(b,floor){
 export function headSky(b,p){
  try{const h=b.blockAt(new Vec3(p.x,p.y+1,p.z));return h&&Number.isFinite(h.skyLight)?h.skyLight:0;}catch{return 0;}
 }
+// Round 96 (round-95 hard1: its night box at (785, 86, -517) sat two under the ground of a cherry
+// grove, `morning in a cave (3 hostiles within 24, sky 0)` - the sky was the canopy - and `no path
+// up from y=86; pillaring`, `Ascend: y=86 -> 94 (surface 94)`, `head sky 13`: up its own column into
+// the leaves, 6 over the grass, where 23 wood gathers and 20 explores found no path for 15 minutes):
+// a sky climb is out once a cell beside the bot opens onto ground (a solid floor that is not leaves,
+// feet and head free) with nothing over it for OUT_SCAN but the canopy.
+export const OUT_SCAN=24;
+const CANOPY=/(_leaves|_log|_wood|_stem|vine|vines|azalea|mangrove_roots|bee_nest|_hyphae)$/;
+export function walkOut(b,p){
+ const at=(x,y,z)=>{try{return b.blockAt(new Vec3(x,y,z));}catch{return null;}};
+ const open=bl=>!bl||(bl.boundingBox==='empty'&&!/water|lava/.test(bl.name));
+ for(const[dx,dz]of[[1,0],[-1,0],[0,1],[0,-1]]){
+  const x=p.x+dx,y=p.y,z=p.z+dz,floor=at(x,y-1,z);
+  if(!floor||floor.boundingBox!=='block'||/_leaves$/.test(floor.name))continue;
+  if(!open(at(x,y,z))||!open(at(x,y+1,z)))continue;
+  let clear=true;
+  for(let h=2;h<=OUT_SCAN&&clear;h++){const bl=at(x,y+h,z);if(bl&&bl.boundingBox==='block'&&!CANOPY.test(bl.name))clear=false;}
+  if(clear)return {x,y,z};
+ }
+ return null;
+}
 // Round 88 (round-87: hard1 went from health 20 on its last sample to dead 13 s later, 4 s after
 // its morning box came down, and hard2 died 2 s after a `(vulnerable)` flee - the log names the
 // killer and nothing of what hit it): the death line is followed by the health over the last
@@ -4690,7 +4711,7 @@ export class Worker extends EventEmitter {
    catch(e){this.check(token);this.log('Ascend: tunnel climb stopped ('+String(e.message).slice(0,60)+')');}
   }
   const toSky=!!(job.spec.forFood||job.spec.sky);
-  if(Math.floor(b.entity.position.y)<y-4&&!(toSky&&headSky(b,b.entity.position.floored())>=SKY_OPEN)){
+  if(Math.floor(b.entity.position.y)<y-4&&!(toSky&&(headSky(b,b.entity.position.floored())>=SKY_OPEN||walkOut(b,b.entity.position.floored())))){
    const goal=toSky?new GoalSky(b,y):new goals.GoalY(y);
    try{await this.navigate(goal,token,90);}catch(e){this.check(token);this.log('Ascend: path up stopped ('+String(e.message).slice(0,60)+')');}
   }
@@ -4699,6 +4720,9 @@ export class Worker extends EventEmitter {
   // up instead, digging any ceiling that has no fluid or falling block over it.
   const safe=bl=>{const up=b.blockAt(bl.position.offset(0,1,0));return !/bedrock|obsidian|chest|furnace|crafting_table|spawner/.test(bl.name)&&!isFluid(bl)&&!isFluid(up)&&!isGravity(up);};
   const skyOpen=()=>headSky(b,b.entity.position.floored())>=SKY_OPEN;
+  // Round 96: under a canopy, ground beside the bot is out too.
+  const beside=()=>toSky?walkOut(b,b.entity.position.floored()):null;
+  const out=()=>skyOpen()||!!beside();
   const pillared=Math.floor(b.entity.position.y)<=start+2&&Math.floor(b.entity.position.y)<y-4;
   if(pillared){
    this.log('Ascend: no path up from y='+start+'; pillaring');
@@ -4708,9 +4732,9 @@ export class Worker extends EventEmitter {
    // while each one rises.
    for(let seg=0;seg<ASCEND_SEGMENTS;seg++){
     const from=Math.floor(b.entity.position.y),target=Math.min(y,from+ASCEND_PILLAR);
-    try{await this.pillarUp(target,token,{clear:safe,maxDigs:ASCEND_PILLAR});}catch(e){this.check(token);this.log('Ascend: pillar stopped ('+String(e.message).slice(0,60)+')');break;}
+    try{await this.pillarUp(target,token,{clear:safe,maxDigs:ASCEND_PILLAR,until:toSky?out:null});}catch(e){this.check(token);this.log('Ascend: pillar stopped ('+String(e.message).slice(0,60)+')');break;}
     const to=Math.floor(b.entity.position.y);
-    if(to>=y-4||to<target||seg===ASCEND_SEGMENTS-1)break; // short of its own target: a ceiling or no blocks
+    if(to>=y-4||to<target||seg===ASCEND_SEGMENTS-1||toSky&&out())break; // short of its own target: a ceiling or no blocks
     this.log('Ascend: pillared y='+from+' -> '+to+', '+(y-to)+' below the surface; pillaring on');
    }
   }
@@ -4719,7 +4743,7 @@ export class Worker extends EventEmitter {
   // a sky climb's roof still over the head - and shot by a skeleton 8 s after `Completed shelter`):
   // the sky pillar below also follows a no-path pillar that got there. A pillar that stopped short
   // of its own target (a ceiling it may not dig, or no blocks) is not tried again.
-  if(toSky&&Math.floor(b.entity.position.y)<y&&!skyOpen()&&(!pillared||Math.floor(b.entity.position.y)>=y-4)){
+  if(toSky&&Math.floor(b.entity.position.y)<y&&!out()&&(!pillared||Math.floor(b.entity.position.y)>=y-4)){
    // Round 88 (round-87 hard2: `morning in a cave (8 hostiles within 24, sky 0)`, the stair-out
    // `dug 3 steps up east`, `Ascend: y=85 -> 88 (surface 90)` and `Completed shelter` under the
    // cave roof - shot by a skeleton 9 s later; 11 of the 26 cave mornings in the logs since
@@ -4731,14 +4755,16 @@ export class Worker extends EventEmitter {
    // Round 90 (round-89 hard1: `no sky at y=62 after the climb (surface 89)`, the pillar to its
    // own target 62+24 and `head sky 0 at y=86` - 3 under the surface, the roof still on): the
    // target is at least SKY_OVER over the surface anchor, so the pillar stops on the sky, not short.
-   try{await this.pillarUp(Math.max(from+ASCEND_PILLAR,y+SKY_OVER),token,{clear:safe,maxDigs:ASCEND_PILLAR,until:skyOpen});}catch(e){this.check(token);this.log('Ascend: pillar stopped ('+String(e.message).slice(0,60)+')');}
+   try{await this.pillarUp(Math.max(from+ASCEND_PILLAR,y+SKY_OVER),token,{clear:safe,maxDigs:ASCEND_PILLAR,until:out});}catch(e){this.check(token);this.log('Ascend: pillar stopped ('+String(e.message).slice(0,60)+')');}
   }
   const now=Math.floor(b.entity.position.y);
   // Round 89 (round-88 hard1 went from health 20 at y=73 to 11 at the top of its 27 s pillar with
   // nothing in the log): a sky climb says the head sky and the health it lost on the way.
   if(toSky){const hp=h=>h==null?'?':Math.round(h*10)/10;this.log('Ascend: head sky '+headSky(b,b.entity.position.floored())+' at y='+now+'; health '+hp(hp0)+' -> '+hp(b.health)+' on the climb');}
+  const side=!skyOpen()&&beside();
+  if(side)this.log('Ascend: out under cover at y='+now+' (ground beside at '+side.x+', '+side.z+' with only the canopy over it); not pillaring into it');
   this.log('Ascend: y='+start+' -> '+now+' (surface '+y+')');
-  if(toSky&&skyOpen())return; // round 31: on the surface
+  if(toSky&&out())return; // round 31: on the surface (round 96: or beside open ground under a canopy)
   if(now<=start+2)throw Error('Could not climb toward the surface from y='+start);
  }
  // A dropped item entity the bot tossed as junk a moment ago (drop job): not worth a walk.

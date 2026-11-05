@@ -3339,3 +3339,36 @@ The round-72 soak on the Nitrous world copy (bot `3fc0f73`) ran all six runs cle
 - **Phantoms on the perch**; no bed on any run this round.
 - **The round-46 `lone` count** flips when a creeper crosses 10, a likely source of the round-93 thrash.
 - **From round 93:** the 60 s skeleton wait, the respawn with an empty bag, the creeper parked at about 6, the 5-minute sealed morning, deaths in huge crowds, silverfish, no regeneration without food, night-mine climbs, `chest_spot_blocked`.
+
+## Round 96 (2026-11-05)
+
+**What the round-95 soak showed** (report `7226342`, bot code `480d8fa`, promoted): iron on 3 of 6 (the normals only), 1 death (0/0/0/1/0/0).
+- **The round-95 close-in pillar never fired:** 0 `closed to`, 0 fuses, 0 creeper deaths. Three `keeping 20 away`, none closing past 6 after the chase started (hard2's two closest approaches, 2.7 and 2.8, were in the first 3 s).
+- **hard1, the death:** a cave-morning climb out of a deep box (818, 62, -547) to y=87 into a crowd of ~80, and `slain by Enderman` 12.5 s after `Completed shelter`.
+- **hard1 after the respawn, 15 minutes in one cell:**
+  - Its night box at (785, 86, -517) was two under the grass of a cherry grove. At dawn `morning in a cave (3 hostiles within 24, sky 0)` - the sky was the canopy, not rock.
+  - `no path up from y=86; pillaring`, `Ascend: y=86 -> 94 (surface 94)`, `head sky 13`: up its own column into the leaves, 6 over the grass (the soak world after the soak: grass at 87, cherry leaves 94-97 on every side of x=786).
+  - From (786, 94, -517): 23 wood gathers (`No path to the goal!`, `Only the block under the bot is in reach`) and 20 explores, all `east (cherry_grove at 16)` and all `no path for explore`, until dusk. 512 s on the samples in that cell.
+  - The pathfinder's error there is `noPath`, not the empty path, so the round-44 stranded retry (drops of 6 and digging, then the round-80 dig-down) never ran.
+- hard2 and hard3 ran short of iron on pacing (hard2 at health 8.7 on food at 1233 s, hard3 on bed-prep, 6 raw iron unsmelted at the end).
+
+**Fix**
+- **A sky climb under a canopy stops at the ground** (`worker.js`).
+  - New `walkOut(b,p)`: a cell beside the bot whose floor is solid and not leaves, whose feet and head cells are free (no fluid), and with nothing solid for `OUT_SCAN` 24 over it but leaves, logs, wood, stems or vines.
+  - `ascend` with `sky`: `out()` is `skyOpen() || walkOut(...)`. It ends the no-path pillar segments (their `pillarUp` now takes `until:out` on a sky climb), skips the round-88 sky pillar and the round-90 target past the surface, and skips the first path-up when the bot is already out. A box wall beside the bot, a rock roof over the neighbour, or a leaf floor is not out.
+  - Line: `Ascend: out under cover at y=N (ground beside at X, Z with only the canopy over it); not pillaring into it`, before the usual `Ascend: y=A -> B (surface Y)`.
+  - Nothing changes in a real cave: the round-88/89/90 sky pillar still climbs through rock to open sky.
+
+**Tests:** `round96.test.js` (3):
+- `walkOut` on the round-95 grove: grass beside the bot under the cherry is out; walled on four sides, stone 10 over, leaves underfoot, and the y=94 canopy cell are not;
+- the round-95 climb from (786, 86, -517) in its box: stops at y=88 on the grass with the line, no sky pillar, every pillar given `until`;
+- with stone over the grove the climb goes through to head sky 15 as before.
+
+806 pass, resources 9.
+
+**Not changed yet**
+- **The noPath branch of `navigate` has no stranded retry** (only the empty-path branch does). A bot that strands some other way still loops `no path` from one cell.
+- **The wood heading repeats a direction that has just failed from the same cell** (21 in a row on hard1). Random would at least have varied.
+- **Hard pacing:** iron on 0 of 3 hard runs this round; the bed and food before iron.
+- **Cave-morning exits into crowds** (the hard1 enderman death, round 94's creeper).
+- **From earlier rounds:** a fuse during a pillar climb, leaving the night pillar at dawn hurt and unarmed, phantoms on the perch, the round-46 `lone` flip, the 60 s skeleton wait, the respawn with an empty bag, silverfish, no regeneration without food, night-mine climbs, `chest_spot_blocked`.
