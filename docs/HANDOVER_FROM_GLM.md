@@ -3305,3 +3305,37 @@ The round-72 soak on the Nitrous world copy (bot `3fc0f73`) ran all six runs cle
 - **Phantoms on the perch** (the bot never sleeps, so they come after the third night).
 - **hard3's pacing:** the bed and food before iron on a hard run.
 - **From round 93:** the 60 s skeleton wait, the respawn with an empty bag, the creeper parked at about 6, the 5-minute sealed morning, deaths in huge crowds, silverfish, no regeneration without food, the click-loop caller, night-mine climbs that time out, and `chest_spot_blocked`.
+
+## Round 95 (2026-11-05)
+
+**What the round-94 soak showed** (report `48f2981`, bot code `4563145`, promoted): iron on 5 of 6, 1 death (0/0/0/0/0/1).
+- **The round-94 wood heading worked.** Hard wood 211/331/271 s (round 93: 301/1717/362). Two heading lines, both hard3, both `east (cherry_grove ...)`; two more wood failures climbed out from under rock instead. No water march, `no dry stand` 0.
+- **The one death, hard3:**
+  - A cave morning climbed out through the roof to y=89 (`head sky 12`, health 20 to 20, stone sword held, 49 cobble).
+  - A creeper was there: `fleeing creeper` 0.03 s after `Completed shelter`, then `a creeper has followed for 3 s; keeping 20 away`.
+  - 6 s later: `creeper fuse (swell 1)`, then `creeper fuse at 2.9 and the flee is not moving the bot; walling 4 cell(s)`, 2 placed, none standing, `blown up by Creeper` with armour 0.
+  - The keep-away never kept it off, and the pillar fight waits for `CREEPER_PERSIST` 20 s of following.
+- **The pillar thrash did not recur at length:** the longest pillar/keep-away alternation is 5.1 s. No `pillar-up failed`.
+- hard3 lost its iron to the death. No bed on any run.
+
+**Fix**
+- **A creeper that closes in through the keep-away is fought from a pillar at once** (`mobDefenseChain.js`).
+  - New `CREEPER_CLOSING_NEAR` 6. Once a chase has run `CREEPER_CHASE_S` (3 s) and its creeper comes within 6, that chase is marked closing. From then on it is a `FightTask` (the combat controller pillars inside 8, strikes from the top) instead of the keep-20 flee, for as long as the chase lasts (lost for 5 s or past 20 ends it).
+  - Gate (`pillarFightOk`): a sword or axe, health 14+ (10+ armoured), at most 2 melee mobs, daylight or armoured - the 7f policy without its creeper-within-5 check, since the pillar is the answer to exactly that. Plus 2+ pillar blocks, and alone: no other creeper within 10 and nothing else within 6. A creeper backing off past 10 does not end it (the `lone` count in the round-46 branch does).
+  - Line: `Reflex: a creeper has followed for N s and closed to D through the keep-away; fighting it from a pillar`, once per chase.
+  - The first 3 s stay the plain `fleeing creeper`; a creeper the keep-away holds past 6 is fled as before, and the round-46 `CREEPER_PERSIST` fight is unchanged. A fuse still outranks everything (the fuse flee replaces the fight).
+
+**Tests:** `round95.test.js` (3):
+- the round-94 shape: 4 away, the keep-away at 3 s, 5.2 away 2 s later is the pillar fight with the line; it stays the fight at 7-12 with one line, ends past 20, and a new chase starts with the plain flee;
+- a creeper the keep-away holds at 6.5-12 is still fled; within 6 in the first 3 s is the plain flee;
+- the gate: no sword, 1 block, health 11, night, a zombie within 6 or a second creeper within 10 each keep the flee; within 5 with no bow is still the pillar.
+- `round91.test.js`: the creeper-at-2.5 case now becomes the pillar fight after 3 s (never the cornered line).
+
+803 pass, resources 9.
+
+**Not changed yet**
+- **A fuse during a pillar climb:** the fuse flee replaces the fight, so a bot one or two blocks up drops off and runs. Watch for swell lines inside the new pillar fights.
+- **Leaving the night pillar at dawn** hurt, unarmed and without food (round 93).
+- **Phantoms on the perch**; no bed on any run this round.
+- **The round-46 `lone` count** flips when a creeper crosses 10, a likely source of the round-93 thrash.
+- **From round 93:** the 60 s skeleton wait, the respawn with an empty bag, the creeper parked at about 6, the 5-minute sealed morning, deaths in huge crowds, silverfish, no regeneration without food, night-mine climbs, `chest_spot_blocked`.

@@ -49,9 +49,11 @@ test('round 91: no cornered fight for a flee that moves, a zombie behind a wall,
  {const bot=pinnedBot({entities:{7:mob(7,'zombie',2)},solid:(x,y,z)=>x===1&&(y===71||y===72)}),logs=[],m=new MobDefenseChain(),ctx=chainCtx(logs);let t=0;m.now=()=>t;
   for(let i=0;i<5;i++){t+=1;assert.notEqual(m.priority(bot,ctx),85);}
   assert.ok(!logs.some(l=>/cornered/.test(l)));}
- // a creeper is never the melee target: the keep-away stays
+ // a creeper is never the cornered melee target: the keep-away stays (round 95: until the chase
+ // has run CREEPER_CHASE_S with it inside 6 - then the pillar fight, still not the cornered line)
  {const bot=pinnedBot({health:20,entities:{9:mob(9,'creeper',2.5)}}),logs=[],m=new MobDefenseChain(),ctx=chainCtx(logs);let t=0;m.now=()=>t;
-  for(let i=0;i<5;i++){t+=1;m.priority(bot,ctx);assert.equal(m.root.name,'RunAwayFromCreepersTask');}
+  for(let i=0;i<5;i++){t+=1;m.priority(bot,ctx);assert.equal(m.root.constructor.name,i<3?'RunAwayFromCreepersTask':'FightTask');}
+  assert.ok(logs.some(l=>/closed to [\d.]+ through the keep-away; fighting it from a pillar$/.test(l)));
   assert.ok(!logs.some(l=>/cornered/.test(l)));}
  // a skeleton 2 away (ranged) is not a cornering melee mob (the old isCornered ladder step still answers it)
  {const bot=pinnedBot({entities:{8:mob(8,'skeleton',2.5)}}),logs=[],m=new MobDefenseChain(),ctx=chainCtx(logs);let t=0;m.now=()=>t;

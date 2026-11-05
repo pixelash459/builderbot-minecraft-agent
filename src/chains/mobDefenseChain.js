@@ -35,6 +35,16 @@ export const CREEPER_STALL_S=30,CREEPER_STALL_NEAR=6,CREEPER_CLOSE_STEP=1;
 // Round 83: a meal goes ahead through a creeper keep-away with no creeper fusing or nearer than
 // CREEPER_MEAL_NEAR and no other hostile within MEAL_CLEAR.
 export const CREEPER_MEAL_NEAR=5,MEAL_CLEAR=8;
+// Round 95 (round-94 hard3: out of a cave-morning climb at y=89 with a creeper beside it, health
+// 20 and a stone sword; `fleeing creeper`, `keeping 20 away` 3 s later, and 6 s after that
+// `creeper fuse (swell 1)` at 2.9 with `the flee is not moving the bot` - the keep-away had not
+// kept it off, and the pillar fight waited for CREEPER_PERSIST): a chased creeper that comes within
+// CREEPER_CLOSING_NEAR through the keep-away is fought from a pillar at once (the combat pillar
+// starts inside 8), and stays so for that chase. The 7f creeper-within-5 check does not apply to
+// the pillar, which is the answer to exactly that; the rest of the fight policy does. Alone is
+// this creeper with no other within CREEPER_KEEP_DISTANCE: it backing off past 10 does not end it.
+export const CREEPER_CLOSING_NEAR=6;
+const pillarFightOk=p=>!!p.weapon&&(p.health>=14||(p.armoured&&p.health>=10))&&p.melee<=2&&(p.daylight||p.armoured);
 const ARROW_KEEP_DISTANCE_HORIZONTAL=2;
 const ARROW_KEEP_DISTANCE_VERTICAL=10;
 const DANGER_KEEP_DISTANCE=15*2;
@@ -209,11 +219,15 @@ export class MobDefenseChain extends SingleTaskChain{
    if(!this._creeperChase||this._creeperChase.id!==creeper.id||now-this._creeperChase.last>5||this._creeperChase.stalled)this._creeperChase={id:creeper.id,since:now,last:now};
    this._creeperChase.last=now;
    const lone=hostiles.filter(e=>withinRange(e,bot,CREEPER_KEEP_DISTANCE)&&e.name==='creeper').length===1&&!hostiles.some(e=>e.name!=='creeper'&&withinRange(e,bot,6));
-   const blocks=pillarBlocks(bot);
-   if(policy.allowed&&lone&&blocks&&blocks.total>=2&&now-this._creeperChase.since>=CREEPER_PERSIST){
+   const blocks=pillarBlocks(bot),cd=distanceTo(creeper,bot);
+   if(!this._creeperChase.closing&&now-this._creeperChase.since>=CREEPER_CHASE_S&&cd<=CREEPER_CLOSING_NEAR)this._creeperChase.closing={d:cd};
+   const alone=!hostiles.some(e=>e.id!==creeper.id&&(e.name==='creeper'?withinRange(e,bot,CREEPER_KEEP_DISTANCE):withinRange(e,bot,6)));
+   const closing=!!this._creeperChase.closing&&pillarFightOk(policy)&&alone;
+   if((closing||policy.allowed&&lone&&now-this._creeperChase.since>=CREEPER_PERSIST)&&blocks&&blocks.total>=2){
     this._runAwayTask=null;
     this.root=this._fight(ctx);
-    this._fleeLog(ctx,'creeper-fight','Reflex: a creeper has followed for '+Math.round(now-this._creeperChase.since)+' s; fighting it from a pillar');
+    if(closing)this._fleeLog(ctx,'creeper-closing','Reflex: a creeper has followed for '+Math.round(now-this._creeperChase.since)+' s and closed to '+this._creeperChase.closing.d.toFixed(1)+' through the keep-away; fighting it from a pillar');
+    else this._fleeLog(ctx,'creeper-fight','Reflex: a creeper has followed for '+Math.round(now-this._creeperChase.since)+' s; fighting it from a pillar');
     return 66;
    }
    this._runAwayTask=null;
