@@ -3372,3 +3372,34 @@ The round-72 soak on the Nitrous world copy (bot `3fc0f73`) ran all six runs cle
 - **Hard pacing:** iron on 0 of 3 hard runs this round; the bed and food before iron.
 - **Cave-morning exits into crowds** (the hard1 enderman death, round 94's creeper).
 - **From earlier rounds:** a fuse during a pillar climb, leaving the night pillar at dawn hurt and unarmed, phantoms on the perch, the round-46 `lone` flip, the 60 s skeleton wait, the respawn with an empty bag, silverfish, no regeneration without food, night-mine climbs, `chest_spot_blocked`.
+
+## Round 97 (2026-11-05)
+
+**What the round-96 soak showed** (report `90fe366`, bot code `e643009`, promoted): iron on 5 of 6 (every run but hard3), 0 deaths. Hard iron 1144/1657/- s.
+- **The round-96 canopy stop never fired:** 0 `out under cover`. The two cave mornings were a real cave (hard1, no-sky pillar from y=68, no damage) and a 4-step stair to head sky 15 (hard2). No daytime same-cell stand of 3 minutes; 0 `no path for explore`.
+- **The round-95 close-in pillar fired 5 times** (hard1 four, hard3 one; 4.7-5.9). Every one reached a `pillar-up`, none killed the creeper (`result=stopped`), four saw a fuse and fled past 7, 0 damage taken, no creeper death.
+- **hard3, ~5 minutes on a cherry canopy:**
+  - `Gather: search leg 3 north toward logs at 830,101,-496` took it onto the canopy of the grove. The soak world after the soak: at (831, -496) cherry leaves at y=100, air 96-99, grass at 95.
+  - From (831, 101, -496): a 90 s sheep hunt that timed out with no target, then three stone gathers, 10 targets each, all `Cannot reach ... (walk: No path to the goal!` from that cell, and `stone failed 3 times`.
+  - The dusk cobble gather's `No exposed stone within reach; digging down` got it down 5 minutes after the search leg. The gather's own `canopyDrop` runs only for a target below and refuses a fall of more than 4; this drop was 5.
+  - Its stone pick at 542 s, furnace 964 s, the iron step from 1958 s, and the run ended at y=47 smelting with no iron pick.
+
+**Fix**
+- **A walk with no path from a leaf stand digs down through the leaves** (`worker.js`).
+  - New `canopyFloor(b,f)`: with leaves under the feet, the first solid non-leaf block at most `CANOPY_DROP` 6 below (3 damage at most), with no water, lava, magma, cactus, campfire, berry bush, powder snow or dripstone in the column and nothing unloaded. Returns the stand y, or null.
+  - New `canopyDown(token)`: with health `STRANDED_HEALTH` 12+, not in a tunnel climb (`_ownFallback`), digs the leaf under the feet and falls, repeating while leaves are under the feet. Lines: `Navigation: no path from the canopy at (X, Y, Z) (<leaves> under the feet, the ground N below); digging down through the leaves`, then `Navigation: down from the canopy y=A -> B; pathing again`.
+  - `navigate` calls it in both no-path branches (the `noPath` rejection and the empty path), right after the no-avoidance retry and before the water search, the stair-out and the round-44 stranded retry, then paths again.
+  - A bot on its own pillar block, on a log, or on the ground is not on the canopy; nothing else changes.
+
+**Tests:** `round97.test.js` (3):
+- `canopyFloor` on hard3's column: stand 96 under the leaf, through a second leaf on the way, 6 below allowed and 7 not; null on grass, a log, a dirt pillar, water, lava, magma and an unloaded cell;
+- `canopyDown` from (831, 101, -496) with a second leaf at 97: two digs, down to y=96 with both lines; nothing at low health, in a tunnel climb, or while already digging;
+- both no-path branches call it, in that order.
+
+809 pass, resources 9.
+
+**Not changed yet**
+- **The close-in creeper pillar is 2-3 high and the creeper still swells** (4 fuses in 5 fights, 0 kills). No damage this round.
+- **Hard pacing:** hard3's day went on food (two 90-100 s cow and sheep timeouts), the pre-iron wool hunt and a broken stone pick (`A suitable harvesting tool is required` on coal at 11:06).
+- **The wood heading repeats a direction that has just failed from the same cell** (not seen this round).
+- **Cave-morning exits into crowds**, a fuse during a pillar climb, leaving the night pillar at dawn hurt and unarmed, phantoms on the perch, the round-46 `lone` flip, the 60 s skeleton wait, the respawn with an empty bag, silverfish, no regeneration without food, night-mine climbs (`Took to long to decide path` on all four this round), `chest_spot_blocked`.

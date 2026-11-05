@@ -243,6 +243,26 @@ export const STRANDED_DROP=6,STRANDED_HEALTH=12,STRAND_PILLAR=3;
 // bot digs its own column down, STRAND_PILLAR at a time (never into a fluid, never more than
 // STRAND_DESCEND in all), and paths again from each step.
 export const STRAND_PILLAR_MAX=2,STRAND_COLUMN_R=2,STRAND_PILLAR_MS=600000,STRAND_DESCEND=30;
+// Round 97 (round-96 hard3: a wood search leg took the bot onto a cherry canopy at (831, 101,
+// -496), a leaf under the feet and the grass 5 below; a 90 s sheep hunt and three stone gathers
+// all `No path to the goal!`, ~5 min, until a dusk dig-down broke through; round-95 hard1 lost
+// 512 s in one cherry canopy cell the same way): a walk with no path from a leaf stand digs the
+// leaves under the feet down to the ground when it is at most CANOPY_DROP below (3 damage at
+// most, health STRANDED_HEALTH+), then paths again once. The gather's canopyDrop stops at a fall
+// of 4 and runs only for a target below; this runs for every walk.
+export const CANOPY_DROP=6;
+const CANOPY_HAZARD=/water|lava|magma|cactus|campfire|sweet_berry|powder_snow|pointed_dripstone/;
+export function canopyFloor(b,f){
+ const at=y=>{try{return b.blockAt(new Vec3(f.x,y,f.z));}catch{return null;}};
+ const under=at(f.y-1);
+ if(!under||!/_leaves$/.test(under.name))return null;
+ for(let y=f.y-2;y>=f.y-1-CANOPY_DROP;y--){
+  const bl=at(y);
+  if(!bl||CANOPY_HAZARD.test(bl.name))return null;
+  if(bl.boundingBox==='block'&&!/_leaves$/.test(bl.name))return {under:under.name,stand:y+1};
+ }
+ return null;
+}
 export function strandPlan(list,p,now=Date.now()){
  const recent=(list||[]).filter(s=>now-s.at<STRAND_PILLAR_MS);
  const here=recent.filter(s=>Math.hypot(s.x-p.x,s.z-p.z)<=STRAND_COLUMN_R).length;
@@ -1353,6 +1373,7 @@ export class Worker extends EventEmitter {
    if(noPath){
     const mv=bot.pathfinder.movements;
     if(mv?._mobAvoidHook&&Array.isArray(mv.exclusionAreasStep)&&!this._noAvoid)return await this.navigateNoAvoid(goal,token,seconds);
+    if(await this.canopyDown(token))return await this.navigate(goal,token,seconds);
     if(!this._wideSearch&&inWater(bot)&&(bot.pathfinder.searchRadius??-1)>=0&&bot.pathfinder.searchRadius<WATER_SEARCH_RADIUS){
      const was=bot.pathfinder.searchRadius;this._wideSearch=true;bot.pathfinder.searchRadius=WATER_SEARCH_RADIUS;
      this.log('Navigation: no path from the water at '+bot.entity.position.floored()+' within the search budget; searching '+WATER_SEARCH_RADIUS);
@@ -1375,6 +1396,7 @@ export class Worker extends EventEmitter {
     // with avoidance off before treating the bot as boxed in.
     const mv=bot.pathfinder.movements;
     if(mv?._mobAvoidHook&&Array.isArray(mv.exclusionAreasStep)&&!this._noAvoid)return await this.navigateNoAvoid(goal,token,seconds);
+    if(await this.canopyDown(token))return await this.navigate(goal,token,seconds);
     // Round 22: a search that could not leave its first node is a bot boxed in (a pit it dug,
     // a sealed cell): stair out once toward the goal, then path again.
     // Round 73: not from a tunnel climb (climbTunnel has its own fallback); the round-72 probe's
@@ -1422,6 +1444,29 @@ export class Worker extends EventEmitter {
     throw new Error('No path to the goal! (empty path at '+bot.entity.position.floored()+', last path: '+last+')');
    }}
   finally{bot.off('path_update',onPath);clearTimeout(timer);clearInterval(monitor);if(token===this.epoch){bot.pathfinder.setGoal(null);unstickDigging(bot);bot.clearControlStates();}}
+ }
+ // Round 97: dig the leaves under the feet down to canopyFloor's ground (not from a tunnel
+ // climb). True once the bot stands lower than it started.
+ async canopyDown(token){
+  const bot=this.bot;
+  if(this._canopy||this._ownFallback||!bot.entity?.position||(bot.health??0)<STRANDED_HEALTH)return false;
+  const f=bot.entity.position.floored(),plan=canopyFloor(bot,f);
+  if(!plan)return false;
+  this._canopy=true;
+  try{
+   this.log('Navigation: no path from the canopy at '+f+' ('+plan.under+' under the feet, the ground '+(f.y-plan.stand)+' below); digging down through the leaves');
+   for(let k=0;k<=CANOPY_DROP;k++){
+    this.check(token);
+    const p=bot.entity.position.floored(),under=bot.blockAt(p.offset(0,-1,0));
+    if(!under||!/_leaves$/.test(under.name))break;
+    try{await bot.tool?.equipForBlock?.(under);}catch{}
+    await bot.dig(under,true);
+    const t0=Date.now();while(Math.floor(bot.entity.position.y)>=p.y&&Date.now()-t0<2000)await sleep(50);
+   }
+   const y=Math.floor(bot.entity.position.y);
+   this.log('Navigation: down from the canopy y='+f.y+' -> '+y+'; pathing again');
+   return y<f.y;
+  }finally{this._canopy=false;}
  }
  // Round 80: down the bot's own column, STRAND_PILLAR cells a segment, a path tried after each.
  // A cell is dug only when it is solid, not bedrock or a container, and the one under it holds
