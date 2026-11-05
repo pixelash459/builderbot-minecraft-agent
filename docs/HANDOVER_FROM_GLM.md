@@ -3403,3 +3403,36 @@ The round-72 soak on the Nitrous world copy (bot `3fc0f73`) ran all six runs cle
 - **Hard pacing:** hard3's day went on food (two 90-100 s cow and sheep timeouts), the pre-iron wool hunt and a broken stone pick (`A suitable harvesting tool is required` on coal at 11:06).
 - **The wood heading repeats a direction that has just failed from the same cell** (not seen this round).
 - **Cave-morning exits into crowds**, a fuse during a pillar climb, leaving the night pillar at dawn hurt and unarmed, phantoms on the perch, the round-46 `lone` flip, the 60 s skeleton wait, the respawn with an empty bag, silverfish, no regeneration without food, night-mine climbs (`Took to long to decide path` on all four this round), `chest_spot_blocked`.
+
+## Round 98 (2026-11-06)
+
+**What the round-97 soak showed** (report `9faaf2d`, bot code `d573823`, promoted): iron on 5 of 6 (every run but hard1), 5 deaths (0/0/1/2/1/1). Hard iron -/1295/1144 s.
+- **The round-97 canopy dig never fired:** 0 `no path from the canopy`. No daytime 2-minute stretch with 5+ `No path` failures, and no 3-minute daytime same-cell stand.
+- **The round-95 close-in pillar never fired** (0 `closed to`), and the round-96 canopy stop didn't either (0 `out under cover`).
+- **hard1, killed by a witch at 1096 s, before iron** (the first witch death in the reports):
+  - `Reflex: fleeing witch` at 16:29:46 from the iron gather at (794, 79, -590), a hole 2 wide and 4 deep in the soak world after the soak. The gather was `queued` on the next sample (the flee held the runner), and the bot was still at (794, 78, -590) at the death 21 s later.
+  - `Death: health 12.8 -> 3.8 -> 2.8 -> 1.8 -> 0.8 -> 0 ... armour 0; held stone_pickaxe; 1 hostile(s) within 8: witch 3.6`, with 6 cobblestone in the bag. The run-away is a raw forward-and-sprint on a heading, so in the hole it pressed against a wall, and the pinned-flee answer (round 91) fights melee mobs only.
+  - The death emptied the bag, and the zombie death at 1430 s came holding dirt. hard1 never made an iron pick.
+- **The two skeleton deaths came during creeper flees** (hard2 with a fuse wall and a blast, 18.4 -> 4.9; hard3 on a `keeping 20 away` keep-away by day, shot 15.8 -> 0.3). The creeper flees don't look at skeletons. normal3 died in lava at y=-25 holding an empty bucket after dousing.
+
+**Fix**
+- **A pinned witch flee blocks the witch's line of sight** (`fallbackTasks.js`, `mobDefenseChain.js`). A witch throws only with a line of sight.
+  - New `witchCoverCell(bot,witch,tries)`: walking the line from the bot's eyes to the witch's, it skips the bot's own cells and returns the first open cell within `WITCH_COVER_REACH` 4.5 that has a solid face to place against. With nothing to place against at head height on open ground, it returns the cell under it first. It returns `{covered:true}` once a solid cell cuts the line, and null for an unloaded cell, the witch's own cells, or a cell tried `WITCH_COVER_TRIES` 2 times.
+  - New `WitchCoverTask`: it stands still, equips the pillar blocks, and places one block every 0.25 s until the line is cut. When the chain moves on, it logs `Reflex: the witch cover is done: N block(s) placed (held X); the witch is D away`.
+  - In MobDefenseChain's witch branch, a flee pinned `FLEE_PINNED_S` 2 s within 1 block, with a witch within 10 in sight and pillar blocks held, takes the cover instead (priority 68, as the witch flee). It logs `Reflex: the witch flee has kept the bot in one spot for N s with the witch D away in sight (health H, <block> C); blocking its line of sight` once per spot.
+  - While the bot stays in that spot, a witch that sees it again gets a fresh cover at once. With no cell left, the flee runs for `WITCH_COVER_OFF` 3 s before it looks again. The cover ends when the bot moves off the spot.
+  - A witch flee that moves the bot, or one with no blocks held, is unchanged.
+
+**Tests:** `round98.test.js` (3):
+- the cover cell: from a 1x1 hole with the witch on the rim, the cell over the head; on flat ground the feet cell first, then the head cell; covered, unloaded, tried;
+- the chain in the hole: the flee, the cover at 2.1 s pinned with the start line, the equip and the block over the head, the vulnerable flee once out of sight, one done line, a fresh cover from the same spot when the block is lost, the 3 s fallback, and the end on moving off;
+- no cover with no blocks or for a flee that moves, and no done line when nothing was tried.
+
+812 pass, resources 9.
+
+**Not changed yet**
+- **Creeper flees ignore skeletons** (both skeleton deaths this round).
+- **The lava death at y=-25** after a douse with the bucket.
+- **The close-in creeper pillar is 2-3 high and the creeper still swells** (not exercised this round).
+- **Hard pacing:** food timeouts, the pre-iron wool hunt, broken stone picks; `Only the block under the bot is in reach` three times on the iron step before its explore.
+- Cave-morning exits into crowds, a fuse during a pillar climb, phantoms on the perch, the respawn with an empty bag, night-mine climbs, `chest_spot_blocked`.

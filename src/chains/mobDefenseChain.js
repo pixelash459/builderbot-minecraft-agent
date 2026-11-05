@@ -11,7 +11,7 @@
 import {SingleTaskChain} from './singleTaskChain.js';
 import {chainConfig,inGame,onFire} from './settings.js';
 import {getHostiles,nearestDistance,withinRange,distanceTo,armorValue,BURNS_IN_SUNLIGHT,canDealWithCount,evaluateFight,isCornered,canCraftWoodenSword,hasItemName,inventoryItems,nightish,isMeleeMob} from './combatPolicy.js';
-import {movementTask,RunAwayFromHostilesTask,RunAwayFromCreepersTask,DodgeProjectilesTask,KeepDistanceTask,KillEntitiesTask,CraftWeaponTask,ShelterTask,SleepTask,NightPillarTask,pillarBlocks,cellAt,projectileClose,approachingProjectiles} from './fallbackTasks.js';
+import {movementTask,RunAwayFromHostilesTask,RunAwayFromCreepersTask,DodgeProjectilesTask,KeepDistanceTask,KillEntitiesTask,CraftWeaponTask,ShelterTask,SleepTask,NightPillarTask,WitchCoverTask,pillarBlocks,cellAt,projectileClose,approachingProjectiles} from './fallbackTasks.js';
 import {nightRefuge,pillarRoom,DAY_CROWD} from '../night.js';
 import {dayTicks} from '../daytime.js';
 import {FightTask} from './fightTask.js';
@@ -80,6 +80,9 @@ const HOLDS=new Set(['RunAwayFromHostilesTask','KeepDistanceTask']);
 // last resort fights it with the best weapon, and keeps on while one stays within PINNED_KEEP.
 export const FLEE_PINNED_S=2,FLEE_PINNED_BLOCKS=1,PINNED_NEAR=3,PINNED_KEEP=5;
 const FLEES=new Set(['RunAwayFromHostilesTask','RunAwayFromCreepersTask','KeepDistanceTask']);
+// Round 98 (WitchCoverTask in fallbackTasks.js): a cover with no cell left to fill falls back to the
+// flee for WITCH_COVER_OFF s before it looks again from the same spot.
+export const WITCH_COVER_OFF=3;
 export class MobDefenseChain extends SingleTaskChain{
  constructor({food=null,mlg=null}={}){
   super('Mob Defense');
@@ -256,6 +259,8 @@ export class MobDefenseChain extends SingleTaskChain{
    if(ctx.worker&&ctx.worker.log)try{ctx.worker.log('Reflex: fled a witch for '+WITCH_FLEE_MS/1000+' s; ignoring witches beyond 6 for '+WITCH_IGNORE_MS/1000+' s');}catch{}
   }else{
    if(!this._witchSince)this._witchSince=now;
+   const cover=this._coverFrom(bot,ctx,witch,pinned);
+   if(cover){this._runAwayTask=null;this._doingFunkyStuff=true;this.root=cover;return 68;}
    this._runAwayTask=movementTask(ctx,'RunAwayFromHostilesTask',()=>new RunAwayFromHostilesTask(30,true));
    this.root=this._runAwayTask;
    this._fleeLog(ctx,'witch','Reflex: fleeing witch (26.3: it kites and out-potions the rush)');
@@ -409,6 +414,23 @@ export class MobDefenseChain extends SingleTaskChain{
   this._runAwayTask=movementTask(ctx,'RunAwayFromHostilesTask',()=>new RunAwayFromHostilesTask(30,true));
   this.root=this._runAwayTask;
   return 80;
+ }
+ // Round 98: a flee pinned FLEE_PINNED_S in one spot with a witch in sight takes cover from it, and
+ // keeps to the cover while the bot stays in that spot (the witch walking round to a new line).
+ _coverFrom(bot,ctx,witch,pinned){
+  const me=bot.entity.position,now=this.now(),c=this._cover;
+  if(!(c&&Math.hypot(me.x-c.x,me.z-c.z)<=FLEE_PINNED_BLOCKS&&Math.abs(me.y-c.y)<1)){
+   this._cover=null;
+   const blocks=pinned>=FLEE_PINNED_S&&pillarBlocks(bot);
+   if(!blocks)return null;
+   this._cover={x:me.x,y:me.y,z:me.z,tries:{},task:null,offUntil:0};
+   if(ctx&&ctx.worker&&ctx.worker.log)try{ctx.worker.log('Reflex: the witch flee has kept the bot in one spot for '+pinned.toFixed(1)+' s with the witch '+distanceTo(witch,bot).toFixed(1)+' away in sight (health '+Math.round(bot.health*10)/10+', '+blocks.item.name+' '+blocks.count+'); blocking its line of sight');}catch{}
+  }
+  const k=this._cover;
+  if(k.task&&k.task.exhausted){k.task=null;k.offUntil=now+WITCH_COVER_OFF;}
+  if(now<k.offUntil)return null;
+  if(!k.task||k.task.stopped||k.task.witchId!==witch.id)k.task=new WitchCoverTask(witch.id,k.tries);
+  return k.task;
  }
  _universallyDangerous(hostiles,bot){
   const angry=e=>true; // mineflayer has no anger state; presence within range stands in

@@ -183,6 +183,71 @@ export class RunAwayFromCreepersTask extends RunAwayTask{
  onStop(bot,interrupt){if(this._wall0)this._wallDone(bot,null);super.onStop(bot,interrupt);}
  isEqual(o){return super.isEqual(o)&&!!o.fuse===!!this.fuse;}
 }
+// Round 98 (round-97 hard1: `fleeing witch` from the iron gather's hole at (794, 78, -590), the
+// run-away pinned against its walls, health 20 to 0 in 21 s and `killed by Witch using magic` with
+// the witch 3.6 off and 6 cobblestone held): a witch throws only with a line of sight, so a pinned
+// witch flee puts a block in the first open cell on the line from the bot's eyes to the witch's -
+// over the head in a hole, beside it on flat ground - and stands behind it.
+export const WITCH_COVER_TRIES=2,WITCH_COVER_REACH=4.5;
+const COVER_REFS=[[0,-1,0],[0,1,0],[1,0,0],[-1,0,0],[0,0,1],[0,0,-1]];
+// {covered:true} when a solid cell already cuts the line, the cell to fill, or null for none.
+export function witchCoverCell(bot,witch,tries={}){
+ const at=cellAt(bot),me=bot.entity.position,wp=witch.position,wh=witch.height||1.95;
+ const ex=me.x,ey=me.y+1.6,ez=me.z,dx=wp.x-ex,dy=wp.y+wh*0.9-ey,dz=wp.z-ez,len=Math.hypot(dx,dy,dz);
+ const box=(x,y,z,p,h)=>x+1>p.x-0.3&&x<p.x+0.3&&z+1>p.z-0.3&&z<p.z+0.3&&y+1>p.y&&y<p.y+h;
+ const seen=new Set();
+ for(let s=0.25;s<len;s+=0.25){
+  const x=Math.floor(ex+dx*s/len),y=Math.floor(ey+dy*s/len),z=Math.floor(ez+dz*s/len),key=x+','+y+','+z;
+  if(seen.has(key))continue;
+  seen.add(key);
+  if(box(x,y,z,me,1.8))continue; // the bot's own cells
+  const b=at(x,y,z);
+  if(!b)return null;
+  if(b.boundingBox==='block')return {covered:true};
+  if(Math.hypot(x+0.5-ex,y+0.5-ey,z+0.5-ez)>WITCH_COVER_REACH)return null;
+  if(box(x,y,z,wp,wh)||(tries[key]||0)>=WITCH_COVER_TRIES)continue;
+  const refOf=(x,y,z)=>COVER_REFS.map(([ox,oy,oz])=>({b:at(x+ox,y+oy,z+oz),f:new Vec3(-ox,-oy,-oz)})).find(r=>r.b&&r.b.boundingBox==='block');
+  const ref=refOf(x,y,z);
+  if(ref)return {x,y,z,key,ref:ref.b,face:ref.f};
+  // nothing to place against at head height on open ground: the cell under it first
+  const lo=at(x,y-1,z),lk=x+','+(y-1)+','+z,lref=lo&&lo.boundingBox!=='block'&&!box(x,y-1,z,me,1.8)&&!box(x,y-1,z,wp,wh)&&(tries[lk]||0)<WITCH_COVER_TRIES&&refOf(x,y-1,z);
+  if(lref)return {x,y:y-1,z,key:lk,ref:lref.b,face:lref.f};
+ }
+ return null;
+}
+export class WitchCoverTask extends Task{
+ constructor(witchId,tries={}){super('WitchCoverTask');this.witchId=witchId;this.tries=tries;this.placed=0;this.held=null;this.exhausted=false;this.placeAt=-1e9;this.equipAt=-1e9;this.w=null;}
+ isFinished(){return this.exhausted;}
+ onTick(bot,ctx){
+  forget(bot,'forward','sprint','jump');
+  this.w=this.w||pickCtx(this,ctx)?.worker||null;
+  const now=Date.now()/1000;
+  if(now-this.placeAt<0.25)return null;
+  const witch=(bot.entities||{})[this.witchId];
+  if(!witch||!witch.position)return null;
+  const q=witchCoverCell(bot,witch,this.tries);
+  if(q&&q.covered)return null;
+  const blocks=q&&pillarBlocks(bot);
+  if(!blocks){this.exhausted=true;return null;}
+  if(!bot.heldItem||!PILLAR_ITEMS.some(re=>re.test(bot.heldItem.name))){
+   if(now-this.equipAt>=0.25){this.equipAt=now;equipSafe(bot,blocks.item,'hand');}
+   return null;
+  }
+  this.held=this.held||blocks.item.name+' '+blocks.count;
+  this.placeAt=now;this.tries[q.key]=(this.tries[q.key]||0)+1;
+  try{const p=bot.placeBlock(q.ref,q.face);if(p&&p.then)p.then(()=>{this.placed++;},()=>{});}catch{}
+  return null;
+ }
+ // once per cover that tried a block, when the chain moves on (the witch out of sight or gone)
+ onStop(bot){
+  forget(bot,'forward','sprint','jump');
+  if(!this.held||this._done)return;
+  this._done=true;
+  const witch=(bot&&bot.entities||{})[this.witchId],d=witch&&witch.position&&bot.entity?distanceTo(witch,bot).toFixed(1):null;
+  if(this.w&&this.w.log)try{this.w.log('Reflex: the witch cover is done: '+this.placed+' block(s) placed (held '+this.held+')'+(d?'; the witch is '+d+' away':'; the witch is gone'));}catch{}
+ }
+ isEqual(o){return o===this;}
+}
 // 7f daylight-burn ladder step: undead burn in the sun, so merely staying out of reach wins.
 export class KeepDistanceTask extends Task{
  constructor(distance){super('KeepDistanceTask');this.distance=distance;}
