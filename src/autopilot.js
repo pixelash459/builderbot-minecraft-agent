@@ -1195,6 +1195,8 @@ export class Autopilot{
   const w=this.worker,d=w.lastDeath,me=b.entity?.position;
   if(!d||!me||this.bagDone===d.t)return false;
   const r=this.bag?.t===d.t?this.bag:(this.bag={t:d.t,tries:0});
+  // Round 100: a run a reflex paused settled with the pause, so its finish reaches no settle.
+  if(r.tries&&w.jobs.findLast(j=>j.spec?.type==='bagrun')?.status==='complete'){this.bagDone=d.t;return false;}
   const end=why=>{this.bagDone=d.t;this.log('Bag run: '+why);return false;};
   if(Date.now()-d.t>=BAG_RUN_MS)return end(r.tries?'out of time after '+r.tries+' run(s); the ladder starts over':'too late for the drops; the ladder starts over');
   if(w.jobs.some(j=>j.status==='paused'&&j.spec?.type==='bagrun'&&/^(Preempted by|Job interrupted|Reflex:)/.test(String(j.message)))){this.state='bag: waiting on a reflex';return true;}
@@ -1329,7 +1331,10 @@ export class Autopilot{
    if(this.current.spec?.type==='gather'&&this.current.spec.block==='coal_ore')this.coalFails=0;
    // Round 11: the inventory step's placed chest is the home chest (and home, when none is set).
    const sp=this.current.spec;
-   if(this.current.step==='bag')this.bagDone=this.bag?.t;
+   // Round 100 (round-99 hard2: `Reflex: preempted by Mob Defense` 64 s into the walk, and 80 ms later
+   // `Autopilot [wood]` superseded the run): this branch also settles a paused job, and only a run
+   // that finished is over.
+   if(this.current.step==='bag'&&job?.status==='complete')this.bagDone=this.bag?.t;
    if(this.current.step==='inventory'&&sp?.type==='place'&&sp.block==='chest'&&sp.position){
     this.homeChestAt={x:sp.position.x,y:sp.position.y,z:sp.position.z};this.homeChest=true;
     if(!this.home)this.home={...this.homeChestAt};

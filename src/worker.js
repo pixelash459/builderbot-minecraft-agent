@@ -35,7 +35,7 @@ import {solidSupport,placementCells,softBreakCell,hitsBot,HARD_BREAK,SOFT_BREAK,
 import {createMoveTasks} from './tasks/movement/factories.js';
 import {createLoopWatch} from './loop-watch.js';
 import {installToolWear,watchToolLoss} from './toolWear.js';
-import {darkNow,stillNight,leaveRefuge,shelterShell,shellGaps,holdableShell,placementPlan,shelterTarget,deepWaterCost,fleeHeading,nightMineWanted,tunnelBreach,REFUGE_CLEAR,SUNSET,DUSK_PREP,NIGHT_MINE_MS,NIGHT_MINE_STOP,NIGHT_MINE_DEPTH,NIGHT_MINE_STRIP} from './night.js';
+import {MORNING_SAFE,darkNow,stillNight,leaveRefuge,shelterShell,shellGaps,holdableShell,placementPlan,shelterTarget,deepWaterCost,fleeHeading,nightMineWanted,tunnelBreach,REFUGE_CLEAR,SUNSET,DUSK_PREP,NIGHT_MINE_MS,NIGHT_MINE_STOP,NIGHT_MINE_DEPTH,NIGHT_MINE_STRIP} from './night.js';
 import {bestWeapon,attackCooldown,leaveAlone,armorValue} from './chains/combatPolicy.js';
 const {pathfinder,Movements,goals}=pathfinderPackage;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -2309,6 +2309,7 @@ export class Worker extends EventEmitter {
     }
     if(darkNow(tod))job.sawDark=true;
     if(!darkNow(tod)&&job.sawDark&&!job.dawnLogged){job.dawnLogged=true;this.update(job,required.length,'Dawn: waiting for a safe morning (sealed)');this.log('Shelter: dawn (tod '+tod+'); staying sealed until the morning is light and clear');}
+    if(job.dawnLogged&&!job.heldLogged&&Number.isFinite(tod)&&tod>=MORNING_SAFE&&tod<DUSK_PREP&&!this.shelterExitSafe()){job.heldLogged=true;this.log('Shelter: held past dawn by '+this.hostileSpread(REFUGE_CLEAR));}
    }
   }finally{this.shelterSealed=false;}
   if(away){
@@ -2328,6 +2329,7 @@ export class Worker extends EventEmitter {
    }
   }
   this.log('Shelter: morning (tod '+dayTicks(b)+', nearest hostile '+(Number.isFinite(this.nearestHostile())?this.nearestHostile().toFixed(1):'none')+'); opening up');
+  if(this.hostilesWithin(REFUGE_CLEAR))this.log('Shelter: around the box as it opens: '+this.hostileSpread(REFUGE_CLEAR));
   this.shelterSpot=null;
   await this.removeShelter(job,token);
  }
@@ -2575,6 +2577,15 @@ export class Worker extends EventEmitter {
  shelterExitSafe(){
   if(Number.isFinite(this.deadline)&&this.deadline-Date.now()<SHELTER_EXIT_MARGIN_MS)return true;
   return leaveRefuge(dayTicks(this.bot),this.nearestHostile(),this.nearestHostile(DAY_HOSTILE));
+ }
+ // Round 100, diagnostic (round-99 hard1: a box at (825, 87, -568) over a cave, held from dawn at
+ // 17:40:09 to 17:48:18 by `9 hostiles within 16`, 489 s of a 550 s day, and the log gives no height):
+ // where the mobs holding a box stand - name, distance, height against the bot, the sky at the mob.
+ hostileSpread(r,n=6){
+  const b=this.bot,me=b?.entity?.position;if(!me)return 'nothing';
+  const near=Object.values(b.entities||{}).filter(e=>e&&e!==b.entity&&(e.type==='hostile'||provoked(b,e))&&e.position&&e.isValid!==false&&e.position.distanceTo(me)<=r).sort((p,q)=>p.position.distanceTo(me)-q.position.distanceTo(me));
+  if(!near.length)return 'nothing';
+  return near.slice(0,n).map(e=>e.name+' '+e.position.distanceTo(me).toFixed(1)+' dy '+Math.round(e.position.y-me.y)+' sky '+headSky(b,e.position.floored())).join(', ')+(near.length>n?' and '+(near.length-n)+' more':'');
  }
  hostilesWithin(r){
   const b=this.bot,me=b.entity&&b.entity.position;if(!me)return 0;

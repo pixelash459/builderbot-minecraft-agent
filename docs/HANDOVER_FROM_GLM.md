@@ -3465,3 +3465,28 @@ The round-72 soak on the Nitrous world copy (bot `3fc0f73`) ran all six runs cle
 - **Creeper flees ignore skeletons** (round 97), the lava death at y=-25 (round 97), the close-in creeper pillar still sees a swell.
 - **Hard pacing:** hard3's furnace at 1144 s and iron at 1837 s; normal2's 662 s `bag full` stand at (765, 13, -523).
 - Cave-morning exits into crowds, a fuse during a pillar climb, phantoms on the perch, night-mine climbs, `chest_spot_blocked`.
+
+## Round 100 (2026-11-07)
+
+**What the round-99 soak showed** (report `0c98efb`, bot code `4199c01`, promoted): iron on 4 of 6 (every run but hard1 and hard2, the same two as round 98), 4 deaths (0/0/0/0/2/2). Iron picks 632/813/964/-/-/1962, hard wood 331/241/514, hard stone 422/1113/845, hard furnace 1265/1836/936. normal1 made a diamond pick at 2169 s (round 98: 2 diamonds and no pick).
+- **The bag run worked once and was cut off once.**
+  - **hard2, 18:19:16:** a spider at (851, 86, -543). The run started 12.6 s after the death, walked 189, and `at the death after 72 s; picked up cobblestone 161, ...`. The stone pick was crafted 95 s after the death, on the table it walked back for.
+  - **hard2, 17:58:49:** a zombie at (793, 75, -568). The run walked 64 s to about 21 blocks from the drops with 124 s left on them, a creeper flee paused it, and 80 ms after the second pause `Autopilot [wood]` went out and `the paused bagrun job was superseded`. No end line, and the kit stayed on the ground.
+  - **hard3:** both deaths came before wood, with an empty bag: `Bag run: skipped`, correctly.
+- **That cut-off was a round-99 bug.** `tick()` counts a paused job as not active and settles it, and settle's else-branch set `bagDone`, so the run was over before `bagRun()` reached its reflex hold. The round-99 test called `bagRun` directly and stepped round `settle`.
+- **hard1 lost its iron with no death.** Its second box at (825, 87, -568) stood over a cave: dawn at 17:40:09, held sealed to tod 6000, then a creeper hold of 60 s and `9 hostiles within 16` for 157 s, and the crowd sent it back in at 17:48:25. That is 489 s of a 550 s day. The log gives no height for those mobs, so it cannot say whether they were on the surface or in the cave below.
+- **The round-98 witch cover has still not fired** (0 lines, four crowd lists named a witch). The round-97 canopy dig fired once (normal3, one layer, no damage).
+
+**Fix**
+- **A reflex pause no longer ends the bag run** (`autopilot.js`). settle sets `bagDone` only when the job is `complete`, so a paused run reaches the `bag: waiting on a reflex` hold and nothing goes out to supersede it. A run that was paused settled with the pause, so its finish reaches no settle: `bagRun()` now closes the death itself when the last `bagrun` job is `complete`, and only once the run has had a try, so an old run's `complete` cannot close the next death.
+- **Diagnostic only, no behaviour change** (`worker.js`): `hostileSpread(r,n=6)` gives name, distance, height against the bot and the sky at the mob, e.g. `zombie 5.0 dy 0 sky 15, creeper 8.6 dy -7 sky 0 and 1 more`. It feeds two lines: `Shelter: held past dawn by ...` once per box when the morning is light and the exit is not safe, and `Shelter: around the box as it opens: ...` when anything is within 16 at the opening.
+
+**Tests:** `round100.test.js` (6), through the real `tick()`: a pause does not end the run and the ladder waits; a finish after two pauses with no second run; a finish with no pause; a failure after a pause retries and the next death gets its own run; `hostileSpread` output; the wiring of the two lines. With the old settle line restored, three of them fail. 824 pass, resources 9.
+
+**Not changed yet**
+- **The box held by mobs that may be under it:** the next candidate, once the two lines show where they stand. Either check `caveMorning` during the dawn hold (about 250 s saved on hard1) or stop counting mobs under rock.
+- **Pickless with a full bag:** hard2 broke its wooden pick at 18:10:46 and its stone pick at 18:15:01 holding 161 cobblestone, and went into the cave morning with no tool; the stone-pick craft sent out after the climb never finished. It dug out by hand for 38 s into a crowd of 91 at health 9.8.
+- **Cornered with no weapon** never strikes (third round running: hard2, 4.7 s, `held nothing`).
+- **hard3's opening:** two deaths in the first 271 s before wood, a 99-mob storm at (694, 63, -497) and a creeper that followed from `keeping 20 away` to the blast.
+- **`BAG_WORTH` ignores a large stack:** 161 cobblestone came back on hard2 as a side effect; alone it would be skipped.
+- Spear zombies, group-spacing by a drop, a food hunt under a roof, creeper flees ignoring skeletons, lava at y=-25, the close-in creeper pillar, hard pacing.
