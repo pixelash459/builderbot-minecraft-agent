@@ -171,6 +171,8 @@ export const JUNK_IGNORE_MS=10*60000;
 // Round 13: a drop needs DROP_MIN_OPEN open cells (feet and head) in some direction, and waits
 // DROP_SETTLE_MS (the 2 s pickup delay of a tossed item, plus margin) before checking the count.
 export const STAIR_OUT=4,DROP_MIN_OPEN=4,DROP_POCKET=5,DROP_SETTLE_MS=2600,CLIMB_DETOUR=6,CLIMB_LOST=5;
+// Round 103: a toss that came back this far or more under the surface is tried again from the top.
+export const DROP_CLIMB_MIN=3;
 // Round 14 (round-13 normal1: two shears, then `Shearing produced no wool` on a shorn sheep
 // for 45 s, and no bed): a sheep's wool byte (metadata 17 on 1.21: bit 0x10 sheared, low 4
 // bits the colour) - {sheared, color} or null when unknown.
@@ -4718,7 +4720,15 @@ export class Worker extends EventEmitter {
    try{await this.navigate(new goals.GoalInvert(new goals.GoalNear(land.x,land.y,land.z,4)),token,5);}catch{}
   }
   await sleep(this.dropSettleMs??DROP_SETTLE_MS);
-  if(this.count(s.item)>have-n)throw Error('Dropped '+s.item+' came back into the inventory');
+  if(this.count(s.item)>have-n){
+   // Round 103 (round-102 normal3: `Dropped cobblestone came back into the inventory` 15 times in
+   // 13 min at (831, 57, -418), a dead-end iron tunnel 6 under the surface - the toss had an open
+   // run but the step back had nowhere to go, so every stack was picked up again 2 s later and
+   // the ladder stood on `waiting: bag full (iron craft)` for 7.5 min): once per drop job, an
+   // underground toss that came back climbs to the surface and tosses again there.
+   if(!job.retriedUp&&await this.dropClimbOut(job,token))return this.drop(job,token);
+   throw Error('Dropped '+s.item+' came back into the inventory');
+  }
   this.log('Dropped '+n+' '+s.item+(toss?' (toward '+toss.dir.x+','+toss.dir.z+', open '+toss.open+')':''));
  }
  // Round 22: up to STAIR_OUT steps of an upward staircase (each a checked tunnel step, dy +1),
@@ -4818,6 +4828,17 @@ export class Worker extends EventEmitter {
    try{await this.navigate(new goals.GoalBlock(best.x,best.y,best.z),token,20);this.log('Water: stepped out to '+best);return;}
    catch(e){this.check(token);if(tries<1&&/goal was changed/i.test(e.message||''))continue;this.log('Water: could not step out to '+best+' ('+String(e.message).slice(0,120)+')');return;}
   }
+ }
+ // Round 103: the drop's one climb out (see drop()). True when the bot now stands higher than
+ // the toss that came back; false on the surface already, with no surface known, or when the
+ // climb did not rise (the old failure follows).
+ async dropClimbOut(job,token){
+  const b=this.bot,from=b.entity.position.floored(),surface=this.autopilot?.lastSurfaceY;
+  job.retriedUp=true;
+  if(!Number.isFinite(surface)||from.y>=surface-DROP_CLIMB_MIN)return false;
+  this.log('Drop: the toss at '+from+' came straight back; climbing to the surface (y='+surface+') to toss there');
+  try{await this.ascend({spec:{type:'ascend',y:surface}},token);}catch(e){this.check(token);this.log('Drop: the climb out stopped ('+String(e.message).slice(0,60)+')');}
+  return Math.floor(b.entity.position.y)>from.y;
  }
  async dropPocket(token){
   const b=this.bot,start=b.entity.position.floored();
