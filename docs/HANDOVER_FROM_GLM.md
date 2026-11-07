@@ -3597,3 +3597,33 @@ These went in after the wood fix and before the round 103 soak, so the soak test
 - **A toss deep in a mine climbs all the way up.** There is no depth limit, so one in the diamond band could cost minutes and the place in the branch mine.
 - **The helmet moves ingots ahead of torches and the bucket.** Torches can come later when raw iron is held.
 - **The soak changes several things at once,** against the one-change rule, at the user's choice. The wood fix shows at the start of a run; the helmet, toss and exit timing show after the iron pick.
+
+## Round 104 (2026-11-08)
+
+**What the round-103 soak showed** (report `ee2120c`, bot code `a485c4b`, promoted): iron on 5 of 6 again, but the miss moved from hard1 to hard2. Iron picks 543/904/814/1901/-/573. hard1's 1901 s is its first iron since round 98. Hard wood 362/453/241 (round 102: 1054/302/241), hard stone 422/543/332, hard furnace 513/-/422. Deaths 0/0/0/1/5/1 = 7 (round 102: 1). No diamonds.
+- **The valley-tree fix worked.** 19 `surface floor comes down` lines; hard1's floor came down 10 blocks and its wood landed at 362 s. 8 `trying the foot of the trunk` lines; normal2's foot walk took a cherry trunk in 94.5 s.
+- **The helmet fix worked.** Helmets were worn at 1359/1274/1150/1763 s (round 102: first armour 2110/1657/1808/2229). Torches always came first, and the bucket after the helmet. All seven deaths still say `armour 0`.
+- **The toss climb fired twice and rose 0 and 2 blocks** (`Pillar: no rise`). The retried drop stayed gone both times. Bag-full stands fell to one: normal2 at (923, -22, -423), where no chest could be placed (six `no path for place chest`) and no drop job ran.
+- **The round-102 pin fired for the first time** (hard1, a creeper 7.2 and a zombie 9.9, both sky 0). The roof climb rose 4 (`y=78 -> 82`), but a creeper override 2.3 s in, then a 60.6 s pillar/keep-away thrash, ended in `blown up by Creeper` 78 s after the pin. One `TaskRunner error: Cannot read properties of null (reading 'toFixed')` came just before the shelter supersede.
+- **The exit-timing line did not fire** (0 `creeper D away`); 0 `Job time limit reached` on a shelter job.
+- **hard2's run was lost to one chain of deaths.**
+  - Death 1 is the start, at 20:00:13, `slain by Zombie`. The night mine from the box at (821, 88, -548) went down to y=76 and was on its way home: the samples show it at (821, 86, -548), in the sump.
+  - At 20:00:07.837, `Reflex: a hit on the night mine; Mob Defense answers` came with a 45-mob flee list, and Mob Defense preempted the shelter.
+  - At 20:00:08.136, `Reflex: resumed the shelter job`, 0.3 s later. Then `Shelter: moved from 821,88,-548 to (820, 87, -547); building a new box here`.
+  - 5 s after that came the death, with `health 14 -> 9.5 -> 5 -> 0.5 -> 0; 5 hostile(s) within 8: zombie 0.8, ...`.
+  - What followed: a night respawn into a zombie crowd at the spawn (death 2, 31 s later, 78 respawn-guard lines), then 18 minutes in the western water maze at hp 1.3, then deaths 3-5 (a drowned trident, drowned, zombie).
+
+**Why death 1 happened.** The round-84 override that lets Mob Defense answer on the night mine needs `hold.mining`. In `survivalHold()` that comes only from the running branch (`nightMining && !shelterSealed`). As soon as Mob Defense preempts, the shelter job is paused, nightMine's `finally` clears `nightMining`, and the waiting branch has no `mining` at all. The next gate tick holds Mob Defense off, the runner goes idle, and the resume bridge hands the bot back to the shelter, which starts placing a 25-block box among the zombies. Round 93 had the same hole for an opened box and closed it with `openedUnder`; the night mine never got the same treatment.
+
+**Fix: the paused shelter keeps the night mine's override** (`worker.js`, the chain gate and `survivalHold`). When the override fires on the night mine, the job is marked (`minedUnder`), and the waiting branch reports `mining` for `OPENED_GUARD_MS` (60 s) after the last mark, as `opened` does. Mob Defense keeps answering while `mineThreat` has a hit in the last 3 s or a hostile within 8. When the tunnel is clear, or past the guard, the shelter resumes as before. The first time a paused job holds this way it logs `Reflex: the shelter job waits off the night mine while Mob Defense answers <threat>` (`a hit` or `a zombie within 8`), once per job. A sealed box, a box still going up, and a paused shelter that never mined keep the old hold.
+
+**Tests:** `round104.test.js` (4), through the real chain gate and `survivalHold`: the round-103 hard2 shape (hit on the mine, paused, still answered, the line once); the tunnel clear and past the guard; a shelter that never mined; a sealed box and a box building after the mine. Removing the waiting-branch `mining` fails 3; removing the mark fails 1. 860 pass, resources 9.
+
+**Not changed yet**
+- **The pinned climb walked out beside the creeper that held it.** The pin does not look at creepers; a creeper at 7.2 and dy -4 was one of the two named mobs. The thrash after it (60.6 s) is the longest of the series.
+- **The `toFixed` of null error** at hard1's shelter supersede: one occurrence, caught.
+- **hard2's night respawn** into a spawn crowd (death 2, 31 s after the respawn), then the water maze at hp 1.3.
+- **The toss climb rose 0 and 2:** `Pillar: no rise` under diorite and dirt. The drop retry made it harmless this round.
+- **normal2's iron pickaxe broke** at 18:20:12 with no new one before the run ended, and its bag-full wait at y=-22 had no drop job.
+- **Beds crafted (normal1, normal2) and never slept in;** diamonds 0 for the third round.
+- **Older items:** a kit in a crowd, cornered with no weapon, the enderman counted as holding a box, the wrong killer on a death line (hard1's `killed by skeleton` after `blown up by Creeper`), `BAG_WORTH`, spear zombies, group-spacing by a drop, a food hunt under a roof, lava at y=-25, hard pacing.

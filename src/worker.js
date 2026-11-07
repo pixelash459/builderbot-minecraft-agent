@@ -1090,6 +1090,15 @@ export class Worker extends EventEmitter {
     const threat=chain.name==='Mob Defense'&&hold&&(hold.mining||hold.respawned||exposed)?self.mineThreat(bot):null;
     const mineOverride=nightMineOverride(chain.name,exposed?{...hold,exposed}:hold,threat);
     if(mineOverride&&exposed)hold.job.openedUnder=Date.now();
+    // Round 104 (round-103 hard2: a zombie hit the bot on its way home up the night mine, Mob
+    // Defense took over, and 0.3 s later the paused shelter job no longer counted as mining - the
+    // override fell, the shelter resumed, `moved from` began a new box in the tunnel with 5 hostiles
+    // within 8, and the bot was slain 5 s later, the first of the run's five deaths): the paused job
+    // keeps the night mine's override for OPENED_GUARD_MS, as an opened box does (round 93).
+    if(mineOverride&&hold.mining){
+     hold.job.minedUnder=Date.now();
+     if(hold.job.status==='paused'&&!hold.job.minedHeldLogged){hold.job.minedHeldLogged=true;self.log('Reflex: the shelter job waits off the night mine while Mob Defense answers '+threat);}
+    }
     if(hold&&chain.name!==WORLD_CHAIN&&!creeper&&!mineOverride){
      const building=hold.job.status==='running'&&hold.job.spec.type==='shelter'&&!hold.sealed;
      if(chain.name==='Food'&&!building)try{chain.priority(bot,ctx);}catch{}
@@ -1127,7 +1136,7 @@ export class Worker extends EventEmitter {
   const running=this.jobs.find(j=>j.status==='running');
   if(running)return SURVIVAL_JOBS.has((running.spec||{}).type)?{job:running,sealed:running.spec.type==='shelter'&&!!this.shelterSealed,opening:running.spec.type==='shelter'&&!!this.shelterOpening,mining:running.spec.type==='shelter'&&!!this.nightMining&&!this.shelterSealed,respawned:running.spec.type==='shelter'&&!this.shelterSealed&&this.respawnGuard()}:null;
   const waiting=this.jobs.find(j=>SURVIVAL_JOBS.has((j.spec||{}).type)&&(j.status==='queued'||reflexPaused(j)));
-  return waiting?{job:waiting,sealed:false,respawned:waiting.spec.type==='shelter'&&this.respawnGuard(),opened:waiting.spec.type==='shelter'&&Date.now()-(waiting.openedUnder||0)<=OPENED_GUARD_MS}:null;
+  return waiting?{job:waiting,sealed:false,respawned:waiting.spec.type==='shelter'&&this.respawnGuard(),opened:waiting.spec.type==='shelter'&&Date.now()-(waiting.openedUnder||0)<=OPENED_GUARD_MS,mining:waiting.spec.type==='shelter'&&Date.now()-(waiting.minedUnder||0)<=OPENED_GUARD_MS}:null;
  }
  // Round 85: within RESPAWN_GUARD_MS of the last death (nightMineOverride).
  respawnGuard(){return !!this.lastDeath&&Date.now()-this.lastDeath.t<=RESPAWN_GUARD_MS;}
