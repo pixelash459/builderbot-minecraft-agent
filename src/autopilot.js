@@ -296,6 +296,16 @@ export const isBedJob=job=>!!job&&(BED_JOBS.has(job)||job.type==='shear'||(job.t
 // The rung after the iron core, or null when it is done (or waits on wool that is not cheap).
 export function ironRung(c,ctx){
  if(typeof c!=='function')c=countFactory(c||{});
+ // Round 103 (round-102: first armour at 2110/1657/1808 s on the normal runs and 2229 s on hard3,
+ // none on hard1/hard2, ingots peaking 8/8/6/0/3/5; the last three deaths all `shot by Skeleton`,
+ // hard2's death line `armour 0`): the helmet's 5 ingots used to queue behind the bucket's 3, and
+ // raw iron sat in the bag through the torch trip. The helmet is crafted the moment 5 ingots are
+ // held, and its raw iron is smelted first; the bucket waits for the armour core.
+ const helmet=ARMOUR_CORE[0];
+ if(c(helmet[0])<1){
+  if(c('iron_ingot')>=helmet[1])return {type:'craft',item:helmet[0],count:1};
+  if(c('raw_iron')>=Math.min(IRON_SMELT_AT,helmet[1]-c('iron_ingot')))return smeltIron(c,ctx);
+ }
  // Light: coal for TORCHES, then the torches (1 coal + 1 stick make 4).
  if(c('torch')<TORCHES){
   const coalNeed=Math.ceil((TORCHES-c('torch'))/4);
@@ -304,10 +314,11 @@ export function ironRung(c,ctx){
  }
  // Habit 9: a water bucket (3 ingots) after the light, filled at water in reach and kept - the
  // MLG fall chain and the fire douse use it, and pick the water back up.
- if(c('bucket')+c('water_bucket')<1&&c('iron_ingot')>=3)return {type:'craft',item:'bucket',count:1};
+ // Round 103: the bucket's ingots come after the helmet's (the fill still runs whenever water is in reach).
+ const coreLeft=ARMOUR_CORE.filter(([item])=>c(item)<1);
+ if(c('bucket')+c('water_bucket')<1&&c('iron_ingot')>=3&&c(helmet[0])>=1)return {type:'craft',item:'bucket',count:1};
  if(c('water_bucket')<1&&c('bucket')>=1&&ctx.waterAt)return {type:'use',item:'bucket',position:ctx.waterAt};
  // Armour: helmet and chestplate are dug for; legs and boots ride along while affordable.
- const coreLeft=ARMOUR_CORE.filter(([item])=>c(item)<1);
  const ingots=c('iron_ingot');
  if(coreLeft.length){
   if(ingots>=coreLeft[0][1])return {type:'craft',item:coreLeft[0][0],count:1};

@@ -12,7 +12,8 @@ const c=map=>n=>map[n]||0;
 const base={iron_pickaxe:1,iron_sword:1,shield:1,stone_sword:1,stick:8,oak_planks:8,crafting_table:1,cobblestone:20,stone_pickaxe:2,torch:TORCHES};
 const wood={planksTotal:8,logsTotal:0,heldLog:null};
 test('the rung crafts the bucket from 3 ingots, fills it, and digs for it with the armour',()=>{
- assert.deepEqual(ironRung(c({...base,iron_ingot:3}),wood),{type:'craft',item:'bucket',count:1});
+ // round 103: the bucket's 3 ingots come after the helmet's 5
+ assert.deepEqual(ironRung(c({...base,iron_helmet:1,iron_ingot:3}),wood),{type:'craft',item:'bucket',count:1});
  const fill=ironRung(c({...base,bucket:1}),{...wood,waterAt:{x:2,y:63,z:5}});
  assert.deepEqual(fill,{type:'use',item:'bucket',position:{x:2,y:63,z:5}});
  assert.ok(jobSchema.safeParse(fill).success);

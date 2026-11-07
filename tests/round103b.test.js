@@ -2,6 +2,24 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Vec3} from 'vec3';
 import {Worker,DROP_CLIMB_MIN,SHELTER_EXIT_MARGIN_MS,SHELTER_OPEN_MS,CREEPER_WAIT_MS} from '../src/worker.js';
+import {ironRung,TORCHES} from '../src/autopilot.js';
+
+// Round 103, pre-soak: the first armour piece (round-102: first armour at 2110/1657/1808 s on the normal
+// runs, none on hard1/hard2; the last three deaths `shot by Skeleton`, hard2's death line `armour 0`).
+const cnt=map=>n=>map[n]||0;
+const KIT={iron_pickaxe:1,iron_sword:1,shield:1,stone_sword:1,stick:8,oak_planks:8,crafting_table:1,cobblestone:20,stone_pickaxe:2};
+const WOOD={planksTotal:8,logsTotal:0,heldLog:null};
+test('round 103: five ingots after the iron core make the helmet at once, before torches or the bucket',()=>{
+ assert.deepEqual(ironRung(cnt({...KIT,iron_ingot:5}),WOOD),{type:'craft',item:'iron_helmet',count:1},'no torches held: still the helmet first');
+ assert.deepEqual(ironRung(cnt({...KIT,iron_ingot:5,torch:TORCHES}),WOOD),{type:'craft',item:'iron_helmet',count:1});
+ assert.deepEqual(ironRung(cnt({...KIT,iron_ingot:3,torch:TORCHES}),WOOD).block,'iron_ore','3 ingots and no helmet: no bucket, dig for the helmet');
+ assert.deepEqual(ironRung(cnt({...KIT,iron_ingot:3,torch:TORCHES,iron_helmet:1}),WOOD),{type:'craft',item:'bucket',count:1},'the bucket once the helmet is on');
+});
+test('round 103: raw iron for the helmet is smelted before the torch trip',()=>{
+ const j=ironRung(cnt({...KIT,iron_ingot:2,raw_iron:3,furnace:1,coal:4}),WOOD);
+ assert.equal(j.type,'smelt');assert.equal(j.item,'raw_iron');
+ assert.equal(ironRung(cnt({...KIT,iron_ingot:0,raw_iron:2}),WOOD).block,'coal_ore','2 raw iron are under the smelt batch: the torch coal first, as before');
+});
 
 // Round 103, pre-soak: the round-102 normal3 full-bag stall. `Dropped cobblestone came back into the
 // inventory` 15 times at (831, 57, -418), a dead-end iron tunnel 6 under the surface (y=63), and the

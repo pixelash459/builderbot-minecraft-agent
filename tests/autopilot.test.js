@@ -234,7 +234,10 @@ test('M5: the iron step digs 6 ore, smelts, crafts pickaxe -> sword -> shield be
  assert.deepEqual([r.job.type,r.job.item,r.job.count],['craft','torch',16]);
  have={...have,torch:16};
  // Round 10, habit 9: a water bucket after the light (3 ingots), filled at water in reach.
+ // Round 103: the helmet's 5 ingots first; the bucket once the helmet is held.
  r=valid(plan(counts({...have,iron_ingot:5})));
+ assert.deepEqual([r.job.type,r.job.item],['craft','iron_helmet']);
+ r=valid(plan(counts({...have,iron_helmet:1,iron_ingot:5})));
  assert.deepEqual([r.job.type,r.job.item],['craft','bucket']);
  r=valid(plan(counts({...have,bucket:1}),{waterAt:{x:4,y:63,z:0}}));
  assert.deepEqual(r.job,{type:'use',item:'bucket',position:{x:4,y:63,z:0}});
