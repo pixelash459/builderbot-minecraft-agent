@@ -17,7 +17,7 @@ from soak import api,command,ROOT,wait  # noqa: E402
 FLOOR=-60            # the flat world's stand: grass at -61, dirt -62/-63, bedrock -64
 LOG=ROOT/'logs/dashboard.log'
 SERVER_LOG=ROOT/'logs/test-server.log'
-NOTE=re.compile(r'Navigation|Boxed in|stranded|Pillar|Shelter|Place:|Tunnel|Ascend|Drop:|Job: |Burrow|Gather|Chains|Reflex')
+NOTE=re.compile(r'Navigation|Boxed in|stranded|Pillar|Shelter|Place:|Tunnel|Ascend|Drop:|Job: |Burrow|Gather|Chains|Reflex|Bag run')
 
 def log_mark():return LOG.stat().st_size
 def log_since(mark):
@@ -113,6 +113,17 @@ def s_chest_spot_flower(o):
         lambda:server_says('if block %d %d %d minecraft:chest'%(x+2,y,z))
 def s_shelter_hole(o):
     return None,0,None  # handled in its own function below
+# Round 103 (the round-101 bag-run turn never fired in rounds 101-102: 0 `turning` lines): a
+# bedrock ring the bot can neither dig nor climb out of, the death 30 east outside it. Every
+# bearing has no path, so the run should log `Bag run: no path on the line ...; turning` and then
+# the turns, before it fails on the last bearing.
+def s_bag_run_no_path(o):
+    x,y,z=o;mark=log_mark()
+    fill((x-5,y,z-9),(x+13,y+2,z+9),'bedrock');fill((x-4,y,z-8),(x+12,y+2,z+8),'air')
+    return {'type':'bagrun','position':{'x':x+30,'y':y,'z':z}},150,\
+        lambda:any('Bag run: no path' in l and 'turning' in l for l in log_since(mark))
+def s_box_pinned(o):
+    return None,0,None  # handled in its own function below
 
 SCENARIOS=[
     ('cobble_wall','a 13-wide, 3-high cobblestone wall across the way; goto 8 east',s_cobble_wall,[]),
@@ -126,7 +137,57 @@ SCENARIOS=[
     ('chest_spot_blocked','place a chest where a cobblestone block sits',s_chest_spot_blocked,[('chest',1)]),
     ('chest_spot_flower','place a chest where a poppy grows',s_chest_spot_flower,[('chest',1)]),
     ('shelter_hole','a night shelter, then one wall block removed while it is sealed; re-sealed?',s_shelter_hole,[('dirt',64),('stone_pickaxe',1)]),
+    ('bag_run_no_path','inside a bedrock ring, the death 30 east; the bag run should turn off the line',s_bag_run_no_path,[]),
+    ('box_pinned','a night shelter, a zombie sealed under rock 6 east once the box is up, then morning; pinned and out through the roof?',s_box_pinned,[('dirt',64),('stone_pickaxe',1)]),
 ]
+
+# Round 103 (round-102 hard1: `held past dawn by stray 15.7 dy 9 sky 0` and the run ended 0.02 s
+# before the 30 s gate; the pin has never fired live): the box, a hostile sealed in a roofed cell
+# (its head reads sky 0, so it counts as under rock) 6 east of it, then morning. Expected:
+# `Shelter: held past dawn by zombie ...`, 30 s later `Shelter: pinned 30 s past dawn by zombie
+# ...; climbing out through the roof`, an `Ascend: y=` line, the bot 3+ higher. The flat world is
+# peaceful, so the difficulty goes to easy for the scenario and back; natural monster spawning
+# stays off; the zombie is removed with a type-filtered selector.
+def box_pinned(o,result,mark):
+    command('gamerule advance_time false');command('time set 14000')
+    command('gamerule spawn_monsters false');command('difficulty easy');time.sleep(2)
+    created=api('jobs',{'type':'shelter'});t0=time.time();cell=None
+    try:
+        sealed=None
+        while time.time()-t0<90:
+            time.sleep(2);o2=api('observe');sh=o2.get('shelter')
+            if sh and sh.get('safe') and (sh.get('seconds') or 0)>=3:sealed=o2['position'];break
+        result['sealed_after']=round(time.time()-t0,1) if sealed else None
+        if not sealed:
+            j=job_state(created['id']) or {};result.update(status='not sealed',message=str(j.get('message',''))[:160]);return
+        # The cell is dug INTO the ground (feet on the bedrock at y-4, head at y-2, the grass at y-1
+        # its roof): the first live try roofed a cell on the surface with cobblestone and the
+        # zombie's head still read `sky 15` - the client keeps the chunk-load light, so a roof
+        # placed later does not darken a cell for the bot, but a cell carved out of solid ground
+        # starts at sky 0.
+        x,y,z=sealed['x'],sealed['y'],sealed['z'];cell=(x+6,y-3,z);result['cell']=list(cell)
+        setblock(cell,'air');setblock((cell[0],y-2,cell[2]),'air')
+        command('summon minecraft:zombie %d %d %d {PersistenceRequired:1b,NoAI:1b}'%cell);time.sleep(3)
+        result['zombie']=server_says('positioned %d %d %d if entity @e[type=minecraft:zombie,distance=..3]'%cell)
+        command('time set 1000');t1=time.time()
+        while time.time()-t1<150:
+            time.sleep(2);j=job_state(created['id'])
+            if j and j['status'] in ('complete','failed'):break
+            lines=log_since(mark)
+            if any('could not climb out; holding the box' in l for l in lines):break
+            if any('Shelter: pinned' in l for l in lines) and api('observe')['position']['y']>=y+3:break
+        lines=log_since(mark)
+        result['held']=any('held past dawn by' in l for l in lines)
+        result['pinned']=any('Shelter: pinned' in l for l in lines)
+        result['climbed']=any('Ascend: y=' in l for l in lines)
+        j=job_state(created['id']) or {}
+        result.update(status=j.get('status','unknown'),message=str(j.get('message',''))[:160],seconds=round(time.time()-t1,1))
+    finally:
+        try:api('cancel',{'id':created['id']})
+        except Exception:pass
+        if cell:command('execute positioned %d %d %d run kill @e[type=minecraft:zombie,distance=..24]'%cell)
+        command('difficulty peaceful');command('gamerule spawn_monsters true')
+        command('gamerule advance_time true');command('time set 1000')
 
 def shelter_hole(o,result):
     """Night shelter on flat ground, a hole knocked in it once it is safe, then morning."""
@@ -176,6 +237,7 @@ def main():
             start(o,kit)
             mark=log_mark()
             if name=='shelter_hole':shelter_hole(o,result)
+            elif name=='box_pinned':box_pinned(o,result,mark)
             else:
                 spec,seconds,check=build(o);time.sleep(1)
                 result['job']=spec
