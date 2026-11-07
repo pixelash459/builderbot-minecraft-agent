@@ -285,6 +285,13 @@ export const CAVE_EXIT_NEAR=24,CAVE_EXIT_CROWD=3;
 // stops 4 short of its target, so 4 under it never moved): the climb out aims for the sky, at
 // least CAVE_EXIT_RISE over the box.
 export const CAVE_EXIT_RISE=5;
+// Round 102 (round-101 hard3: `held past dawn by creeper 2.3 dy 1 sky 0`, the creeper pressed to the
+// box wall under rock for 404 s, to tod 9080; the job's exit margin and the 60 s creeper wait ended
+// together, so `Job time limit reached` left the walls up and the bot stood in that cell to the end
+// of the run; round-100 hard2 250 s, every mob at sky 0): morning does not move a mob under rock.
+// BOX_PINNED_MS after the first `held past dawn` line, a box whose mobs within REFUGE_CLEAR all stand
+// under rock (ROCK_SKY or less at the head; a canopy reads higher) is left through the roof.
+export const BOX_PINNED_MS=30000,ROCK_SKY=3;
 // Round 57 (round-56 hard2: `morning in a cave (3 hostiles within 24, sky 0)` from a box at y=71,
 // surface 64 - a sealed box reads sky 0 anywhere): only a box under the surface anchor is a cave.
 export const caveMorning=({sky,crowd,y,surfaceY})=>sky<SKY_OPEN&&crowd>=CAVE_EXIT_CROWD&&!(Number.isFinite(y)&&Number.isFinite(surfaceY)&&y>=surfaceY-2);
@@ -2300,7 +2307,7 @@ export class Worker extends EventEmitter {
   this.shelterSealed=true;this.shelterKind='box';this.shelterSpot={x:origin.x,y:origin.y,z:origin.z};this.nightPillar=null;
   // Round 11: the box only shelters a bot inside it. Out of the cell (a night mine that could
   // not climb home, a world-survival move) for SHELTER_AWAY_MS, it seals where it stands.
-  let away=null,outSince=null;
+  let away=null,outSince=null,pinned=false;
   try{
    while(!this.shelterExitSafe()){
     await sleep(250);this.check(token);
@@ -2328,7 +2335,8 @@ export class Worker extends EventEmitter {
     }
     if(darkNow(tod))job.sawDark=true;
     if(!darkNow(tod)&&job.sawDark&&!job.dawnLogged){job.dawnLogged=true;this.update(job,required.length,'Dawn: waiting for a safe morning (sealed)');this.log('Shelter: dawn (tod '+tod+'); staying sealed until the morning is light and clear');}
-    if(job.dawnLogged&&!job.heldLogged&&Number.isFinite(tod)&&tod>=MORNING_SAFE&&tod<DUSK_PREP&&!this.shelterExitSafe()){job.heldLogged=true;this.log('Shelter: held past dawn by '+this.hostileSpread(REFUGE_CLEAR));}
+    if(job.dawnLogged&&!job.heldLogged&&Number.isFinite(tod)&&tod>=MORNING_SAFE&&tod<DUSK_PREP&&!this.shelterExitSafe()){job.heldLogged=true;job.heldSince=Date.now();this.log('Shelter: held past dawn by '+this.hostileSpread(REFUGE_CLEAR));}
+    if(this.boxPinned(job,tod)){pinned=true;break;}
    }
   }finally{this.shelterSealed=false;}
   if(away){
@@ -2337,13 +2345,17 @@ export class Worker extends EventEmitter {
    return this.shelter(job,token);
   }
   {
-   const sky=headSky(b,here()),crowd=this.hostilesWithin(CAVE_EXIT_NEAR);
-   if(caveMorning({sky,crowd,y:b.entity.position.y,surfaceY:this.autopilot?.lastSurfaceY})){
-    this.log('Shelter: morning in a cave ('+crowd+' hostiles within '+CAVE_EXIT_NEAR+', sky '+sky+'); climbing out through the roof');
-    this.markMobCave?.();this.shelterSpot=null;this.save();
+   const sky=headSky(b,here()),crowd=this.hostilesWithin(CAVE_EXIT_NEAR),cave=caveMorning({sky,crowd,y:b.entity.position.y,surfaceY:this.autopilot?.lastSurfaceY});
+   if(pinned||cave){
+    this.log(pinned?'Shelter: pinned '+Math.round((Date.now()-job.heldSince)/1000)+' s past dawn by '+this.hostileSpread(REFUGE_CLEAR)+'; climbing out through the roof':'Shelter: morning in a cave ('+crowd+' hostiles within '+CAVE_EXIT_NEAR+', sky '+sky+'); climbing out through the roof');
+    if(cave)this.markMobCave?.();
+    if(pinned)job.roofTried=true;
+    this.shelterSpot=null;this.save();
     const y0=b.entity.position.y,top=Math.max(escapeY(this.autopilot?.lastSurfaceY),Math.floor(y0)+CAVE_EXIT_RISE);
     try{await this.ascend({spec:{type:'ascend',y:top,sky:true}},token);}catch(e){this.check(token);this.log('Shelter: the climb out stopped ('+String(e.message).slice(0,60)+')');}
     if(b.entity.position.y>=y0+3)return;
+    // the mob is still at the wall: the box goes back up rather than coming down beside it
+    if(pinned){this.log('Shelter: could not climb out; holding the box');return this.shelter(job,token);}
     this.log('Shelter: could not climb out of the cave; opening up');
    }
   }
@@ -2597,19 +2609,26 @@ export class Worker extends EventEmitter {
   if(Number.isFinite(this.deadline)&&this.deadline-Date.now()<SHELTER_EXIT_MARGIN_MS)return true;
   return leaveRefuge(dayTicks(this.bot),this.nearestHostile(),this.nearestHostile(DAY_HOSTILE));
  }
+ // Round 102: held past dawn for BOX_PINNED_MS with every mob near the box under rock (one try a box).
+ boxPinned(job,tod){
+  if(!job.heldSince||job.roofTried||!Number.isFinite(tod)||tod<MORNING_SAFE||tod>=DUSK_PREP||Date.now()-job.heldSince<BOX_PINNED_MS)return false;
+  const near=this.hostilesNear(REFUGE_CLEAR);
+  return near.length>0&&near.every(e=>headSky(this.bot,e.position.floored())<=ROCK_SKY);
+ }
  // Round 100, diagnostic (round-99 hard1: a box at (825, 87, -568) over a cave, held from dawn at
  // 17:40:09 to 17:48:18 by `9 hostiles within 16`, 489 s of a 550 s day, and the log gives no height):
  // where the mobs holding a box stand - name, distance, height against the bot, the sky at the mob.
  hostileSpread(r,n=6){
   const b=this.bot,me=b?.entity?.position;if(!me)return 'nothing';
-  const near=Object.values(b.entities||{}).filter(e=>e&&e!==b.entity&&(e.type==='hostile'||provoked(b,e))&&e.position&&e.isValid!==false&&e.position.distanceTo(me)<=r).sort((p,q)=>p.position.distanceTo(me)-q.position.distanceTo(me));
+  const near=this.hostilesNear(r).sort((p,q)=>p.position.distanceTo(me)-q.position.distanceTo(me));
   if(!near.length)return 'nothing';
   return near.slice(0,n).map(e=>e.name+' '+e.position.distanceTo(me).toFixed(1)+' dy '+Math.round(e.position.y-me.y)+' sky '+headSky(b,e.position.floored())).join(', ')+(near.length>n?' and '+(near.length-n)+' more':'');
  }
- hostilesWithin(r){
-  const b=this.bot,me=b.entity&&b.entity.position;if(!me)return 0;
-  return Object.values(b.entities||{}).filter(e=>e&&e!==b.entity&&(e.type==='hostile'||provoked(b,e))&&e.position&&e.isValid!==false&&e.position.distanceTo(me)<=r).length;
+ hostilesNear(r){
+  const b=this.bot,me=b?.entity?.position;if(!me)return [];
+  return Object.values(b.entities||{}).filter(e=>e&&e!==b.entity&&(e.type==='hostile'||provoked(b,e))&&e.position&&e.isValid!==false&&e.position.distanceTo(me)<=r);
  }
+ hostilesWithin(r){return this.hostilesNear(r).length;}
  nearestHostile(name){return this.nearestOf(name).d;}
  // The nearest hostile (or provoked) mob, by name or a name pattern: {d, name}.
  nearestOf(name){

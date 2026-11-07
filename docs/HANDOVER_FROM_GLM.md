@@ -3516,3 +3516,28 @@ The round-72 soak on the Nitrous world copy (bot `3fc0f73`) ran all six runs cle
 - **Hostile list:** an enderman at 3.2 counted as a mob holding the box (cleared in 2.8 s).
 - **The death line names the wrong killer:** the log said creeper, the server `shot by Skeleton`.
 - **`BAG_WORTH` ignores a large stack.** Going pickless with a full bag (round-99 hard2), spear zombies, group-spacing by a drop, a food hunt under a roof, creeper flees ignoring skeletons, lava at y=-25, hard pacing.
+
+## Round 102 (2026-11-07)
+
+**What the round-101 soak showed** (report `ae97bb5`, bot code `d215121`, promoted): iron on 5 of 6 (every run but hard1, the same miss as round 100), 2 deaths (0/0/0/1/0/1), down from 3. Iron picks 542/844/753/-/1296/1206, hard wood 361/362/271, hard stone 573/422/331, hard furnace 994/542/392. hard1 made a bed at 874 s and never slept in it. No diamonds, the first round without one since 97.
+- **The first full kit came back.** hard3 was sniped at (799, 88, -514) at 09:09:46 with 0 hostiles within 8. Its run started 5.4 s later, held 53.9 s through one flee, and ended `at the death after 116 s` with the whole kit, furnace and raw iron. Its iron pick came 367 s after the death.
+- **The round-101 turn did not fire:** 0 `turning` lines, 0 `given up`. Neither run had a leg end in `No path`, so the fix is still untested live.
+- **hard1 lost its kit 9 blocks away.** Shot at (832, 90, -455) after a 27-mob flee list. The run was paused and resumed 49 times over 190 s, the bot held at (832, 99, -456) with health 20, and the night job superseded it at 07:57:16. The drops despawned at 07:58:34; `out of time` came at 08:06:48. It held 6 iron ore and never smelted it.
+- **A creeper took hard3's last day.** Box at (828, 91, -502), `held past dawn by creeper 2.3 dy 1 sky 0` at 09:23:24, and the same words at the opening 404.4 s later, at tod 9080.
+  - **Why the walls stayed up:** the box opens at the job's exit margin, 60 s before the limit, and `waitCreeperClear` then waits 60 s. The two ended together: `Job time limit reached`, walls standing.
+  - **What it cost:** every sample from there to the end of the run reads (828, 91, -502). 753 s from dawn to the harness stop.
+- **hard2's two boxes** were held 63.7 s (a creeper 6.0 away, sky 0, then `morning in a cave`) and 147.4 s (a skeleton 12 below, sky 0). Every mob named on all three held boxes was at sky 0, as in round 100.
+
+**Fix**
+- **A box pinned by mobs under rock is left through the roof** (`worker.js`, `boxPinned`, `BOX_PINNED_MS=30000`, `ROCK_SKY=3`). 30 s after the first `held past dawn` line, with the tod between `MORNING_SAFE` and `DUSK_PREP`, if every hostile within `REFUGE_CLEAR` reads sky 3 or less at its head, the hold ends and the existing cave-morning climb runs: `Shelter: pinned N s past dawn by <mobs>; climbing out through the roof`.
+- **It does not need `caveMorning`.** hard3's box was not a cave morning even at the opening, so moving that test into the hold alone would have missed it. The mob's own sky decides, because a sealed box reads sky 0 anywhere (round 57).
+- **One try a box** (`job.roofTried`). A climb that fails logs `Shelter: could not climb out; holding the box` and goes back through `shelter()`; the walls do not come down beside the mob. A plain cave morning is unchanged, and `markMobCave` still runs only for one.
+- **Refactor:** `hostilesNear(r)` now holds the filter `hostilesWithin` and `hostileSpread` shared.
+
+**Tests:** `round102.test.js` (7), through the real `shelter()` hold on a fake clock: the round-101 box; a mob that leaves inside the 30 s; a mob under the sky holds the box as before; a canopy is not rock; the gates (by day, once held, after the wait, one try, an empty list); a failed climb; a pinned box in a mob cave and a plain cave morning. With the pin removed, the replay test fails. 837 pass, resources 9.
+
+**Not changed yet**
+- **The exit margin and the creeper wait are the same 60 s,** so any box still held at the margin times out with its walls up. This fix only takes the under-rock case away from it. A creeper in the open at the wall still ends that way, and hard3 then sat `queued: store` for 270 s.
+- **The roof climb leaves the box's blocks behind.** On a surface box held by a mob far below (hard2's skeleton, dy -12) simply opening may be better, and hard1 went `Short of shelter blocks` this round. Watch the block counts after each pinned climb.
+- **A kit in a crowd:** hard1 stood 9 blocks from its kit for 190 s at health 20. The run has no way to go in, and going in with 27 mobs may just drop it again.
+- **Bag run across a run change** (0 this round), **cornered with no weapon,** the enderman counted as holding a box, the wrong killer on a death line, `BAG_WORTH` and large stacks, going pickless with a full bag, spear zombies, group-spacing by a drop, a food hunt under a roof, creeper flees ignoring skeletons, lava at y=-25, hard pacing.
