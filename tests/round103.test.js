@@ -6,7 +6,7 @@ import {Blacklist} from '../src/trackers/blacklist.js';
 
 // Round 103: the round-102 hard1 wood step. A job begun on a hill at y=80-81 walked its search leg down
 // to the oak at (756, 74-77, -602). Only the top log passed the surface floor, the walk to it found no
-// path, the trunk was blacklisted, and the first log came 1054 s in, 500 blocks south.
+// path, the trunk was blacklisted, and the wooden pick came 1054 s in, over 500 blocks away.
 const P=(x,y,z)=>x+','+y+','+z;
 function hill({logs=[[756,74,-602],[756,75,-602],[756,76,-602],[756,77,-602]],start=[760,81,-530],end=[761,77,-596],sky=15,block='log',surface=true,walkFails=p=>p.y>=77}={}){
  const registry={blocksByName:{oak_log:{id:1},iron_ore:{id:2}},blocks:{1:{drops:[102],harvestTools:null},2:{drops:[103],harvestTools:null}},items:{102:{name:'oak_log'},103:{name:'raw_iron'}}};

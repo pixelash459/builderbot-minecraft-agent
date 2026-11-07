@@ -3426,7 +3426,7 @@ export class Worker extends EventEmitter {
     job.anchor=b.entity.position.floored();job.badColumns=[];job.climbs=0;
     // Round 103 (round-102 hard1: a job begun on a hill at y=80-81, floor 76-77, walked its leg down to
     // the oak at (756, 74-77, -602): only the top log passed the floor, the next walks `left the
-    // surface`, and the first log came 1054 s in, 500 blocks south; hard2 took that tree from a job
+    // surface`, and the wooden pick came 1054 s in, over 500 blocks away; hard2 took that tree from a job
     // begun at y=78): a finished leg under open sky is the ground here, so the floor comes down to it.
     // Down only, and only here: a failed path that drops the bot never moves the floor.
     if(s.surface&&job.surfaceY!==undefined&&job.anchor.y<job.surfaceY&&headSky(b,job.anchor)>=SKY_OPEN){
