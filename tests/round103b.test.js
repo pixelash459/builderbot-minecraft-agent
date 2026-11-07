@@ -22,7 +22,7 @@ test('round 103: raw iron for the helmet is smelted before the torch trip',()=>{
 });
 
 // Round 103, pre-soak: the round-102 normal3 full-bag stall. `Dropped cobblestone came back into the
-// inventory` 15 times at (831, 57, -418), a dead-end iron tunnel 6 under the surface (y=63), and the
+// inventory` 15 times at (831, 57, -418), a dead-end iron tunnel 34 under the surface (y=91), and the
 // ladder stood 7.5 min on `waiting: bag full (iron craft)`.
 function tunnelDrop({y=57,surface=63,backAt=[57],ascendTo=null}={}){
  const air={name:'air',boundingBox:'empty'},stone={name:'stone',boundingBox:'block'};
@@ -89,7 +89,7 @@ function opening({creeper=true,deadlineIn=Infinity}={}){
 }
 test('round 103: the hold ends a whole creeper wait plus the opening before the job limit',()=>{
  assert.equal(SHELTER_EXIT_MARGIN_MS,CREEPER_WAIT_MS+SHELTER_OPEN_MS);
- assert.equal(SHELTER_EXIT_MARGIN_MS,90000);
+ assert.equal(SHELTER_EXIT_MARGIN_MS,105000);
  const w=opening({deadlineIn:SHELTER_EXIT_MARGIN_MS-1000});
  assert.equal(w.shelterExitSafe(),true,'inside the margin: the hold ends even at night');
  w.deadline=Date.now()+SHELTER_EXIT_MARGIN_MS+1000;
@@ -103,14 +103,34 @@ test('round 103: a creeper at the wall is waited out for the full 60 s when the 
 });
 test('round 103: near the job limit the creeper wait stops SHELTER_OPEN_MS before it and says so',async()=>{
  let w;
- const s=await clocked(async()=>{w=opening({deadlineIn:50000});await w.waitCreeperClear(0);});
+ const s=await clocked(async()=>{w=opening({deadlineIn:65000});await w.waitCreeperClear(0);});
  assert.ok(s>=20&&s<21,s+' s, not 60');
- assert.equal(w.logs.at(-1),'Shelter: creeper 3.0 away with 30 s left on the job; opening the walls');
+ assert.equal(w.logs.at(-1),'Shelter: creeper 3.0 away with 45 s left on the job; opening the walls');
 });
 test('round 103: the crowd wait also stops SHELTER_OPEN_MS before the limit',async()=>{
  let w;
- const s=await clocked(async()=>{w=opening({creeper:false,deadlineIn:50000});w.hostilesWithin=()=>8;await w.waitCreeperClear(0);});
+ const s=await clocked(async()=>{w=opening({creeper:false,deadlineIn:65000});w.hostilesWithin=()=>8;await w.waitCreeperClear(0);});
  assert.ok(s>=20&&s<21,s+' s');
  assert.ok(w.logs.some(l=>/^Shelter: 8 hostiles within 32 \(no weapon held\); keeping the walls up$/.test(l)),w.logs.join('\n'));
  assert.ok(w.logs.some(l=>/^Shelter: 8 hostiles within 32 after 20 s; opening the walls$/.test(l)),w.logs.join('\n'));
+});
+
+// Round 103, review of the first live pin (flat world): inside the sealed box the head read sky 15, so
+// the sky test ended the pillar before it began, and `Shelter: could not climb out; holding the box`.
+function roofClimb(spec){
+ const bot={entity:{position:new Vec3(0.5,64,0.5)},health:20,blockAt:()=>({name:'air',boundingBox:'empty',skyLight:15})};
+ const w=Object.assign(Object.create(Worker.prototype),{bot,log(){},check(){},
+  async pillarUp(target,token,{until}){while(bot.entity.position.y<target&&!until?.())bot.entity.position=bot.entity.position.offset(0,1,0);return true;},
+  async navigate(){throw Error('No path to the goal!');}});
+ return {w,bot,job:{spec}};
+}
+test('round 103: a pinned climb rises through its own roof though the head reads open sky',async()=>{
+ const {w,bot,job}=roofClimb({type:'ascend',y:96,sky:true,minY:67});
+ await w.ascend(job,0).catch(()=>{});
+ assert.equal(bot.entity.position.y,67,'up past the roof, then the sky test stops it');
+});
+test('round 103: with no minY a sky climb stops on open sky at once, as a cave climb always has',async()=>{
+ const {w,bot,job}=roofClimb({type:'ascend',y:96,sky:true});
+ await w.ascend(job,0).catch(()=>{});
+ assert.equal(bot.entity.position.y,64);
 });

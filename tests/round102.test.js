@@ -40,7 +40,7 @@ test('round 102: the round-101 box: a creeper at the wall under rock, out throug
  assert.ok(s<45,s+' s, not 404');
  assert.ok(t.logs.includes('Shelter: held past dawn by creeper 2.4 dy 1 sky 0'),t.logs.join('\n'));
  assert.ok(t.logs.includes('Shelter: pinned 30 s past dawn by creeper 2.4 dy 1 sky 0; climbing out through the roof'),t.logs.join('\n'));
- assert.equal(t.calls.climbs.length,1);assert.equal(t.calls.climbs[0].sky,true);assert.equal(t.calls.climbs[0].y,96);
+ assert.equal(t.calls.climbs.length,1);assert.equal(t.calls.climbs[0].sky,true);assert.equal(t.calls.climbs[0].y,96);assert.equal(t.calls.climbs[0].minY,94,'up through its own roof first');
  assert.equal(t.calls.down,0,'the walls stay up beside the creeper');
  assert.equal(t.calls.marked,0,'one creeper is not a mob cave');
  assert.equal(t.logs.some(l=>/opening up/.test(l)),false);

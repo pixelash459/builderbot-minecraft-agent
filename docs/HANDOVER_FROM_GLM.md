@@ -3565,3 +3565,35 @@ The round-72 soak on the Nitrous world copy (bot `3fc0f73`) ran all six runs cle
 - **The bag-full wait** (normal3) and cobblestone dropped where it is picked straight back up.
 - **The round-102 pin and the round-101 turn** still have no live run. Their risks stand: the roof climb leaves the box's blocks behind, and the exit margin equals the creeper wait for a mob in the open.
 - **A kit in a crowd,** bag run across a run change, cornered with no weapon, the enderman counted as holding a box, the wrong killer on a death line, `BAG_WORTH` and large stacks, going pickless with a full bag, spear zombies, group-spacing by a drop, a food hunt under a roof, creeper flees ignoring skeletons, lava at y=-25, hard pacing, the `Shelter block remained` error at two openings.
+
+## Round 103, pre-soak changes (2026-11-07)
+
+These went in after the wood fix and before the round 103 soak, so the soak tests all of them together. The work stopped when its usage ran out, before writing this section; this is the review of it. It left nothing uncommitted.
+
+**Commits**
+- `e9fa1ab`: `tests/soak_report.py` prints a round's per-run counts, quoted lines, rung table and box list. Run on round 102 it gives the report's figures: 6 run windows, 3 `held past dawn by`, 25 `Job: Navigation left the surface`, 5 `Gather: skipping *_log`.
+- `a687ab9`: two scenarios in `tests/obstruct.py`, `bag_run_no_path` and `box_pinned`, so the probe now has 13.
+- `42c25b9`: a toss that comes back underground climbs to the surface once per drop job and tosses there (`dropClimbOut`, `DROP_CLIMB_MIN=3`). Line: `Drop: the toss at P came straight back; climbing to the surface (y=N) to toss there`; `Drop: the climb out stopped (...)` if it does not.
+- `70d3f71`: the shelter exit margin is now the creeper wait plus `SHELTER_OPEN_MS`, and the creeper and crowd waits stop `SHELTER_OPEN_MS` before the job limit. New ending on the wall line: `Shelter: creeper D away with N s left on the job; opening the walls`.
+- `e74aee9`: the iron helmet comes first after the iron core: crafted as soon as 5 ingots are held, its raw iron smelted before the torch trip, and the bucket waits for it.
+
+**What the review changed**
+- **The round-102 pinned climb did not work in a box that reads open sky.** The first live `box_pinned` run proved the pin fires (`Shelter: pinned 30 s past dawn by zombie 6.7 dy -3 sky 0`), then `Ascend: head sky 15 at y=-60`, `y=-60 -> -60`, `could not climb out; holding the box`. A roof the bot placed does not darken its head cell on the client, so `pillarUp`'s sky test ended the climb before it began. `ascend` now takes `minY`, the rise a climb must make before the sky test counts, and a pinned climb passes `y0+3`. Rerun live: `y=-60 -> -57` in 3.5 s, job complete. Round 101's hard3 box was at the surface, so without this the fix would probably not have saved it. That is inferred; no soak has logged the head sky of a sealed surface box.
+- **`SHELTER_OPEN_MS` went from 30 s to 45 s** (margin 105 s), because round-102 openings took up to 42 s from `opening up` to the next job.
+- **Comment fixed:** normal3's tunnel was 34 under the surface (y=91), not 6.
+- **Round-103 lines added to `tests/soak_report.py`.** `tests/round79.test.js` reads the source text of the climb call, so it was updated with it.
+
+**Live results on the flat world:** `bag_run_no_path` fired all four `turning` lines (`no path on the line`, then 45, -45 and 90 off it), the first live proof of the round-101 turn. `box_pinned` is above.
+
+**Tests:** 856 pass, resources 9, rung table ok. Seven mutations across the climb, the toss, the exit margin and the helmet each fail at least one test.
+
+**Not done**
+- **Diamonds:** no findings were written and no change made.
+- **Using a held bed:** not started.
+- **The flaky round 71 test:** not started.
+
+**Risks to watch**
+- **A creeper at the wall now gets the walls opened beside it** when the job is nearly out of time. Before, the bot stayed inside.
+- **A toss deep in a mine climbs all the way up.** There is no depth limit, so one in the diamond band could cost minutes and the place in the branch mine.
+- **The helmet moves ingots ahead of torches and the bucket.** Torches can come later when raw iron is held.
+- **The soak changes several things at once,** against the one-change rule, at the user's choice. The wood fix shows at the start of a run; the helmet, toss and exit timing show after the iron pick.

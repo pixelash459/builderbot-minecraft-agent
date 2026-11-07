@@ -120,5 +120,5 @@ test('round 79: a cave morning 4 under the surface climbs to the sky',async()=>{
  assert.equal(goals.length,1);assert.ok(goals[0] instanceof GoalSky);
  assert.equal(logs.at(-1),'Ascend: y=84 -> 89 (surface 89)');
  const src=fs.readFileSync(new URL('../src/worker.js',import.meta.url),'utf8');
- assert.ok(src.includes("Math.floor(y0)+CAVE_EXIT_RISE);\n    try{await this.ascend({spec:{type:'ascend',y:top,sky:true}},token);}"));
+ assert.ok(src.includes("Math.floor(y0)+CAVE_EXIT_RISE);\n    try{await this.ascend({spec:{type:'ascend',y:top,sky:true,...(pinned?{minY:Math.floor(y0)+3}:{})}},token);}"));
 });

@@ -861,8 +861,9 @@ export const NO_AVOID_LOG_MS=30000,NO_AVOID_NEAR=4;
 // held the walls for the 60 s creeper wait, and `Job time limit reached` fired with the walls up;
 // round-102 hard1's stray box ended the same way 0.02 s short of the pin): the hold ends
 // CREEPER_WAIT_MS + SHELTER_OPEN_MS before the job limit, so the whole creeper wait still fits, and
-// every wait inside the opening stops SHELTER_OPEN_MS before the limit - the walls always come down.
-export const SHELTER_OPEN_MS=30000,CREEPER_WAIT_MS=60000,SHELTER_EXIT_MARGIN_MS=CREEPER_WAIT_MS+SHELTER_OPEN_MS;
+// every wait inside the opening stops SHELTER_OPEN_MS before the limit - the walls always come down
+// (round-102 openings took 7.5-42 s from `opening up` to the next job).
+export const SHELTER_OPEN_MS=45000,CREEPER_WAIT_MS=60000,SHELTER_EXIT_MARGIN_MS=CREEPER_WAIT_MS+SHELTER_OPEN_MS;
 export const SHELTER_DIG_MS=45000,SHELTER_SEAL_MS=30000,NIGHT_PILLAR_MS=13*60000,SHELTER_CROWD=6,CROWD_WAIT_MS=180000,UNARMED_CLEAR=32;
 // Natural plants that fill a shell cell but are not replaceable: a placement into them is
 // refused, so the seal digs them out first (a dark-forest floor is full of mushrooms).
@@ -2360,7 +2361,7 @@ export class Worker extends EventEmitter {
     if(pinned)job.roofTried=true;
     this.shelterSpot=null;this.save();
     const y0=b.entity.position.y,top=Math.max(escapeY(this.autopilot?.lastSurfaceY),Math.floor(y0)+CAVE_EXIT_RISE);
-    try{await this.ascend({spec:{type:'ascend',y:top,sky:true}},token);}catch(e){this.check(token);this.log('Shelter: the climb out stopped ('+String(e.message).slice(0,60)+')');}
+    try{await this.ascend({spec:{type:'ascend',y:top,sky:true,...(pinned?{minY:Math.floor(y0)+3}:{})}},token);}catch(e){this.check(token);this.log('Shelter: the climb out stopped ('+String(e.message).slice(0,60)+')');}
     if(b.entity.position.y>=y0+3)return;
     // the mob is still at the wall: the box goes back up rather than coming down beside it
     if(pinned){this.log('Shelter: could not climb out; holding the box');return this.shelter(job,token);}
@@ -4729,7 +4730,7 @@ export class Worker extends EventEmitter {
   await sleep(this.dropSettleMs??DROP_SETTLE_MS);
   if(this.count(s.item)>have-n){
    // Round 103 (round-102 normal3: `Dropped cobblestone came back into the inventory` 15 times in
-   // 13 min at (831, 57, -418), a dead-end iron tunnel 6 under the surface - the toss had an open
+   // 13 min at (831, 57, -418), a dead-end iron tunnel 34 under the surface (y=91) - the toss had an open
    // run but the step back had nowhere to go, so every stack was picked up again 2 s later and
    // the ladder stood on `waiting: bag full (iron craft)` for 7.5 min): once per drop job, an
    // underground toss that came back climbs to the surface and tosses again there.
@@ -4885,7 +4886,10 @@ export class Worker extends EventEmitter {
   const skyOpen=()=>headSky(b,b.entity.position.floored())>=SKY_OPEN;
   // Round 96: under a canopy, ground beside the bot is out too.
   const beside=()=>toSky?walkOut(b,b.entity.position.floored()):null;
-  const out=()=>skyOpen()||!!beside();
+  // Round 103 (the first live pin, on the flat world: `Ascend: head sky 15 at y=-60` inside the sealed box,
+  // `y=-60 -> -60`, `could not climb out`; a roof the bot placed does not darken its head cell on the
+  // client, so the sky test ended the pillar before it began): minY, the rise a climb must make first.
+  const out=()=>Math.floor(b.entity.position.y)>=(job.spec.minY??-Infinity)&&(skyOpen()||!!beside());
   const pillared=Math.floor(b.entity.position.y)<=start+2&&Math.floor(b.entity.position.y)<y-4;
   if(pillared){
    this.log('Ascend: no path up from y='+start+'; pillaring');

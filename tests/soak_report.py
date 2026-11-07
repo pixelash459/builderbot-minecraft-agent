@@ -28,6 +28,12 @@ SPLIT_RE = re.compile(r'(?=\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z )')
 
 # (label, substring). Order is the order of the report's sections, newest fix first.
 PATTERNS = [
+    # round-103 changes (wood from a hill, the full-bag toss, the shelter exit timing)
+    ('surface floor comes down', 'the surface floor comes down'),
+    ('trying the foot of the trunk', 'trying the foot of the trunk'),
+    ('toss came back, climbing out', 'came straight back; climbing to the surface'),
+    ('Drop: the climb out stopped', 'Drop: the climb out stopped'),
+    ('walls opened with time short', 's left on the job; opening the walls'),
     # round-102 fix (roof exit for boxes held past dawn)
     ('Shelter: pinned', 'Shelter: pinned '),
     ('climbing out through the roof', 'climbing out through the roof'),
