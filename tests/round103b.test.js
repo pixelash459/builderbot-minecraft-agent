@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Vec3} from 'vec3';
-import {Worker,DROP_CLIMB_MIN} from '../src/worker.js';
+import {Worker,DROP_CLIMB_MIN,SHELTER_EXIT_MARGIN_MS,SHELTER_OPEN_MS,CREEPER_WAIT_MS} from '../src/worker.js';
 
 // Round 103, pre-soak: the round-102 normal3 full-bag stall. `Dropped cobblestone came back into the
 // inventory` 15 times at (831, 57, -418), a dead-end iron tunnel 6 under the surface (y=63), and the
@@ -50,4 +50,49 @@ test('round 103: a climb that did not rise gives the old failure, with the stop 
  await assert.rejects(w.drop({spec:{type:'drop',item:'cobblestone',count:256}},0),/came back/);
  assert.equal(ascends.length,1);
  assert.ok(w.logs.some(l=>/climbing to the surface/.test(l)));
+});
+
+// Round 103, pre-soak: the shelter's exit margin and the creeper wait (round-101 hard3: both 60 s, so
+// a creeper at the wall on the margin ran the job into `Job time limit reached` with the walls up).
+// A fake clock: every sleep advances it.
+async function clocked(fn){
+ const real=Date.now,timers=globalThis.setTimeout;let now=1e6;const t0=now;
+ Date.now=()=>now;
+ globalThis.setTimeout=(f,ms)=>{now+=ms;if(now-t0>900000)throw Error('never ended');return timers(f,0);};
+ try{await fn(()=>now);}finally{Date.now=real;globalThis.setTimeout=timers;}
+ return (now-t0)/1000;
+}
+function opening({creeper=true,deadlineIn=Infinity}={}){
+ const logs=[];
+ const w=Object.assign(Object.create(Worker.prototype),{bot:{entity:{position:new Vec3(0,64,0)},inventory:{items:()=>[]},entities:{},time:{timeOfDay:15000}},
+  logs,log:m=>logs.push(m),check(){},nearestOf:()=>creeper?{name:'creeper',d:3}:{name:null,d:Infinity},hostilesWithin:()=>1});
+ w.deadline=Number.isFinite(deadlineIn)?Date.now()+deadlineIn:Infinity;
+ return w;
+}
+test('round 103: the hold ends a whole creeper wait plus the opening before the job limit',()=>{
+ assert.equal(SHELTER_EXIT_MARGIN_MS,CREEPER_WAIT_MS+SHELTER_OPEN_MS);
+ assert.equal(SHELTER_EXIT_MARGIN_MS,90000);
+ const w=opening({deadlineIn:SHELTER_EXIT_MARGIN_MS-1000});
+ assert.equal(w.shelterExitSafe(),true,'inside the margin: the hold ends even at night');
+ w.deadline=Date.now()+SHELTER_EXIT_MARGIN_MS+1000;
+ assert.equal(w.shelterExitSafe(),false,'outside it: the night holds');
+});
+test('round 103: a creeper at the wall is waited out for the full 60 s when the job has time',async()=>{
+ let w;
+ const s=await clocked(async()=>{w=opening({deadlineIn:10*60000});await w.waitCreeperClear(0);});
+ assert.ok(s>=60&&s<61,s+' s');
+ assert.deepEqual(w.logs,['Shelter: a creeper 3.0 away; keeping the walls up','Shelter: creeper 3.0 away; opening the walls']);
+});
+test('round 103: near the job limit the creeper wait stops SHELTER_OPEN_MS before it and says so',async()=>{
+ let w;
+ const s=await clocked(async()=>{w=opening({deadlineIn:50000});await w.waitCreeperClear(0);});
+ assert.ok(s>=20&&s<21,s+' s, not 60');
+ assert.equal(w.logs.at(-1),'Shelter: creeper 3.0 away with 30 s left on the job; opening the walls');
+});
+test('round 103: the crowd wait also stops SHELTER_OPEN_MS before the limit',async()=>{
+ let w;
+ const s=await clocked(async()=>{w=opening({creeper:false,deadlineIn:50000});w.hostilesWithin=()=>8;await w.waitCreeperClear(0);});
+ assert.ok(s>=20&&s<21,s+' s');
+ assert.ok(w.logs.some(l=>/^Shelter: 8 hostiles within 32 \(no weapon held\); keeping the walls up$/.test(l)),w.logs.join('\n'));
+ assert.ok(w.logs.some(l=>/^Shelter: 8 hostiles within 32 after 20 s; opening the walls$/.test(l)),w.logs.join('\n'));
 });

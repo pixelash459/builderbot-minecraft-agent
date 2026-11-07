@@ -857,7 +857,13 @@ export function tunnelHeading(tunnel){
 // unreachable dirt block, cancelled by the soak bell, never sealed).
 const SHELTER_ITEMS=['cobblestone','dirt','cobbled_deepslate','netherrack'];
 export const NO_AVOID_LOG_MS=30000,NO_AVOID_NEAR=4;
-export const SHELTER_DIG_MS=45000,SHELTER_SEAL_MS=30000,NIGHT_PILLAR_MS=13*60000,SHELTER_EXIT_MARGIN_MS=60000,CREEPER_WAIT_MS=60000,SHELTER_CROWD=6,CROWD_WAIT_MS=180000,UNARMED_CLEAR=32;
+// Round 103 (round-101 hard3: the hold ended on the 60 s exit margin, the creeper at the wall then
+// held the walls for the 60 s creeper wait, and `Job time limit reached` fired with the walls up;
+// round-102 hard1's stray box ended the same way 0.02 s short of the pin): the hold ends
+// CREEPER_WAIT_MS + SHELTER_OPEN_MS before the job limit, so the whole creeper wait still fits, and
+// every wait inside the opening stops SHELTER_OPEN_MS before the limit - the walls always come down.
+export const SHELTER_OPEN_MS=30000,CREEPER_WAIT_MS=60000,SHELTER_EXIT_MARGIN_MS=CREEPER_WAIT_MS+SHELTER_OPEN_MS;
+export const SHELTER_DIG_MS=45000,SHELTER_SEAL_MS=30000,NIGHT_PILLAR_MS=13*60000,SHELTER_CROWD=6,CROWD_WAIT_MS=180000,UNARMED_CLEAR=32;
 // Natural plants that fill a shell cell but are not replaceable: a placement into them is
 // refused, so the seal digs them out first (a dark-forest floor is full of mushrooms).
 // Round 84: torches too (round-83 hard3: `open cells 857,94,-544=torch`, `re-seal left 1 open`).
@@ -2897,12 +2903,13 @@ export class Worker extends EventEmitter {
  // at most CREEPER_WAIT_MS.
  // Round 73: a skeleton (any DAY_HOSTILE) holds the walls as a creeper does.
  async waitCreeperClear(token){
-  const until=Date.now()+CREEPER_WAIT_MS;let held=null;
+  // Round 103: never past SHELTER_OPEN_MS before the job limit (see SHELTER_EXIT_MARGIN_MS).
+  const limit=Number.isFinite(this.deadline)?this.deadline-SHELTER_OPEN_MS:Infinity,until=Math.min(Date.now()+CREEPER_WAIT_MS,limit);let held=null;
   for(let n=this.nearestOf(DAY_HOSTILE);n.d<=REFUGE_CLEAR&&Date.now()<until;n=this.nearestOf(DAY_HOSTILE)){
    if(!held){held=n.name;this.log('Shelter: a '+n.name+' '+n.d.toFixed(1)+' away; keeping the walls up');}
    await sleep(250);this.check(token);
   }
-  if(held){const n=this.nearestOf(DAY_HOSTILE);this.log('Shelter: '+(Number.isFinite(n.d)?n.name+' '+n.d.toFixed(1)+' away':held+' gone')+'; opening the walls');}
+  if(held){const n=this.nearestOf(DAY_HOSTILE);this.log('Shelter: '+(Number.isFinite(n.d)?n.name+' '+n.d.toFixed(1)+' away':held+' gone')+(Number.isFinite(n.d)&&n.d<=REFUGE_CLEAR&&until===limit?' with '+Math.round((this.deadline-Date.now())/1000)+' s left on the job':'')+'; opening the walls');}
   // Round 81 (round-80 hard3: `skeleton 16.4 away; opening the walls` under a dark canopy with a
   // crowd of zombies, skeletons, creepers and spiders around the box that the morning never
   // burned; `Health or food is low` 6 s after the shelter completed, a flee, and the death 3 s
@@ -2916,7 +2923,7 @@ export class Worker extends EventEmitter {
   const crowdUntil=Date.now()+CROWD_WAIT_MS;let crowd=this.hostilesWithin(r);
   if(crowd<SHELTER_CROWD)return;
   this.log('Shelter: '+crowd+' hostiles within '+r+(unarmed?' (no weapon held)':'')+'; keeping the walls up');
-  const margin=()=>Number.isFinite(this.deadline)&&this.deadline-Date.now()<SHELTER_EXIT_MARGIN_MS;
+  const margin=()=>Number.isFinite(this.deadline)&&this.deadline-Date.now()<SHELTER_OPEN_MS; // round 103: the walls still come down in time
   while(crowd>=SHELTER_CROWD&&Date.now()<crowdUntil&&!margin()){await sleep(250);this.check(token);crowd=this.hostilesWithin(r);}
   this.log('Shelter: '+crowd+' hostiles within '+r+(crowd>=SHELTER_CROWD?' after '+Math.round((CROWD_WAIT_MS-(crowdUntil-Date.now()))/1000)+' s':'')+'; opening the walls');
  }
