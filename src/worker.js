@@ -807,7 +807,7 @@ export const RESPAWN_GUARD_MS=180000;
 // Round 99 (bagRunSkip in autopilot.js): the walk back goes in straight-line legs of BAG_RUN_LEG, a
 // long goal being over the path search's budget; within BAG_RUN_NEAR it closes on the death cell,
 // then sweeps the drops within BAG_RUN_SWEEP for up to BAG_RUN_SWEEP_MS.
-export const BAG_RUN_LEG=48,BAG_RUN_NEAR=6,BAG_RUN_SWEEP=24,BAG_RUN_SWEEP_MS=30000,BAG_RUN_STOP_S=5;
+export const BAG_RUN_LEG=48,BAG_RUN_NEAR=6,BAG_RUN_SWEEP=24,BAG_RUN_SWEEP_MS=30000,BAG_RUN_STOP_S=5,BAG_RUN_TURNS=[45,-45,90,-90];
 // Round 93 (round-92 hard1: `Shelter: skeleton 13.5 away; opening the walls` at noon, then 19 s of
 // digging the walls down with the pickaxe held, `Death: health 15.4 -> ... -> 11.7 -> ... -> 5.3 ->
 // 6.3 -> 0; held stone_pickaxe; 2 hostile(s) within 8: skeleton 4.9, skeleton 5.8` and not one
@@ -1753,15 +1753,34 @@ export class Worker extends EventEmitter {
   if(!job.bagFrom){job.bagFrom={t:Date.now(),had:bag()};this.log('Bag run: walking '+Math.round(flat())+' back to the death at '+at+' ('+(this.lastDeath?.bag?.worth||[]).join(', ')+'; '+left()+' s left on the drops)');}
   for(let legs=Math.ceil(flat()/BAG_RUN_LEG)+4;flat()>BAG_RUN_NEAR;legs--){
    this.check(token);
-   if(legs<=0||left()<BAG_RUN_STOP_S)throw Error('Bag run: stopped '+Math.round(flat())+' short of the death at '+b.entity.position.floored());
-   const d=flat(),p=b.entity.position,k=BAG_RUN_LEG/d;
-   if(k<1)await this.navigate(new goals.GoalXZ(Math.floor(p.x+(at.x-p.x)*k),Math.floor(p.z+(at.z-p.z)*k)),token,Math.min(45,left()));
-   else await this.walk(at,token,BAG_RUN_NEAR-1,Math.min(45,left()));
+   if(legs<=0||left()<BAG_RUN_STOP_S)throw Error('Bag run: stopped '+Math.round(flat())+' short of the death at '+at);
+   await this.bagLeg(at,token,left);
   }
   try{await this.walk(at,token,2,Math.max(1,Math.min(15,left())));}catch(e){this.check(token);}
   await this.sweepDrops(token,BAG_RUN_SWEEP,BAG_RUN_SWEEP_MS);
   const now=bag(),got=Object.keys(now).filter(n=>now[n]>(job.bagFrom.had[n]||0)).map(n=>n+' '+(now[n]-(job.bagFrom.had[n]||0)));
   this.log('Bag run: at the death after '+Math.round((Date.now()-job.bagFrom.t)/1000)+' s; '+(got.length?'picked up '+got.join(', '):'no drops picked up'));
+ }
+ // Round 101 (round-100 hard1: `given up after 3 run(s)` 20 s in, 240 s left on the whole stone kit;
+ // three legs across the river by the spawn went over the search budget, each walked its partial
+ // path 11-16 blocks along the bank, and each `No path` ended a run; round-99 hard2's first leg the
+ // same): a leg with no path turns off the line from where that left the bot, and only every
+ // bearing failing ends the run.
+ async bagLeg(at,token,left){
+  const b=this.bot,flat=()=>Math.hypot(b.entity.position.x-at.x,b.entity.position.z-at.z);
+  for(const deg of [0,...BAG_RUN_TURNS]){
+   this.check(token);
+   const p=b.entity.position,r=Math.min(BAG_RUN_LEG,flat()),a=Math.atan2(at.z-p.z,at.x-p.x)+deg*Math.PI/180;
+   try{
+    if(!deg&&flat()<=BAG_RUN_LEG)await this.walk(at,token,BAG_RUN_NEAR-1,Math.min(45,left()));
+    else await this.navigate(new goals.GoalXZ(Math.floor(p.x+Math.cos(a)*r),Math.floor(p.z+Math.sin(a)*r)),token,Math.min(45,left()));
+    return;
+   }catch(e){
+    this.check(token);
+    if(!/^No path/.test(String(e.message))||deg===BAG_RUN_TURNS.at(-1)||left()<BAG_RUN_STOP_S)throw e;
+    this.log('Bag run: no path '+(deg?deg+' off the line':'on the line')+' from '+b.entity.position.floored()+'; turning');
+   }
+  }
  }
  async sweepDrops(token,radius=8,ms=10000){
   const b=this.bot,deadline=Date.now()+ms;

@@ -85,7 +85,7 @@ function walker({fail=null,drops=[['stone_pickaxe',2],['stone_sword',1]],bag=[]}
  const w=Object.assign(Object.create(Worker.prototype),{bot,log:m=>logs.push(m),check(){},lastDeath:death({t:Date.now()-10000}),
   async navigate(goal,token,seconds){
    goalsSeen.push({x:goal.x,z:goal.z,seconds});
-   if(fail&&goalsSeen.length===fail)throw Error('No path to the goal!');
+   if(fail&&(fail===true||goalsSeen.length===fail))throw Error('No path to the goal!');
    bot.entity.position=new Vec3(goal.x+0.5,70,goal.z+0.5);
   },
   async walk(t,token,range,seconds){goalsSeen.push({x:t.x,z:t.z,range,seconds});bot.entity.position=new Vec3(t.x+0.5,t.y,t.z+0.5);},
@@ -112,10 +112,10 @@ test('round 99: the run walks straight-line legs to the death and sweeps the dro
  assert.equal(logs.filter(l=>/walking/.test(l)).length,1);
 });
 
-test('round 99: a leg with no path fails the run, and time running out stops it',async()=>{
- {const {w,job}=walker({fail:1});await assert.rejects(w.bagRun(job,0),/No path to the goal/);}
+test('round 99: a leg with no path on any bearing fails the run, and time running out stops it',async()=>{
+ {const {w,job}=walker({fail:true});await assert.rejects(w.bagRun(job,0),/No path to the goal/);}
  {const {w,logs,job}=walker();w.lastDeath.t=Date.now()-BAG_RUN_MS+2000;
-  await assert.rejects(w.bagRun(job,0),/^Error: Bag run: stopped 145 short of the death at \(697, 68, -422\)$/);
+  await assert.rejects(w.bagRun(job,0),/^Error: Bag run: stopped 145 short of the death at \(793, 89, -530\)$/);
   assert.equal(logs.length,1);}
  // nothing left there: the run still ends cleanly
  {const {w,logs,job}=walker({drops:[]});await w.bagRun(job,0);assert.match(logs.at(-1),/no drops picked up$/);}

@@ -3490,3 +3490,29 @@ The round-72 soak on the Nitrous world copy (bot `3fc0f73`) ran all six runs cle
 - **hard3's opening:** two deaths in the first 271 s before wood, a 99-mob storm at (694, 63, -497) and a creeper that followed from `keeping 20 away` to the blast.
 - **`BAG_WORTH` ignores a large stack:** 161 cobblestone came back on hard2 as a side effect; alone it would be skipped.
 - Spear zombies, group-spacing by a drop, a food hunt under a roof, creeper flees ignoring skeletons, lava at y=-25, the close-in creeper pillar, hard pacing.
+
+## Round 101 (2026-11-07)
+
+**What the round-100 soak showed** (report `bb67742`, bot code `6a6d95e`, promoted): iron on 5 of 6 (every run but hard1; hard2 made one for the first time in three rounds), 3 deaths, all hard1 (0/0/0/3/0/0). Iron picks 512/663/693/-/2290/1295, hard wood 362/271/211, hard stone 783/362/331, hard furnace 904/482/422. hard2 made a bed at 1657 s and slept in it.
+- **The round-100 pause fix held:** one reflex paused a bag run, `Reflex: resumed the bagrun job` 0.5 s later, nothing went out, and 0 `paused bagrun job was superseded`. Every run had an end line.
+- **No kit came back, and the cause is the leg, not the reflex.**
+  - **hard1, 01:54:03:** `shot by Skeleton` at (800, 71, -569) in a mob cave at dusk, holding the whole stone kit, 170 from the respawn with 268 s left. Three runs in 20 s: no path from (715, 66, -434), (730, 64, -432), (739, 63, -433), each walking 11-16 blocks east along the river bank before it failed. `given up after 3 run(s)` with about 240 s left. No reflex touched it. Round-99 hard2's first leg failed the same way at the spawn lake.
+  - **Why it fails:** a leg across the water goes over the pathfinder's search budget, the bot walks the partial path, and the rejection comes at its end.
+  - **hard1, 02:10:37:** the third death fell in shelter hours, so its run started one second into hard2 with 44 s left and ran out of time at 45 short. That cost hard2 about 50 s.
+- **The new box lines answered round 99's question.** Four `held past dawn by` lines. Three boxes cleared in 0.5-8.3 s. hard2's box at (844, 72, -560) was held 249.8 s past dawn with all four named mobs at sky 0, then `morning in a cave`, and its climb stopped under a ceiling (`head sky 0 at y=78`). 0 `around the box as it opens` lines.
+- **The witch cover has still not fired** (0 lines; 21 crowd lists named a witch, all hard1).
+
+**Fix**
+- **A leg with no path turns off the line** (`worker.js`, `bagLeg`). From wherever the partial path left the bot it tries the same length at 45, -45, 90 and -90 degrees from the line to the death, logging `Bag run: no path on the line from P; turning` and `Bag run: no path 45 off the line from P; turning`. The next leg aims at the death again. Only every bearing failing ends the run. A timeout, a pause or the clock ends a leg as before. The last stretch turns too, by no more than what is left.
+- **Log wording:** `Bag run: stopped D short of the death at P` named the bot's position; it now names the death.
+
+**Tests:** `round101.test.js` (6): a turn and the run goes on; the round-100 river replayed with partial paths along the bank; every bearing once and in order before the run fails; only a no-path turns; the last stretch; the stopped line. `round99.test.js` changed in two places: a run now fails when every bearing fails, and the stopped line names the death. With the turn removed, four of the new tests fail. 830 pass, resources 9.
+
+**Not changed yet**
+- **The dawn hold in a cave:** the next candidate. `caveMorning` is tested only after the hold ends, which cost hard2 250 s here and hard1 about 250 s in round 99. With every mob under rock, the check belongs inside the hold.
+- **A walk back into what killed it:** hard1's death was in a mob cave of 7 at dusk. A run that now arrives may meet them; the night branch still cancels it at shelter time. Watch this one.
+- **Bag run across a run change:** `lastDeath` survives into the next harness run. `Autopilot.start()` also runs on a death resume, so it cannot be cleared there.
+- **Cornered with no weapon** never strikes (four rounds now; hard1 twice this round, held dirt).
+- **Hostile list:** an enderman at 3.2 counted as a mob holding the box (cleared in 2.8 s).
+- **The death line names the wrong killer:** the log said creeper, the server `shot by Skeleton`.
+- **`BAG_WORTH` ignores a large stack.** Going pickless with a full bag (round-99 hard2), spear zombies, group-spacing by a drop, a food hunt under a roof, creeper flees ignoring skeletons, lava at y=-25, hard pacing.
