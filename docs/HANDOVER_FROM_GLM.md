@@ -3541,3 +3541,27 @@ The round-72 soak on the Nitrous world copy (bot `3fc0f73`) ran all six runs cle
 - **The roof climb leaves the box's blocks behind.** On a surface box held by a mob far below (hard2's skeleton, dy -12) simply opening may be better, and hard1 went `Short of shelter blocks` this round. Watch the block counts after each pinned climb.
 - **A kit in a crowd:** hard1 stood 9 blocks from its kit for 190 s at health 20. The run has no way to go in, and going in with 27 mobs may just drop it again.
 - **Bag run across a run change** (0 this round), **cornered with no weapon,** the enderman counted as holding a box, the wrong killer on a death line, `BAG_WORTH` and large stacks, going pickless with a full bag, spear zombies, group-spacing by a drop, a food hunt under a roof, creeper flees ignoring skeletons, lava at y=-25, hard pacing.
+
+## Round 103 (2026-11-07)
+
+**What the round-102 soak showed** (report `bd18440`, bot code `31aa1a4`, promoted): iron on 5 of 6 (every run but hard1, the third round running), 1 death (0/0/0/0/1/0), down from 2. Iron picks 602/904/753/-/964/1476, hard wood 1054/302/241, hard stone 1145/392/331, hard furnace 1235/483/482. hard2's 964 s is the fastest hard iron in the report's comparison. No diamonds. No `Job time limit reached` on a shelter job, and the longest seal past dawn was 30 s.
+- **The round-102 pin did not fire:** 0 `pinned` lines. hard1's last box qualified (`stray 15.7 dy 9 sky 0`), but the harness ended the run 29.98 s after the `held past dawn` line, 0.02 s short of the 30 s gate. hard3's box had a spider at sky 15, which blocks the pin by design, and it cleared in 23.6 s.
+- **The round-101 turn did not fire either:** 0 `turning` lines.
+- **The second full kit came back.** hard2 was sniped at (847, 85, -550) with 0 hostiles within 8, during a cobblestone drop, 4.2 s after a 99-mob flee list. Its run started 25.4 s later, held once through a 95-mob flee and a river crossing, and picked up the whole kit 148.7 s after the death.
+- **hard1 lost 13 minutes to wood.** It reached the oak at (756, 74-77, -602) 118 s in and skipped it. Its first logs came at about 980 s near (926, 73, -920), over 500 blocks from the anchor, and the wooden pick at 1054 s. That left no time for iron. hard2 took logs from the same oak, in a job begun at y=78.
+  - **Why the tree was lost:** the job began on a hill at y=80-81. That height is not logged; it is inferred from the log at y=77 passing the floor and a walk tripping it at y=67 but not at y=71. `surfaceY-4` then hid every log under y=76-77, so only the top of the trunk was a target.
+  - **Why the top log failed:** the walk asks for a stand within 2 of the log, and the ground under a tall trunk does not give one. `No path`, 6.4 from the eye, `Cannot reach`, and round 59's rule blacklisted the whole trunk for 10 minutes.
+  - **What followed:** the old floor then failed the walk at (743, 67, -611) with `Navigation left the surface`, the third strike, and the coastal wander began. Two other logs this round went the same way, at (830, 101, -496) and (885, 104, -508).
+- **normal3 stood 7.5 minutes** at (831, 57, -418), `waiting: bag full (iron craft)`, dropping cobblestone that came straight back 15 times. Its iron pick was already made.
+
+**Fix: a tree in a valley is no longer lost from a hill** (`worker.js`, the gather's `searchLeg` and `gatherFailed`). Neither half saves that oak alone, so they went in together.
+- **A finished search leg brings the surface floor down.** If the leg ends below `job.surfaceY` under open sky (`SKY_OPEN`), `job.surfaceY` drops to the bot's y: `Gather: the surface floor comes down from y=A to y=B at the end of the leg`. Down only, and only at a leg's end, so a failed path that drops the bot into a ravine still moves nothing. A leg is already held to the old floor plus `SURFACE_SLACK`, so one leg lowers it by 12 at most.
+- **A walk that fails on a log with logs below it tries the foot once.** The trunk is not blacklisted on that first failure (the block itself still is): `Gather: no walk to the oak_log at P; trying the foot of the trunk`. The next try on that column goes to its lowest log. If that also fails, the trunk goes, as in round 59. A `walk ok` failure, the lowest log and ores are unchanged.
+
+**Tests:** `round103.test.js` (7), through the real `gather()`: the round-102 oak from the hill; a leg ending under a roof; a leg ending higher; a gather with no floor; a foot with no walk; a tree the walk reached but cannot dig; the lowest log and an ore. Five mutations each fail at least one test (no floor change, no foot in `gatherFailed`, no foot in the target choice, no sky gate, no down-only gate). 844 pass, resources 9.
+
+**Not changed yet**
+- **hard2's death:** a bag-clearing drop ran with a 99-mob crowd in range, and the shot came in two bursts. A drop job gives no cover.
+- **The bag-full wait** (normal3) and cobblestone dropped where it is picked straight back up.
+- **The round-102 pin and the round-101 turn** still have no live run. Their risks stand: the roof climb leaves the box's blocks behind, and the exit margin equals the creeper wait for a mob in the open.
+- **A kit in a crowd,** bag run across a run change, cornered with no weapon, the enderman counted as holding a box, the wrong killer on a death line, `BAG_WORTH` and large stacks, going pickless with a full bag, spear zombies, group-spacing by a drop, a food hunt under a roof, creeper flees ignoring skeletons, lava at y=-25, hard pacing, the `Shelter block remained` error at two openings.

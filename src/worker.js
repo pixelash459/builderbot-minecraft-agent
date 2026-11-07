@@ -3423,7 +3423,17 @@ export class Worker extends EventEmitter {
     }catch(e){this.check(token);}
     try{await this.exploreLeg(token,{direction,distance:leg,seconds:90+leg*2});}
     finally{if(aim)this.searchMiss(aim);}
-    job.anchor=b.entity.position.floored();job.badColumns=[];job.climbs=0;this.save();
+    job.anchor=b.entity.position.floored();job.badColumns=[];job.climbs=0;
+    // Round 103 (round-102 hard1: a job begun on a hill at y=80-81, floor 76-77, walked its leg down to
+    // the oak at (756, 74-77, -602): only the top log passed the floor, the next walks `left the
+    // surface`, and the first log came 1054 s in, 500 blocks south; hard2 took that tree from a job
+    // begun at y=78): a finished leg under open sky is the ground here, so the floor comes down to it.
+    // Down only, and only here: a failed path that drops the bot never moves the floor.
+    if(s.surface&&job.surfaceY!==undefined&&job.anchor.y<job.surfaceY&&headSky(b,job.anchor)>=SKY_OPEN){
+     this.log('Gather: the surface floor comes down from y='+(job.surfaceY-4)+' to y='+(job.anchor.y-4)+' at the end of the leg');
+     job.surfaceY=job.anchor.y;
+    }
+    this.save();
    };
    let lastScan=0,lastCount=null;
    while(count_()-job.startDrop<s.count){
@@ -3600,7 +3610,9 @@ export class Worker extends EventEmitter {
      this.log('Gather: column '+ck+' has nothing that can be dug without taking the floor');
      continue;
     }
-    const target=diggable[((job.colFails||{})[bestCol[0].position.x+','+bestCol[0].position.z]||0)%diggable.length];
+    const colFails=(job.colFails||{})[bestCol[0].position.x+','+bestCol[0].position.z]||0;
+    // Round 103: after a first failure a trunk is tried from its foot (see gatherFailed).
+    const target=diggable[colFails===1&&/_(log|stem)$/.test(bestCol[0].name||'')?diggable.length-1:colFails%diggable.length];
     try{
      if(target.position.equals(b.entity.position.floored().offset(0,-1,0))){
       // The last target sits directly under the feet and its cover is natural: dig the floor
@@ -3654,7 +3666,7 @@ export class Worker extends EventEmitter {
        if(nowUnder&&/_log$/.test(nowUnder.name)&&count_()-job.startDrop<s.count)await this.mineColumnUnder(token);
       }
       failures=0;
-     }catch(e){this.check(token);failures++;const where=target?target.name+' at '+target.position.floored():'an empty column';this.log('Gather: attempt '+failures+' on '+where+' failed: '+e.message);if(target&&this.gatherFailed(job,target,e)==='search')await searchLeg();}
+     }catch(e){this.check(token);failures++;const where=target?target.name+' at '+target.position.floored():'an empty column';this.log('Gather: attempt '+failures+' on '+where+' failed: '+e.message);if(target&&this.gatherFailed(job,target,e,bestCol.some(t=>t.position.y<target.position.y))==='search')await searchLeg();}
     this.update(job,Math.max(0,count_()-job.startDrop),`Collected ${Math.max(0,count_()-job.startDrop)}/${s.count} ${job.dropName}`);
    }
    await this.sweepDrops(token);
@@ -3738,7 +3750,7 @@ export class Worker extends EventEmitter {
  // the job (the ladder resubmits the same gather). A block that cannot be reached is
  // blacklisted at once (job + the shared blacklist, so the next job skips it too); any other
  // error twice on the same block also blacklists it; three failures in a column drop it.
- gatherFailed(job,target,e){
+ gatherFailed(job,target,e,lower=false){
   const msg=String(e&&e.message||e);
   // Every block of this type needs the same tool: no other target can succeed either.
   if(/suitable harvesting tool/.test(msg))throw e;
@@ -3753,11 +3765,16 @@ export class Worker extends EventEmitter {
    // Round 59 (round-58: the oak column at (721, 70-74, -378) refused one block at a time, then
    // aimed at again by the next job's search leg - 22 `wood failed 3 times`): a log that cannot
    // be reached takes its trunk with it, for this job and the next.
-   if(UNREACHABLE_BLOCK.test(msg)&&/_(log|stem)$/.test(target.name||'')){
+   // Round 103 (round-102 hard1: `Cannot reach` the top of that oak on a walk with no path, 6.4 from
+   // the eye, and the tree was gone for 10 min; the walk asks for a stand within 2 of the log, which
+   // the ground under a tall trunk does not give): a walk that failed on a log with logs below it
+   // tries the foot of the trunk once before the trunk goes.
+   const foot=lower&&c===1&&/\(walk: /.test(msg)&&/_(log|stem)$/.test(target.name||'');
+   if(!foot&&UNREACHABLE_BLOCK.test(msg)&&/_(log|stem)$/.test(target.name||'')){
     if(!job.badColumns.includes(ck))job.badColumns.push(ck);
     for(let dy=-8;dy<=8;dy++)if(dy){try{this.blacklist&&this.blacklist.block&&this.blacklist.block(new Vec3(p.x,p.y+dy,p.z),GATHER_BLACKLIST_SECONDS);}catch{}}
    }
-   this.log('Gather: skipping '+target.name+' at '+bk+' ('+msg+')');
+   this.log(foot?'Gather: no walk to the '+target.name+' at '+bk+'; trying the foot of the trunk':'Gather: skipping '+target.name+' at '+bk+' ('+msg+')');
   }
   if(c>=3&&!job.badColumns.includes(ck))job.badColumns.push(ck);
   this.save();
