@@ -15,11 +15,14 @@ function pinnedBot({health=5.7,entities={},solid=()=>false}={}){
   blockAt:p=>{const s=solid(Math.floor(p.x),Math.floor(p.y),Math.floor(p.z));return {name:s?'stone':'air',boundingBox:s?'block':'empty',position:p.floored()};}};
 }
 const chainCtx=logs=>({config:{chains:{}},move:{},trackers:{},blacklist:{},worker:{log:m=>logs.push(m)}});
+// Round 107 fights a melee mob that keeps up with a flee for 1 s (round107.test.js); these tests
+// keep to the round-91 pinned path on its own.
+class PinnedOnly extends MobDefenseChain{_chasedBy(){return null;}}
 
 test('round 91: a vulnerable flee that has not moved the bot, a zombie 1.2 away - cornered, it fights back',()=>{
  assert.equal(FLEE_PINNED_S,2);assert.equal(PINNED_NEAR,3);assert.equal(PINNED_KEEP,5);
  // round-90 hard2: health 5.7, stone sword held, a zombie 1.2 away, the bot at (847, 71, -625) the whole time
- const bot=pinnedBot({entities:{7:mob(7,'zombie',1.7)}}),logs=[],m=new MobDefenseChain(),ctx=chainCtx(logs);
+ const bot=pinnedBot({entities:{7:mob(7,'zombie',1.7)}}),logs=[],m=new PinnedOnly(),ctx=chainCtx(logs);
  let t=1000;m.now=()=>t;
  assert.equal(m.priority(bot,ctx),70,'the vulnerable flee first');
  assert.equal(m.root.name,'RunAwayFromHostilesTask');
@@ -42,27 +45,27 @@ test('round 91: a vulnerable flee that has not moved the bot, a zombie 1.2 away 
 
 test('round 91: no cornered fight for a flee that moves, a zombie behind a wall, or only a creeper near',()=>{
  // the flee moves the bot: never cornered
- {const bot=pinnedBot({entities:{7:mob(7,'zombie',1.7)}}),logs=[],m=new MobDefenseChain(),ctx=chainCtx(logs);let t=0;m.now=()=>t;
+ {const bot=pinnedBot({entities:{7:mob(7,'zombie',1.7)}}),logs=[],m=new PinnedOnly(),ctx=chainCtx(logs);let t=0;m.now=()=>t;
   for(let i=0;i<10;i++){t+=1;bot.entity.position=new Vec3(0.5+i*1.5,71,0.5);bot.entities[7]=mob(7,'zombie',bot.entity.position.x+1.2);assert.equal(m.priority(bot,ctx),70);}
   assert.ok(!logs.some(l=>/cornered/.test(l)));}
  // the zombie is through a wall (the night box): not in sight, no fight
- {const bot=pinnedBot({entities:{7:mob(7,'zombie',2)},solid:(x,y,z)=>x===1&&(y===71||y===72)}),logs=[],m=new MobDefenseChain(),ctx=chainCtx(logs);let t=0;m.now=()=>t;
+ {const bot=pinnedBot({entities:{7:mob(7,'zombie',2)},solid:(x,y,z)=>x===1&&(y===71||y===72)}),logs=[],m=new PinnedOnly(),ctx=chainCtx(logs);let t=0;m.now=()=>t;
   for(let i=0;i<5;i++){t+=1;assert.notEqual(m.priority(bot,ctx),85);}
   assert.ok(!logs.some(l=>/cornered/.test(l)));}
  // a creeper is never the cornered melee target: the keep-away stays (round 95: until the chase
  // has run CREEPER_CHASE_S with it inside 6 - then the pillar fight, still not the cornered line)
- {const bot=pinnedBot({health:20,entities:{9:mob(9,'creeper',2.5)}}),logs=[],m=new MobDefenseChain(),ctx=chainCtx(logs);let t=0;m.now=()=>t;
+ {const bot=pinnedBot({health:20,entities:{9:mob(9,'creeper',2.5)}}),logs=[],m=new PinnedOnly(),ctx=chainCtx(logs);let t=0;m.now=()=>t;
   for(let i=0;i<5;i++){t+=1;m.priority(bot,ctx);assert.equal(m.root.constructor.name,i<3?'RunAwayFromCreepersTask':'FightTask');}
   assert.ok(logs.some(l=>/closed to [\d.]+ through the keep-away; fighting it from a pillar$/.test(l)));
   assert.ok(!logs.some(l=>/cornered/.test(l)));}
  // a skeleton 2 away (ranged) is not a cornering melee mob (the old isCornered ladder step still answers it)
- {const bot=pinnedBot({entities:{8:mob(8,'skeleton',2.5)}}),logs=[],m=new MobDefenseChain(),ctx=chainCtx(logs);let t=0;m.now=()=>t;
+ {const bot=pinnedBot({entities:{8:mob(8,'skeleton',2.5)}}),logs=[],m=new PinnedOnly(),ctx=chainCtx(logs);let t=0;m.now=()=>t;
   for(let i=0;i<5;i++){t+=1;m.priority(bot,ctx);}
   assert.ok(!logs.some(l=>/cornered/.test(l)));}
 });
 
 test('round 91: a creeper keep-away pinned with a zombie in reach fights the zombie, and the line names the heading',()=>{
- const bot=pinnedBot({health:18,entities:{9:mob(9,'creeper',-4.5),7:mob(7,'zombie',2.2)}}),logs=[],m=new MobDefenseChain(),ctx=chainCtx(logs);
+ const bot=pinnedBot({health:18,entities:{9:mob(9,'creeper',-4.5),7:mob(7,'zombie',2.2)}}),logs=[],m=new PinnedOnly(),ctx=chainCtx(logs);
  let t=0;m.now=()=>t;
  m.priority(bot,ctx);assert.equal(m.root.name,'RunAwayFromCreepersTask');
  t+=0.5;m.priority(bot,ctx);

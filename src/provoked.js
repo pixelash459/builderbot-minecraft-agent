@@ -3,9 +3,13 @@
 // type 'hostile' was ever a threat). A mob of any kind that hurts the bot is a threat for
 // PROVOKED_MS, and an adult polar bear with a cub in reach is one on sight.
 export const PROVOKED_MS=60000,CUB_REACH=16,MOTHER_NEAR=12;
+// Round 107 (round-106 hard3: a spider at sky 14 by day bit the bot to death; leaveAlone dropped it
+// from the threats whenever it hopped back past 2 blocks, so the fight against it kept ending): a
+// spider is neutral in daylight only until it attacks - one that hurts the bot is a threat too.
+export const DAY_NEUTRAL=new Set(['spider']);
 const provokedOf=bot=>bot&&(bot._provoked||(bot._provoked=new Map()));
 export function markProvoked(bot,e,now=Date.now()){
- if(!bot||!e||e===bot.entity||e.type==='player'||e.type==='hostile'||e.id==null)return false;
+ if(!bot||!e||e===bot.entity||e.type==='player'||(e.type==='hostile'&&!DAY_NEUTRAL.has(e.name))||e.id==null)return false;
  const m=provokedOf(bot),fresh=!(m.get(e.id)>now);
  m.set(e.id,now+PROVOKED_MS);
  return fresh;

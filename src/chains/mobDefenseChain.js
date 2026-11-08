@@ -10,7 +10,7 @@
 // Copyright (c) 2020 Adris Jautakas. See third_party/ALTOCLEF_LICENSE.
 import {SingleTaskChain} from './singleTaskChain.js';
 import {chainConfig,inGame,onFire} from './settings.js';
-import {getHostiles,nearestDistance,withinRange,distanceTo,armorValue,BURNS_IN_SUNLIGHT,canDealWithCount,evaluateFight,isCornered,canCraftWoodenSword,hasItemName,inventoryItems,nightish,isMeleeMob} from './combatPolicy.js';
+import {getHostiles,nearestDistance,withinRange,distanceTo,armorValue,BURNS_IN_SUNLIGHT,canDealWithCount,evaluateFight,isCornered,canCraftWoodenSword,hasItemName,inventoryItems,nightish,isMeleeMob,meleeCount} from './combatPolicy.js';
 import {movementTask,RunAwayFromHostilesTask,RunAwayFromCreepersTask,DodgeProjectilesTask,KeepDistanceTask,KillEntitiesTask,CraftWeaponTask,ShelterTask,SleepTask,NightPillarTask,PERCH_RETRY_S,WitchCoverTask,pillarBlocks,cellAt,projectileClose,approachingProjectiles} from './fallbackTasks.js';
 import {nightRefuge,pillarRoom,DAY_CROWD} from '../night.js';
 import {dayTicks} from '../daytime.js';
@@ -80,6 +80,17 @@ const HOLDS=new Set(['RunAwayFromHostilesTask','KeepDistanceTask']);
 // last resort fights it with the best weapon, and keeps on while one stays within PINNED_KEEP.
 export const FLEE_PINNED_S=2,FLEE_PINNED_BLOCKS=1,PINNED_NEAR=3,PINNED_KEEP=5;
 const FLEES=new Set(['RunAwayFromHostilesTask','RunAwayFromCreepersTask','KeepDistanceTask']);
+// Round 107 (round-106: hard3 opened its box with a stone sword at health 17, struck a spider once,
+// then `fleeing ... (vulnerable)` - armour 0 and health under 18 - and was bitten 17 -> 14 -> 11 ->
+// 8 -> 5 -> 2 -> 0 in 7 s from behind; `cornered - fighting back` came at health 2. hard2 ran the
+// same way from one zombie, cornered at health 4.3, and died. A spider is about as fast as a
+// sprinting player and climbs; a mob that stays on the bot through a flee is landing free hits.)
+// A skilled player does not turn their back on one or two melee mobs already on them: with a real
+// weapon and at most CHASE_MAX_MELEE melee mobs within 8, a melee mob (not a creeper) within
+// CHASE_NEAR in sight through a flee is fought - at once when it OUTRUNS the bot, after CHASE_S
+// otherwise - as the cornered fight (round 91), which keeps on while one stays within PINNED_KEEP.
+export const CHASE_NEAR=3,CHASE_S=1,CHASE_MAX_MELEE=2;
+export const OUTRUNS=new Set(['spider','cave_spider']);
 // Round 98 (WitchCoverTask in fallbackTasks.js): a cover with no cell left to fill falls back to the
 // flee for WITCH_COVER_OFF s before it looks again from the same spot.
 export const WITCH_COVER_OFF=3;
@@ -114,6 +125,21 @@ export class MobDefenseChain extends SingleTaskChain{
   const p=this._pin;
   if(!p||now-p.seen>2||Math.hypot(me.x-p.x,me.z-p.z)>FLEE_PINNED_BLOCKS){this._pin={x:me.x,z:me.z,at:now,seen:now};return 0;}
   p.seen=now;return now-p.at;
+ }
+ // Round 107: {e,secs,melee} when a melee mob has stayed within CHASE_NEAR through this chain's
+ // flee long enough to stand and fight it (above); null otherwise.
+ _chasedBy(bot,hostiles,policy){
+  const r=this.root,now=this.now();
+  const fleeing=this._cachedLastPriority>=0&&!!r&&FLEES.has(r.name)&&r.name!=='RunAwayFromCreepersTask';
+  const melee=meleeCount(hostiles,bot);
+  if(!fleeing||!policy||!policy.weapon||melee>CHASE_MAX_MELEE){this._chase=null;return null;}
+  const near=hostiles.filter(e=>e.name!=='creeper'&&isMeleeMob(e.name)&&withinRange(e,bot,CHASE_NEAR)&&canSee(bot,e,CHASE_NEAR))
+   .sort((a,b)=>distanceTo(a,bot)-distanceTo(b,bot));
+  if(!near.length){this._chase=null;return null;}
+  const c=this._chase&&now-this._chase.seen<=1?this._chase:(this._chase={since:now});
+  c.seen=now;
+  const e=near[0],secs=now-c.since;
+  return OUTRUNS.has(e.name)||secs>=CHASE_S?{e,secs,melee}:null;
  }
  _holdStood(bot,ctx){
   const r=this.root;
@@ -181,12 +207,17 @@ export class MobDefenseChain extends SingleTaskChain{
    this._fleeLog(ctx,'pillar',pillar.hold?'Reflex: no shelter tonight; night pillar until morning':'Reflex: night crowd ('+hostiles.filter(e=>withinRange(e,bot,16)).length+' hostiles); pillaring up instead of fleeing');
    return 72;
   }
-  // Cornered by a pinned flee (round 91, above).
-  if(this._cornered||pinned>=FLEE_PINNED_S){
+  // Cornered by a pinned flee (round 91, above), or chased through one (round 107).
+  const chased=!this._cornered&&pinned<FLEE_PINNED_S?this._chasedBy(bot,hostiles,policy):null;
+  if(this._cornered||pinned>=FLEE_PINNED_S||chased){
    const near=r=>e=>e.name!=='creeper'&&isMeleeMob(e.name)&&withinRange(e,bot,r)&&canSee(bot,e,r);
    const close=hostiles.filter(near(this._cornered?PINNED_KEEP:PINNED_NEAR)).sort((a,b)=>distanceTo(a,bot)-distanceTo(b,bot));
    if(close.length){
-    if(!this._cornered){
+    if(!this._cornered&&chased){
+     const e=chased.e,hp=Math.round(bot.health*10)/10;
+     this._fleeTag=null;
+     this._fleeLog(ctx,'chased','Reflex: '+e.name+' '+distanceTo(e,bot).toFixed(1)+' away '+(OUTRUNS.has(e.name)?'outruns the '+flee.name:'has kept up with the '+flee.name+' for '+chased.secs.toFixed(1)+' s')+' (health '+hp+', held '+(bot.heldItem?bot.heldItem.name:'nothing')+', '+chased.melee+' melee within 8); standing to fight');
+    }else if(!this._cornered){
      const h=flee&&flee.heading,hp=Math.round(bot.health*10)/10;
      this._fleeTag=null;
      this._fleeLog(ctx,'pinned','Reflex: the '+flee.name+' has kept the bot in one spot for '+pinned.toFixed(1)+' s with '+close[0].name+' '+distanceTo(close[0],bot).toFixed(1)+' away (health '+hp+', held '+(bot.heldItem?bot.heldItem.name:'nothing')+(h?', heading hazard '+h.hazard+(h.blocked?' blocked':''):'')+'); cornered - fighting back');

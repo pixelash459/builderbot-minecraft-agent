@@ -3724,3 +3724,45 @@ Removing the `respawnEscaping` check from `survivalHold` fails 1 test. 875 pass,
 - **hard3's round-104 deaths:** the creeper thrash, the river night job, bag runs that came back empty.
 - **Beds crafted and never slept in** (normal3 made one at 512 s).
 - **Older items:** the pinned climb beside a creeper, a kit in a crowd, the wrong killer on a death line, `BAG_WORTH`, spear zombies, a food hunt under a roof, lava at y=-25, hard pacing.
+
+## Round 107 (2026-11-08)
+
+**Round 106 results** (bot code `87ccb93`, report `ad3f305`, the triple promoted).
+- Iron came on 4 of 6 runs: 572/632/723/-/-/1206. hard3 got iron for the first time since round 102, despite 2 deaths.
+- normal3 wore 4 iron pieces at 964 s, the first full iron kit of the series. normal2 found 5 diamonds.
+- Deaths were 7 = 0/0/0/3/2/2 (round 105: 34).
+- **The round-106 run-out fired once and worked.** After hard2's second death it logged `Respawn: at night with no hostile within 16, no burrow here (open wall beside 702,67,-431); running 36 blocks south-east to dig in at 735,71,-417`, `ran out to (734, 71, -417) in 7.9 s`, then `Burrow: dug in` 4.1 s later. It took no damage, and the night skip later came from that burrow. There were 0 deaths within 120 s of a respawn (round 105: about 23).
+- The round-105 perch fix did not fire again: no perch lasted to dawn.
+
+**What went wrong: armed bots ran from the one mob that was already on them.**
+- **hard3, death 1.** It opened box D (held 238 s past dawn) with a stone sword at health 17 and struck a spider once. Then `Reflex: fleeing ... (vulnerable)`: `_inDanger` reads armour 0 and health under 18 as vulnerable. The spider bit it from behind, 17 -> 14 -> 11 -> 8 -> 5 -> 2 -> 0 in 7 s, and `cornered - fighting back` (round 91, 2 s pinned) came at health 2.
+- The flee lists flickered with and without the spider: `leaveAlone` drops a spider at sky 12+ by day whenever it is more than 2 away, even one that is biting.
+- **hard2, death 1.** It fled one zombie `(vulnerable)` and was cornered at health 4.3 against lava.
+- **hard2, death 2.** The same shape with a drowned in the river: cornered at health 11, then 3.
+- A spider is about as fast as a sprinting player and climbs, so a flee from one cannot open a gap. A skilled player turns and fights one or two melee mobs that are already on them, and runs only from a crowd or from what they can outrun.
+
+**Fix: stand and fight a melee mob that keeps up with the flee** (`mobDefenseChain.js` `_chasedBy`, the cornered branch; `provoked.js`; `combatPolicy.js` `leaveAlone`).
+- **When it applies.** All of these must hold:
+  - this chain's last tick was a flee (`RunAwayFromHostilesTask` or `KeepDistanceTask`; not the creeper keep-away);
+  - the bot holds a real weapon (a sword or an axe);
+  - there are at most `CHASE_MAX_MELEE` (2) melee mobs within 8;
+  - a melee mob (not a creeper) is within `CHASE_NEAR` (3) and in sight.
+- **When it fights.** At once for a mob in `OUTRUNS` (spider, cave spider). After `CHASE_S` (1 s) of a mob staying within 3 otherwise; a gap of more than 1 s starts the clock over.
+- **The fight.** It uses the round-91 cornered fight (`KillEntitiesTask` `lastResort`). It does not bail at health 6, and it keeps on while a melee mob stays within `PINNED_KEEP` (5).
+- **The log.** `Reflex: <mob> D away outruns the <flee>|has kept up with the <flee> for N s (health H, held X, M melee within 8); standing to fight`, once per episode.
+- **The spider in daylight.** A spider that hurts the bot is now marked provoked (`DAY_NEUTRAL`; `entityHurt` already did this for passive mobs), and `leaveAlone` keeps a provoked spider as a threat for 60 s.
+
+**Tests:** `round107.test.js` (4 tests):
+- the round-106 hard3 spider: fought on the second tick, logged once, and still a target at 3.5 once it has bitten;
+- a zombie on the heels of a moving flee: fought after 1 s; a flee that gains is not; the clock restarts;
+- no stand unarmed, with 3 melee mobs, through a wall, from a creeper, or from a skeleton;
+- the provoked spider and `leaveAlone`, and other hostiles not marked.
+
+`round91.test.js` now runs on the round-91 pinned path alone (`_chasedBy` stubbed out). Removing either the chase from the cornered branch or the provoked check from `leaveAlone` fails 2 tests. 879 pass; resources 9.
+
+**Not changed yet**
+- Planks and logs as shelter blocks in the dark: not hit in round 106.
+- **Boxes held past dawn by mobs in the open.** hard3's box D was held 238 s by a spider and skeletons at sky 13-14. A daylight spider holds a box forever, and the skeletons' burn is not read.
+- hard1's skeleton snipes (death 2 had 0 hostiles within 8) and the late wood (1748 s).
+- hard3's death 2 in its own mine at y=37 (`pillar-up failed ... on unloaded`).
+- Waiting out the night on the death screen, the night job behind a queued craft, beds never slept in, and the older items.

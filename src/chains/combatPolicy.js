@@ -45,6 +45,7 @@ export function leaveAlone(e,bot){
  if(distanceTo(e,bot)<=LEAVE_ALONE_CLOSE)return false;
  if(e.name==='enderman'){const m=e.metadata||[];return !(m[17]===true||m[17]===1);}
  if(e.name==='spider'){
+  if(provoked(bot,e))return false; // round 107: it bit the bot - not neutral any more
   const tod=dayTicks(bot);
   if(tod==null||tod>=12000)return false;
   let sky=null;
