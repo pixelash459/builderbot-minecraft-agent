@@ -3668,3 +3668,59 @@ Removing the `_pinnedTick` call fails 4 tests; removing the retry backoff fails 
   - no kit back from its bag runs (`out of time after 3 run(s)`).
 - **Beds crafted (normal1, normal3) and never slept in;** diamonds 0 for the fourth round.
 - **Older items:** the pinned climb beside a creeper (round 103), the night respawn into a spawn crowd, a kit in a crowd, the wrong killer on a death line, `BAG_WORTH`, spear zombies, a food hunt under a roof, lava at y=-25, hard pacing.
+
+## Round 106 (2026-11-08)
+
+**Round 105 results** (bot code `2de4780`, the triple promoted). These come from the soak log and the bot log: the tester's report was not in when this was written.
+- Iron came on 3 of 6 runs, all normal: 512/572/663/-/-/-. Every normal run wore two armour pieces (1175/1054/934 s).
+- normal2 found the first diamonds in any soak (3) and made a diamond pick at 2320 s. normal3 made a bed at 512 s.
+- On the hard runs, hard1 got its furnace at 603 s and 2 raw iron but no ingots; hard2 got its furnace at 512 s. hard3 never kept any wood.
+- Deaths were 0/0/0/0/3/31.
+- The round-105 perch fix did not fire. No perch was still held at dawn: there were 2 perches, and both were knocked off the pillar.
+- The round-104 fix fired once (`waits off the night mine while Mob Defense answers a creeper within 8`).
+
+**What went wrong: hard3 died 31 times in a respawn loop.**
+- **The first night.** At dusk hard3 held 9 cherry planks and 3 logs on a cherry hill at (825, 89, -535). Its night pillar placed one plank and fell off (`left the column at 0/3`). The burrow was `not here (cherry_planks at 825,89,-536)`, on that plank. The shelter then logged `Short of shelter blocks: 0 held, 24 needed`: planks do not count as shelter blocks, though the 3 logs would have made 12 more, enough for the 13-block pod. A second pillar also failed, and it was slain at 08:17:38.
+- **Every respawn after that.** Each came back at night to the world spawn, (704, 71, -423) on a river bank, with an empty bag. It logged `respawned at night; shelter at the spawn point first`. The burrow there was `not here (open wall beside 707,65,-431)`, then `(water at 717,62,-437)`. A night pillar from 3 dug blocks was knocked over in 16 s, and Mob Defense's respawn override (round 85) then fled unarmed among drowned, with `resumed the shelter job` about once a second.
+- **The loop.** It died again 10-40 s after each respawn: 23 deaths in two clusters, 08:17-08:22 and 08:36-08:44. Hostiles do not despawn while a player stays within about 32 blocks, so every death at the spawn kept the crowd there, and the flee lists grew past 30 mobs.
+
+**Fix: a night respawn into a crowd runs out before it digs in** (`worker.js`: `escapeSpot`, `respawnEscape`, the shelter job, `survivalHold`, the death handler).
+- This is what a skilled player does: they do not build at the spawn, they sprint out of the crowd and dig into the ground by hand where it is dry.
+- **When.** At the start of a dark shelter job, before the burrow or the dirt dig. All of these must hold:
+  - the bot is within `ESCAPE_SPAWN_R` (16) of where it respawned, or the world spawn point if that is not known yet;
+  - the bot is inside the respawn guard (180 s after the death);
+  - there is a hostile within `ESCAPE_NEAR` (16), or no burrow fits at its feet.
+- **Where.** `escapeSpot` tries 16 bearings at `ESCAPE_DIST` (36) and at 27 blocks. A spot counts only if:
+  - it has a surface stand within 10 blocks of the bot's level;
+  - there is no water or lava within 2 of it;
+  - a burrow fits there by hand, or with a pickaxe on stone if one is held.
+
+  The score is the room from the hostiles (capped at 48), less 6 for every wet column on the line, plus 8 times how well it lines up with the flee direction. The shorter radius costs 4.
+- **The log.** `Respawn: at night with <N hostile(s) within 16 (mob D, ...)|no hostile within 16>[, no burrow here (<why>)]; running D blocks <compass> to dig in at X,Y,Z (nearest hostile D from it[, N wet column(s) on the way])`. Then either `Respawn: ran out to P in N s; digging in`, or `Respawn: the run stopped at P after N s (<error>); sheltering there`.
+- **The run.** `ESCAPE_WALK_S` (35 s) at most. While it is on, Mob Defense's night-respawn override is off: the run is the answer to the threat. A creeper still overrides.
+- **After the run.** The shelter job goes on where it stands. With an empty bag that is the hand burrow (round 32).
+- **Limits.** `ESCAPE_TRIES` (2) runs per death, for a shelter job that a preemption resumed. If no dry spot is found: `no dry spot to dig in 36 out; sheltering here`.
+- The death handler now records where the respawn landed (`respawnPos`).
+
+**Tests:** `round106.test.js` (10):
+- `escapeSpot` on a river bank with the mobs on the river side (dry, burrowable, 28+ from the mobs);
+- the flee line on dry ground;
+- water everywhere, and stone without and with a pickaxe;
+- `compassOf`;
+- the run with its log lines, and the override off during the walk;
+- quiet ground that can be dug into stays put, while a wet spawn with no mob still runs;
+- only at the spawn, only in the guard, 2 runs per death, and a new death runs again;
+- a run that stops on the way;
+- no dry spot anywhere;
+- `survivalHold`'s respawned flag and `nightMineOverride` during the run;
+- the shelter job calls the escape before any burrow.
+
+Removing the `respawnEscaping` check from `survivalHold` fails 1 test. 875 pass, resources 9.
+
+**Not changed yet**
+- **Planks and logs as shelter blocks in the dark.** hard3's first death had 9 planks and 3 logs: `SHELTER_ITEMS` counts only cobblestone, dirt, cobbled deepslate and netherrack. This is the next candidate.
+- **Waiting out the night on the death screen** after repeated night deaths at the spawn. This is a backstop if the loop still shows up.
+- **The night job behind a queued craft** (round 105).
+- **hard3's round-104 deaths:** the creeper thrash, the river night job, bag runs that came back empty.
+- **Beds crafted and never slept in** (normal3 made one at 512 s).
+- **Older items:** the pinned climb beside a creeper, a kit in a crowd, the wrong killer on a death line, `BAG_WORTH`, spear zombies, a food hunt under a roof, lava at y=-25, hard pacing.

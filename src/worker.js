@@ -617,6 +617,67 @@ export function burrowPlan(at3,feet,pickaxe=false){
  const cap=cells[0];
  return {cells,cap,ref:{x:cap.x+1,y:cap.y,z:cap.z},face:{x:-1,y:0,z:0},feet:cells[2]};
 }
+// Round 106 (round-105 hard3: 31 deaths. Its first night it was killed off a failed pillar; every
+// respawn after that came back at night to the world spawn on a river bank, with an empty bag, into
+// the crowd that had just killed it - `respawned at night; shelter at the spawn point first`, then
+// `Burrow: not here (open wall beside ...)`/`(water at ...)`, a pillar knocked over, a flee among
+// drowned, and death again 10-40 s later. Hostiles do not despawn while a player stays within ~32
+// blocks, so each death at the spawn kept the crowd there.) A skilled player respawning into a
+// crowd does not build at the spawn: they sprint out of it and dig into the ground by hand where it
+// is dry. A respawn at night with a hostile within ESCAPE_NEAR of it, or no burrow at the spawn,
+// runs ESCAPE_DIST blocks to the dry spot that can be burrowed by hand farthest from the hostiles
+// (escapeSpot), and the shelter then digs in there. The run is the answer to the threat: Mob
+// Defense's night-respawn override stays off for it (a creeper still overrides).
+export const ESCAPE_DIST=36,ESCAPE_NEAR=16,ESCAPE_SPAWN_R=16,ESCAPE_TRIES=2,ESCAPE_WALK_S=35,ESCAPE_SEEN=32,ESCAPE_WET=2;
+const COMPASS=['east','south-east','south','south-west','west','north-west','north','north-east'];
+export const compassOf=a=>COMPASS[((Math.round(a/(Math.PI/4))%8)+8)%8];
+// The surface stand at column (x, z) within 10 of the bot's level `fy`: from open air at fy+10
+// down to the first solid ground (feet and head free of fluid). null when unknown, wet or none.
+function standAt(at3,x,fy,z){
+ const fluid=b=>!!b&&/water|lava/.test(b.name),solid=b=>!!b&&b.boundingBox==='block';
+ for(let y=fy+10;y>=fy-10;y--){
+  const feet=at3(x,y,z),head=at3(x,y+1,z),under=at3(x,y-1,z);
+  if(!feet||!head||!under)return null;
+  if(fluid(feet)||fluid(head))return null; // the top of the column is water: no stand
+  if(solid(head)||solid(feet))return null; // solid at the top of the window: the surface is above it
+  if(fluid(under))return null;
+  if(solid(under))return y;
+ }
+ return null;
+}
+// {x,y,z,dist,bearing,minD,wet} - the burrowable, dry stand ESCAPE_DIST (or 3/4 of it) away with
+// the most room from `hostiles` and the least water on the way, or null.
+export function escapeSpot(at3,me,hostiles,{dist=ESCAPE_DIST,bearings=16,pickaxe=false}={}){
+ const list=(hostiles||[]).filter(h=>h&&h.position);
+ const fluid=b=>!!b&&/water|lava/.test(b.name);
+ let ax=0,az=0;
+ for(const h of list){const dx=me.x-h.position.x,dz=me.z-h.position.z,d=Math.max(0.5,Math.hypot(dx,dz));ax+=dx/(d*d);az+=dz/(d*d);}
+ const flee=Math.hypot(ax,az)>1e-6?Math.atan2(az,ax):null;
+ const fy=Math.floor(me.y);
+ let best=null;
+ for(let i=0;i<bearings;i++){
+  const a=i*2*Math.PI/bearings,cx=Math.cos(a),cz=Math.sin(a);
+  for(const r of [dist,Math.round(dist*0.75)]){
+   const x=Math.floor(me.x+cx*r),z=Math.floor(me.z+cz*r);
+   const y=standAt(at3,x,fy,z);
+   if(y==null)continue;
+   let near=false;
+   for(let dx=-ESCAPE_WET;dx<=ESCAPE_WET&&!near;dx++)for(let dz=-ESCAPE_WET;dz<=ESCAPE_WET&&!near;dz++)for(let dy=-1;dy<=1;dy++)if(fluid(at3(x+dx,y+dy,z+dz))){near=true;break;}
+   if(near)continue;
+   if(!burrowPlan(at3,{x,y,z},pickaxe).cells)continue;
+   // water on the way: a column on the line whose top is a fluid
+   let wet=0;
+   for(let s=4;s<r;s+=4){
+    const lx=Math.floor(me.x+cx*s),lz=Math.floor(me.z+cz*s);
+    for(let ly=fy+6;ly>=fy-8;ly--){const bl=at3(lx,ly,lz);if(!bl)break;if(fluid(bl)){wet++;break;}if(bl.boundingBox==='block')break;}
+   }
+   const minD=list.length?Math.min(48,...list.map(h=>Math.hypot(h.position.x-(x+0.5),h.position.z-(z+0.5)))):48;
+   const score=minD-6*wet+(flee==null?0:8*Math.cos(a-flee))-(r<dist?4:0);
+   if(!best||score>best.score)best={x,y,z,dist:r,bearing:a,minD,wet,score};
+  }
+ }
+ return best;
+}
 // Round 31: the sky light at the head cell over feet `p` (0 when unknown).
 export const SKY_OPEN=12;
 // Round 90: how far over the surface anchor a sky pillar may go looking for the sky.
@@ -1134,7 +1195,7 @@ export class Worker extends EventEmitter {
  // running shelter has closed its box.
  survivalHold(){
   const running=this.jobs.find(j=>j.status==='running');
-  if(running)return SURVIVAL_JOBS.has((running.spec||{}).type)?{job:running,sealed:running.spec.type==='shelter'&&!!this.shelterSealed,opening:running.spec.type==='shelter'&&!!this.shelterOpening,mining:running.spec.type==='shelter'&&!!this.nightMining&&!this.shelterSealed,respawned:running.spec.type==='shelter'&&!this.shelterSealed&&this.respawnGuard()}:null;
+  if(running)return SURVIVAL_JOBS.has((running.spec||{}).type)?{job:running,sealed:running.spec.type==='shelter'&&!!this.shelterSealed,opening:running.spec.type==='shelter'&&!!this.shelterOpening,mining:running.spec.type==='shelter'&&!!this.nightMining&&!this.shelterSealed,respawned:running.spec.type==='shelter'&&!this.shelterSealed&&!this.respawnEscaping&&this.respawnGuard()}:null;
   const waiting=this.jobs.find(j=>SURVIVAL_JOBS.has((j.spec||{}).type)&&(j.status==='queued'||reflexPaused(j)));
   return waiting?{job:waiting,sealed:false,respawned:waiting.spec.type==='shelter'&&this.respawnGuard(),opened:waiting.spec.type==='shelter'&&Date.now()-(waiting.openedUnder||0)<=OPENED_GUARD_MS,mining:waiting.spec.type==='shelter'&&Date.now()-(waiting.minedUnder||0)<=OPENED_GUARD_MS}:null;
  }
@@ -1292,7 +1353,8 @@ export class Worker extends EventEmitter {
   this.deathLog=[...(this.deathLog||[]).slice(-19),{t:new Date().toISOString(),pos:this.lastDeath.pos,killer:killer?killer.name:null,job:(this.jobs.find(j=>j.status==='running')||{}).spec?.type||null}];
   this.deathResume=true;
   this.stop('Bot died; inspect the world before resuming','death');
-  if(typeof bot.once==='function')bot.once('spawn',()=>{const t=setTimeout(()=>{this.respawnBedCheck(bot).catch(()=>{});},RESPAWN_SETTLE_MS);t.unref?.();});
+  this.respawnPos=null;
+  if(typeof bot.once==='function')bot.once('spawn',()=>{const t=setTimeout(()=>{const q=bot.entity?.position;this.respawnPos=q?{x:q.x,y:q.y,z:q.z}:null;this.respawnBedCheck(bot).catch(()=>{});},RESPAWN_SETTLE_MS);t.unref?.();});
   setTimeout(()=>{try{bot.respawn();}catch{}},500);
  }
  // Round 77 (round-76: 194 deaths on hard2 and 235 on hard3 at (811, 32, -549), each respawn at
@@ -2263,6 +2325,8 @@ export class Worker extends EventEmitter {
   // Every shelter block counts (a mix of cobble and dirt is fine); cobble the autopilot's
   // unfinished stone kit still needs (cobbleReserve) is spent only as the last resort.
   const here=()=>b.entity.position.floored();
+  // Round 106: a night respawn into a crowd (or onto ground no burrow fits) runs out first.
+  if(darkNow(dayTicks(b)))await this.respawnEscape(job,token);
   // Round 32: dark and short of blocks for even a pod - the walk to dig dirt is the danger.
   if(this.burrowAgain(job)&&darkNow(dayTicks(b))&&this.shelterStock(true)<this.shelterNeed(here(),true)){
    let r=null;
@@ -2750,6 +2814,33 @@ export class Worker extends EventEmitter {
   this.log('Burrow: morning (tod '+dayTicks(b)+'); climbing out');
   try{const c=b.blockAt(cap);if(c&&c.boundingBox==='block')await this.digWith(c,token,true);await this.pillarUp(cap.y+1,token);}
   catch(e){this.check(token);this.log('Burrow: climb out stopped ('+String(e.message).slice(0,60)+'); the next walk digs out');}
+ }
+ // Round 106: true when it ran (arrived or stopped on the way); the shelter carries on where it is.
+ async respawnEscape(job,token){
+  const b=this.bot,d=this.lastDeath,me=b?.entity?.position;
+  if(!d||!me||!this.respawnGuard())return false;
+  const sp=this.respawnPos||b.spawnPoint;
+  if(!sp||Math.hypot(me.x-sp.x,me.z-sp.z)>ESCAPE_SPAWN_R)return false;
+  const tries=job.escape?.t===d.t?job.escape.tries:0;
+  if(tries>=ESCAPE_TRIES)return false;
+  const at3=(x,y,z)=>b.blockAt(new Vec3(x,y,z));
+  const pick=b.inventory.items().some(i=>/_pickaxe$/.test(i.name));
+  const hostiles=Object.values(b.entities||{}).filter(e=>e&&e!==b.entity&&e.type==='hostile'&&e.position&&e.isValid!==false&&e.position.distanceTo(me)<=ESCAPE_SEEN);
+  const near=hostiles.filter(e=>e.position.distanceTo(me)<=ESCAPE_NEAR).sort((x,y)=>x.position.distanceTo(me)-y.position.distanceTo(me));
+  const here=burrowPlan(at3,me.floored(),pick);
+  if(!near.length&&here.cells)return false;
+  job.escape={t:d.t,tries:tries+1};
+  const why=(near.length?near.length+' hostile(s) within '+ESCAPE_NEAR+' ('+near.slice(0,4).map(e=>e.name+' '+e.position.distanceTo(me).toFixed(1)).join(', ')+(near.length>4?', ...':'')+')':'no hostile within '+ESCAPE_NEAR)+(here.cells?'':', no burrow here ('+here.why+')');
+  const spot=escapeSpot(at3,me,hostiles,{pickaxe:pick});
+  if(!spot){this.log('Respawn: at night with '+why+'; no dry spot to dig in '+ESCAPE_DIST+' out; sheltering here');return false;}
+  this.log('Respawn: at night with '+why+'; running '+spot.dist+' blocks '+compassOf(spot.bearing)+' to dig in at '+spot.x+','+spot.y+','+spot.z+' (nearest hostile '+spot.minD.toFixed(1)+' from it'+(spot.wet?', '+spot.wet+' wet column(s) on the way':'')+')');
+  const t0=Date.now();
+  this.respawnEscaping=true;
+  try{await this.walk(new Vec3(spot.x,spot.y,spot.z),token,1,ESCAPE_WALK_S);}
+  catch(e){this.check(token);this.log('Respawn: the run stopped at '+b.entity.position.floored()+' after '+((Date.now()-t0)/1000).toFixed(1)+' s ('+String(e.message).slice(0,60)+'); sheltering there');return true;}
+  finally{this.respawnEscaping=false;}
+  this.log('Respawn: ran out to '+b.entity.position.floored()+' in '+((Date.now()-t0)/1000).toFixed(1)+' s; digging in');
+  return true;
  }
  shelterFallback(job,reason){
   this.nightPillar={t:Date.now(),reason};
