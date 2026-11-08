@@ -17,7 +17,7 @@ import {dist,onFire,inGame} from './settings.js';
 import {getHostiles,distanceTo,bestWeapon,attackCooldown,hasItemName,inventoryItems,withinRange,huntBlocked} from './combatPolicy.js';
 import {NATURAL_DIG,isGravity} from '../digDown.js';
 import {Vec3} from 'vec3';
-import {fleeHeading,darkNow,leaveRefuge,stillNight,MORNING_LATE,REFUGE_CLEAR,REFUGE_WALL} from '../night.js';
+import {fleeHeading,fleeJump,compass,darkNow,leaveRefuge,stillNight,MORNING_LATE,REFUGE_CLEAR,REFUGE_WALL} from '../night.js';
 import {pickCtx} from '../tasks/movement/move.js';
 import {creeperSwell} from '../creeper.js';
 
@@ -79,8 +79,14 @@ export const cellAt=bot=>(x,y,z)=>{try{return (bot&&bot.blockAt&&bot.blockAt(new
 // is away from the whole crowd (weighted by closeness), never into water, lava, a deep drop
 // or through another mob within 4-8 blocks (round 4: the blind sprint away from the nearest
 // mob ran the bot through the pack at night and into the lake it drowned in).
+// Round 109 (night.js fleeHeading/fleeJump): the flee jumps steps and sprint-jumps open ground, keeps
+// to its heading, and a heading that has not moved the bot FLEE_STUCK_BLOCKS in FLEE_STUCK_S is set
+// aside for FLEE_AVOID_S, logged (the first FLEE_STUCK_LOGS times a flee) as
+// `Flee: no headway for N s heading <dir> from (x, y, z) (ahead: feet F, head H); trying another way`.
+export const FLEE_STUCK_S=1,FLEE_STUCK_BLOCKS=0.8,FLEE_AVOID_S=3,FLEE_STUCK_LOGS=3,FLEE_STUCK_GAP=0.5;
 class RunAwayTask extends Task{
- constructor(name,distance,{kinds=null,exclude=null}={}){super(name);this.distance=distance;this.kinds=kinds;this.exclude=exclude;}
+ constructor(name,distance,{kinds=null,exclude=null}={}){super(name);this.distance=distance;this.kinds=kinds;this.exclude=exclude;this.stuck=0;this._avoid=[];}
+ now(){return Date.now()/1000;}
  targets(bot,ctx){
   let hs=getHostiles(bot,ctx);
   if(this.kinds)hs=hs.filter(e=>this.kinds.has(e.name));
@@ -90,13 +96,29 @@ class RunAwayTask extends Task{
  isFinished(bot,ctx){return !this.targets(bot,ctx).some(e=>withinRange(e,bot,this.distance));}
  onTick(bot,ctx){
   const list=this.targets(bot,ctx).filter(e=>withinRange(e,bot,Math.max(this.distance,16)));
-  if(!list.length){forget(bot,'forward','sprint');return null;}
-  const c=pickCtx(this,ctx),w=c&&c.worker;
-  const h=this.heading=fleeHeading(cellAt(bot),bot.entity.position,list,{shelter:w&&w.shelterSpot||null,inWater:swimming(bot),health:bot.health});
+  if(!list.length){forget(bot,'forward','sprint','jump');return null;}
+  const c=pickCtx(this,ctx),w=c&&c.worker,me=bot.entity.position,now=this.now(),at=cellAt(bot);
+  this._avoid=this._avoid.filter(a=>a.until>now);
+  const pr=this._prog,prev=this.heading||null,gap=now-(this._at??-1e9);
+  this._at=now;
+  // a pause off the flee (the fuse wall holding, the chain elsewhere) is not time without headway
+  if(!pr||!this._go||gap>FLEE_STUCK_GAP||Math.hypot(me.x-pr.x,me.z-pr.z)>=FLEE_STUCK_BLOCKS)this._prog={x:me.x,z:me.z,t:now};
+  else if(now-pr.t>=FLEE_STUCK_S&&prev){
+   this._avoid.push({x:prev.x,z:prev.z,until:now+FLEE_AVOID_S});
+   this.stuck++;this._prog={x:me.x,z:me.z,t:now};
+   if(this.stuck<=FLEE_STUCK_LOGS&&w&&w.log)try{
+    const ax=Math.floor(me.x+prev.x*0.8),ay=Math.floor(me.y),az=Math.floor(me.z+prev.z*0.8),nm=b=>(b&&b.name)||'?';
+    w.log('Flee: no headway for '+(now-pr.t).toFixed(1)+' s heading '+compass(prev.x,prev.z)+' from ('+Math.floor(me.x)+', '+Math.floor(me.y)+', '+Math.floor(me.z)+') (ahead: feet '+nm(at(ax,ay,az))+', head '+nm(at(ax,ay+1,az))+'); trying another way');
+   }catch{}
+  }
+  const wet=swimming(bot);
+  const h=this.heading=fleeHeading(at,me,list,{shelter:w&&w.shelterSpot||null,inWater:wet,health:bot.health,prev,avoid:this._avoid});
   look(bot,yawToward(h.x,h.z),0); // along the chosen away vector (heading.js convention)
   // Every heading is a hazard (cornered against a lake or a cliff): stand, do not walk in.
-  setControl(bot,'forward',!h.blocked);
-  setControl(bot,'sprint',!h.blocked&&(bot.food||20)>6); // 7f: sprint needs food > 6
+  const go=this._go=!h.blocked,sprint=go&&(bot.food||20)>6; // 7f: sprint needs food > 6
+  setControl(bot,'forward',go);
+  setControl(bot,'sprint',sprint);
+  setControl(bot,'jump',go&&fleeJump(at,me,h,{sprint,inWater:wet}));
   return null;
  }
  onStop(bot){forget(bot,'forward','sprint','jump');}

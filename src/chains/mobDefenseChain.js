@@ -134,11 +134,12 @@ export class MobDefenseChain extends SingleTaskChain{
   if(m&&m.name===name){
    m.path+=Math.hypot(me.x-m.lx,me.z-m.lz);m.lx=me.x;m.lz=me.z;m.t1=now;m.n++;
    if(key('sprint'))m.sprint++;
+   if(key('jump'))m.jump++;
    if(key('forward'))m.fwd++;
    return;
   }
   if(m){this._meter=null;m.path+=Math.hypot(me.x-m.lx,me.z-m.lz);m.t1=now;this._meterLog(bot,ctx,m);} // the last step ran under the flee
-  if(name)this._meter={name,t0:now,t1:now,x0:me.x,z0:me.z,lx:me.x,lz:me.z,path:0,n:0,sprint:0,fwd:0,food:bot.food,near0:this._nearestNamed(bot,ctx)};
+  if(name)this._meter={name,t0:now,t1:now,x0:me.x,z0:me.z,lx:me.x,lz:me.z,path:0,n:0,sprint:0,fwd:0,jump:0,food:bot.food,near0:this._nearestNamed(bot,ctx)};
  }
  _nearestNamed(bot,ctx){
   let best=null;
@@ -150,7 +151,7 @@ export class MobDefenseChain extends SingleTaskChain{
   if(secs<FLEE_METER_MIN)return;
   const me=bot.entity.position,straight=Math.hypot(me.x-m.x0,me.z-m.z0),v=m.path/secs;
   const pct=x=>m.n?Math.round(100*x/m.n):0;
-  if(ctx&&ctx.worker&&ctx.worker.log)try{ctx.worker.log('Speed: the '+m.name+' ran '+m.path.toFixed(1)+' blocks (straight '+straight.toFixed(1)+') in '+secs.toFixed(1)+' s = '+v.toFixed(2)+' blocks/s, '+Math.round(100*v/GAME_SPRINT)+'% of the game sprint '+GAME_SPRINT+' (walk '+GAME_WALK+'); sprint key '+pct(m.sprint)+'% and forward '+pct(m.fwd)+'% of '+m.n+' ticks, food '+(m.food??'?')+'; nearest hostile '+m.near0+' -> '+this._nearestNamed(bot,ctx));}catch{}
+  if(ctx&&ctx.worker&&ctx.worker.log)try{ctx.worker.log('Speed: the '+m.name+' ran '+m.path.toFixed(1)+' blocks (straight '+straight.toFixed(1)+') in '+secs.toFixed(1)+' s = '+v.toFixed(2)+' blocks/s, '+Math.round(100*v/GAME_SPRINT)+'% of the game sprint '+GAME_SPRINT+' (walk '+GAME_WALK+'); sprint key '+pct(m.sprint)+'%, forward '+pct(m.fwd)+'% and jump '+pct(m.jump)+'% of '+m.n+' ticks, food '+(m.food??'?')+'; nearest hostile '+m.near0+' -> '+this._nearestNamed(bot,ctx));}catch{}
  }
  // Seconds the flee this chain ran on its last tick has kept the bot within FLEE_PINNED_BLOCKS.
  _pinnedFor(bot){

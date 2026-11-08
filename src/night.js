@@ -180,7 +180,15 @@ export function deepWaterCost(blockAt,pos,dark){
 // (the drop less 3) would leave under 2 health, or FLEE_DROP_DEADLY+ blocks rule the heading out
 // like a fluid - standing beats the jump.
 export const FLEE_DROP_SCAN=16,FLEE_DROP_DEADLY=12;
-export function fleeHeading(blockAt,me,hostiles,{shelter=null,inWater=false,health=20}={}){
+// Round 109 (the round-107 soak's flee speed meter: 34 flees, median 1.2 blocks/s against the game
+// sprint's 5.6 - hard2 held sprint and forward 14.8 s and moved 1.3 blocks, hard3 ran 37.6 blocks in
+// 20 s and ended 0.2 from its start): a skilled player picks one way out and keeps to it, and turns
+// off a way that is not moving them. `prev`, the heading of the last tick, costs FLEE_KEEP less within
+// FLEE_KEEP_RAD of it (no flip-flop circling); every `avoid` heading (a way the flee made no headway
+// on) costs FLEE_AVOID_COST more within FLEE_AVOID_RAD of it.
+export const FLEE_KEEP=4,FLEE_KEEP_RAD=0.4,FLEE_AVOID_COST=50,FLEE_AVOID_RAD=0.6;
+const angleOff=(ax,az,bx,bz)=>Math.abs(Math.atan2(ax*bz-az*bx,ax*bx+az*bz));
+export function fleeHeading(blockAt,me,hostiles,{shelter=null,inWater=false,health=20,prev=null,avoid=null}={}){
  const list=(hostiles||[]).filter(h=>h&&h.position);
  if(!list.length)return null;
  let ax=0,az=0;
@@ -229,10 +237,32 @@ export function fleeHeading(blockAt,me,hostiles,{shelter=null,inWater=false,heal
    const sx=shelter.x+0.5-me.x,sz=shelter.z+0.5-me.z,sd=Math.hypot(sx,sz);
    if(sd>1&&sd<=24)cost-=6*Math.max(0,(sx*hx+sz*hz)/sd);
   }
+  if(prev&&angleOff(hx,hz,prev.x,prev.z)<=FLEE_KEEP_RAD)cost-=FLEE_KEEP;
+  for(const a of avoid||[])if(angleOff(hx,hz,a.x,a.z)<=FLEE_AVOID_RAD)cost+=FLEE_AVOID_COST;
   if(!best||cost<best.cost)best={x:hx,z:hz,cost,turn,hazard:hz2};
  }
  // blocked: even the best heading walks into a fluid - better to stand than to swim.
  return {x:best.x,z:best.z,cost:best.cost,blocked:best.hazard>=100};
+}
+// Round 109: the blind flee never pressed jump, and the game's step-up without a jump is 0.6 of a
+// block - one block of rise stopped it dead with sprint and forward held. Jump when the cell ahead is
+// a one-block step with room over it, and sprint-jump on open ground (the game's sprint-jump is about
+// 7.1 blocks/s against the sprint's 5.6, the way players outrun mobs) when there is headroom here and
+// ahead and footing ahead. Never in water (the swim has its own jump).
+export function fleeJump(blockAt,me,h,{sprint=false,inWater=false}={}){
+ if(!h||h.blocked||inWater)return false;
+ const fx=Math.floor(me.x),fy=Math.floor(me.y),fz=Math.floor(me.z);
+ let x=Math.floor(me.x+h.x*0.8),z=Math.floor(me.z+h.z*0.8);
+ if(x===fx&&z===fz){x=Math.floor(me.x+h.x*1.3);z=Math.floor(me.z+h.z*1.3);}
+ const feet=blockAt(x,fy,z),head=blockAt(x,fy+1,z),up2=blockAt(x,fy+2,z),over=blockAt(fx,fy+2,fz);
+ if(solid(over))return false;
+ if(solid(feet))return !solid(head)&&!solid(up2)&&!fluid(head);
+ if(!sprint||fluid(feet)||solid(head)||solid(up2))return false;
+ return solid(blockAt(x,fy-1,z));
+}
+export function compass(hx,hz){
+ const names=['east','south-east','south','south-west','west','north-west','north','north-east'];
+ return names[((Math.round(Math.atan2(hz,hx)/(Math.PI/4))%8)+8)%8];
 }
 // Round 10, habit 4 (use the night instead of idling): experienced players spend the first
 // nights in a staircase mine under their shelter. A sealed box (not a pod) with a stone or

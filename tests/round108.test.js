@@ -68,7 +68,7 @@ test('round 108: every flee of a second or more logs how far and how fast it ran
  delete bot.entities[7];t+=0.25;bot.entity.position=bot.entity.position.offset(0.7,0,0);
  assert.equal(m.priority(bot,ctx),-1);
  const line=logs.find(l=>/^Speed:/.test(l));
- assert.equal(line,'Speed: the RunAwayFromHostilesTask ran 6.3 blocks (straight 6.3) in 2.3 s = 2.80 blocks/s, 50% of the game sprint 5.612 (walk 4.317); sprint key 50% and forward 100% of 8 ticks, food 16; nearest hostile zombie 6.0 -> none');
+ assert.equal(line,'Speed: the RunAwayFromHostilesTask ran 6.3 blocks (straight 6.3) in 2.3 s = 2.80 blocks/s, 50% of the game sprint 5.612 (walk 4.317); sprint key 50%, forward 100% and jump 0% of 8 ticks, food 16; nearest hostile zombie 6.0 -> none');
  // a flee under FLEE_METER_MIN logs nothing
  const b2=fleeBot({7:mob(7,'zombie',-5.5)}),l2=[],m2=new MobDefenseChain();let u=0;m2.now=()=>u;
  const c2={...ctx,worker:{log:x=>l2.push(x)}};
