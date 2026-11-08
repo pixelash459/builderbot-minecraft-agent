@@ -17,7 +17,7 @@ import {dist,onFire,inGame} from './settings.js';
 import {getHostiles,distanceTo,bestWeapon,attackCooldown,hasItemName,inventoryItems,withinRange,huntBlocked} from './combatPolicy.js';
 import {NATURAL_DIG,isGravity} from '../digDown.js';
 import {Vec3} from 'vec3';
-import {fleeHeading,darkNow,leaveRefuge} from '../night.js';
+import {fleeHeading,darkNow,leaveRefuge,stillNight,MORNING_LATE,REFUGE_CLEAR,REFUGE_WALL} from '../night.js';
 import {pickCtx} from '../tasks/movement/move.js';
 import {creeperSwell} from '../creeper.js';
 
@@ -759,6 +759,20 @@ export class ShelterTask extends Task{
 // (harder to knock off), sneaks back to the middle when pushed, and hits anything that still
 // reaches the top.
 export const RING=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+// Round 105 (round-104 hard1: perched 3 up at (798, 81, -508) at tod ~9950 with the ring and the walls
+// laid, then held to the end of the run - 1921 s, 80% of it, through a whole day: morning never
+// cleared the perch, the queued stone-axe craft never ran, and the run got no furnace or iron).
+// The ring is an overhang: a mob standing under it is in its shade and never burns, and morning does
+// not move a creeper. PERCH_PINNED_S after the first `held on the perch past dawn` line, a perch whose
+// holders are all mobs the sun will not clear (under cover, or not burning by day) opens its wall on
+// the side away from them and comes down; Mob Defense then answers them on the ground, by day, and
+// does not climb again for PERCH_RETRY_S. PERCH_OPEN_S caps the opening.
+export const PERCH_PINNED_S=30,PERCH_OPEN_S=20,PERCH_RETRY_S=120;
+const SUN_BURNS=/^(zombie|zombie_villager|skeleton|stray|bogged|drowned|phantom)$/;
+const SIDE_NAMES={'1,0':'east','-1,0':'west','0,1':'south','0,-1':'north'};
+// Anything solid over the mob's head (the ring, a roof, leaves) keeps the sun off it.
+const underCover=(bot,p)=>{const x=Math.floor(p.x),z=Math.floor(p.z),y=Math.floor(p.y);for(let cy=y+2;cy<=y+24;cy++)if(solidAt(bot,x,cy,z))return true;return false;};
+const sunClears=(bot,h)=>SUN_BURNS.test(h.name||'')&&!underCover(bot,h.position);
 const PILLAR_ITEMS=[/^cobblestone$/,/^cobbled_deepslate$/,/^netherrack$/,/^dirt$/,/_planks$/];
 export const pillarBlocks=bot=>{
  const items=inventoryItems(bot);
@@ -781,9 +795,11 @@ export class NightPillarTask extends Task{
  _log(ctx,m){const c=pickCtx(this,ctx),w=c&&c.worker;if(w&&w.log)try{w.log(m);}catch{}}
  // A runner teardown (a higher band took over for a moment) stops this instance for good:
  // the chain adopts a fresh one that keeps the column, the phase and the quiet clock.
- resumeCopy(){const q=new NightPillarTask(this.height,{hold:this.hold,day:this.day});Object.assign(q,{base:this.base,phase:this.phase,t0:this.t0,quietSince:this.quietSince,ringTries:this.ringTries,ringLogged:this.ringLogged,wallTries:this.wallTries,wallsLogged:this.wallsLogged});return q;}
+ resumeCopy(){const q=new NightPillarTask(this.height,{hold:this.hold,day:this.day});Object.assign(q,{base:this.base,phase:this.phase,t0:this.t0,quietSince:this.quietSince,ringTries:this.ringTries,ringLogged:this.ringLogged,wallTries:this.wallTries,wallsLogged:this.wallsLogged,heldAt:this.heldAt,pinned:this.pinned,exit:this.exit,opened:this.opened});return q;}
  isFinished(bot,ctx){
   if(this.failed)return true;
+  // Round 105: pinned past dawn - down once the wall is open (or the opening ran out of time).
+  if(this.pinned&&(this.opened||(this.exit&&this.now()-this.exit.at>=PERCH_OPEN_S)))return true;
   // Morning: down once it is light and clear (round 7: not at the wrap to 0 - the night's
   // mobs are still standing, and shaded ones never burn).
   if(!this.day&&!darkNow(dayTicks(bot))&&(this.phase!=='perch'||leaveRefuge(dayTicks(bot),nearestHostile(bot,ctx))))return true;
@@ -868,6 +884,7 @@ export class NightPillarTask extends Task{
    return null;
   }
   forget(bot,'forward');
+  if(this._pinnedTick(bot,ctx,now))return null;
   if(this._ring(bot,ctx,now))return null;
   if(this._walls(bot,ctx,now))return null;
   const archer=hostiles.find(h=>/^(skeleton|stray|bogged|pillager)$/.test(h.name||''));
@@ -932,6 +949,51 @@ export class NightPillarTask extends Task{
   }
   if(!open&&!this.wallsLogged){this.wallsLogged=true;this._log(ctx,'Night: walled the perch '+placed+'/8 (archers have no line but from above)');}
   return false;
+ }
+ // Round 105: still perched in the light morning means something holds the perch (isFinished).
+ // Log what, once; PERCH_PINNED_S later, if the sun will clear none of it, open the wall away from
+ // it. True while the opening owns the tick (no ring or wall goes back up meanwhile).
+ _holders(bot,ctx,tod){
+  const r=tod<MORNING_LATE?REFUGE_CLEAR:REFUGE_WALL;
+  return getHostiles(bot,ctx).filter(h=>h&&h.position&&withinRange(h,bot,r)).sort((a,b)=>distanceTo(a,bot)-distanceTo(b,bot));
+ }
+ _spread(bot,list){
+  const me=bot.entity.position;
+  return list.slice(0,4).map(h=>h.name+' '+distanceTo(h,bot).toFixed(1)+' dy '+Math.round(h.position.y-me.y)+(underCover(bot,h.position)?' under cover':' in the open')).join(', ')+(list.length>4?' and '+(list.length-4)+' more':'');
+ }
+ _pinnedTick(bot,ctx,now){
+  if(this.day)return false;
+  const tod=dayTicks(bot);
+  if(!this.pinned){
+   if(tod==null||stillNight(tod))return false;
+   const held=this._holders(bot,ctx,tod);
+   if(!held.length)return false;
+   if(this.heldAt==null){this.heldAt=now;this._log(ctx,'Night: held on the perch past dawn by '+this._spread(bot,held));return false;}
+   if(now-this.heldAt<PERCH_PINNED_S||held.some(h=>sunClears(bot,h)))return false;
+   // the side whose cell is farthest from the nearest holder
+   let best=null;
+   for(const [dx,dz] of RING.slice(0,4)){
+    const cx=this.base.x+dx+0.5,cz=this.base.z+dz+0.5;
+    const d=Math.min(...held.map(h=>Math.hypot(h.position.x-cx,h.position.z-cz)));
+    if(!best||d>best.d)best={dx,dz,d};
+   }
+   this.pinned=true;this.exit={dx:best.dx,dz:best.dz,at:now};this._lower(bot);
+   this._log(ctx,'Night: pinned on the perch '+Math.round(now-this.heldAt)+' s past dawn by '+this._spread(bot,held)+'; opening the '+SIDE_NAMES[best.dx+','+best.dz]+' wall and coming down');
+  }
+  if(this.opened)return true;
+  const x=this.base.x+this.exit.dx,z=this.base.z+this.exit.dz,feet=this.base.y+this.height;
+  for(const y of [feet+1,feet]){
+   if(!solidAt(bot,x,y,z))continue;
+   if(this._digging)return true;
+   const pick=inventoryItems(bot).find(i=>/_pickaxe$/.test(i.name||''));
+   if(pick&&(!bot.heldItem||bot.heldItem.name!==pick.name)){if(now-this._equipAt>=0.5){this._equipAt=now;equipSafe(bot,pick,'hand');}return true;}
+   const block=bot.blockAt(new Vec3(x,y,z));
+   this._digging=true;
+   try{const p=bot.dig(block,true);if(p&&p.then)p.catch(()=>{}).finally(()=>{this._digging=false;});else this._digging=false;}catch{this._digging=false;}
+   return true;
+  }
+  this.opened=true;
+  return true;
  }
  _lower(bot){if(!this._shield)return;this._shield=false;try{const p=bot.deactivateItem();p&&p.catch&&p.catch(()=>{});}catch{}}
  onStop(bot){forget(bot,'jump','forward','sprint','sneak');this._lower(bot);}

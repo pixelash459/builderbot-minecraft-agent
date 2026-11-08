@@ -3627,3 +3627,44 @@ These went in after the wood fix and before the round 103 soak, so the soak test
 - **normal2's iron pickaxe broke** at 18:20:12 with no new one before the run ended, and its bag-full wait at y=-22 had no drop job.
 - **Beds crafted (normal1, normal2) and never slept in;** diamonds 0 for the third round.
 - **Older items:** a kit in a crowd, cornered with no weapon, the enderman counted as holding a box, the wrong killer on a death line (hard1's `killed by skeleton` after `blown up by Creeper`), `BAG_WORTH`, spear zombies, group-spacing by a drop, a food hunt under a roof, lava at y=-25, hard pacing.
+
+## Round 105 (2026-11-08)
+
+**Round 104 results** (report `5a09729`, bot code `1f28558`, the triple promoted).
+- Iron came on 4 of 6 runs: 542/1416/874/-/1265/-. Hard wood was 362/271/181 s, every run under 400 s.
+- There were 3 deaths, all hard3 (two creeper blasts, then a drowned in the river its night job walked it into). Round 103 had 7.
+- All three normal runs wore two armour pieces (1566/1928/1054 s). normal3 went from iron pick to helmet in 164 s, the fastest yet.
+- The round-104 fix fired 3 times, all hard2: `Reflex: the shelter job waits off the night mine while Mob Defense answers a skeleton within 8` (and a creeper). hard2 had 0 deaths and got iron at 1265 s, one round after five deaths and no iron.
+- The round-102 pinned climb fired cleanly a second time, on hard2. It rose 10 to head sky 15 with no damage; a creeper hovered for 4.5 minutes after it, but never fused.
+- The round-103 toss climbs both rose this time (0 `climb out stopped`). There were no bag-full stands and no `TaskRunner error`.
+
+**What went wrong: hard1 sat on its night perch for 32 minutes.** At 00:08:51 (tod about 9950), a crowd of 6 sent it up a 3-block night pillar at (798, 81, -508). It laid the overhang ring and the walls, logging `Night: perched 3 up; holding until morning`. Every sample from t=490 to the end of the run (2408 s) then stood at (798, 84, -508) with `queued: craft`: 1921 s, 80% of the run, through a whole day. It made no furnace or iron, and it never got hungry.
+
+**Why it held.** The perch is left by `leaveRefuge`: once the morning is light, it needs nothing hostile within 16, and from tod 3000 nothing within 6. The ring is an overhang 2 blocks over the cells around the column's foot. A mob standing there is in its shade and never burns, and a creeper does not burn at all. Mobs held there have no reason to leave, so the morning rule could not release the perch, and nothing else would.
+
+The queued stone-axe craft also kept the night job back all night. The autopilot treats a queued craft as "about to start", but Mob Defense held the runner, so the craft never started and no shelter was ever sent (see Not changed yet).
+
+**Fix: a perch pinned past dawn comes down** (`chains/fallbackTasks.js`, NightPillarTask; `chains/mobDefenseChain.js`).
+- Still perched in the light morning means something holds the perch. The first such tick logs `Night: held on the perch past dawn by <mob D dy N under cover|in the open>, ...`: up to 4 mobs, within 16 before tod 3000 and within 6 after.
+- `PERCH_PINNED_S` (30 s) later, if none of the holders is a mob the sun will clear, the perch is pinned. A mob the sun will clear is a zombie, zombie villager, skeleton, stray, bogged, drowned or phantom with nothing solid over its head for 24 blocks. The pinned line is `Night: pinned on the perch N s past dawn by <...>; opening the <east|west|south|north> wall and coming down`.
+- The bot then digs the head and the feet wall block on the side farthest from the holders, with its pickaxe. No ring or wall goes back up. The perch ends when that side is open, or after `PERCH_OPEN_S` (20 s).
+- Mob Defense then answers the holders on the ground, by day. It does not plan a new pillar for `PERCH_RETRY_S` (120 s), because a day crowd of 6 would otherwise put the bot straight back up on the same deck.
+- A holder the sun will clear (a zombie in the open) keeps the old wait. So do a dark morning (before tod 1000) and a day pillar (round 40, down once quiet).
+
+**Tests:** `round105.test.js` (5), on the real NightPillarTask and MobDefenseChain:
+- the round-104 shape (a zombie and a creeper in the ring's shade): held line, pinned at 31 s, the west wall dug head then feet, the perch ended, no wall re-placed, the state kept through `resumeCopy`;
+- a zombie in the open, a dark morning and a day pillar, none of which pin;
+- past tod 3000 only holders within 6 count, and a hold pillar pins the same way;
+- an opening that never lands still ends after 20 s;
+- Mob Defense does not re-pillar for 120 s.
+
+Removing the `_pinnedTick` call fails 4 tests; removing the retry backoff fails 1. 865 pass, resources 9.
+
+**Not changed yet**
+- **The night job behind a queued craft.** `autopilot.js` counts a queued craft as busy, so the night job does not go out. A craft that Mob Defense holds back never starts, so hard1 got no shelter (and no night skip) all night. With a shelter queued, the gate would have stood Mob Defense down, and the box would have gone up on the deck, as in round 99.
+- **hard3's deaths:**
+  - a 22.4 s creeper thrash with no pillar before the fuse, and both fuse walls placing 0 blocks;
+  - the night job's burrow walking it into the river, where `Pillar: stopped at y=62 (no blocks held)` came twice before the drowned death;
+  - no kit back from its bag runs (`out of time after 3 run(s)`).
+- **Beds crafted (normal1, normal3) and never slept in;** diamonds 0 for the fourth round.
+- **Older items:** the pinned climb beside a creeper (round 103), the night respawn into a spawn crowd, a kit in a crowd, the wrong killer on a death line, `BAG_WORTH`, spear zombies, a food hunt under a roof, lava at y=-25, hard pacing.

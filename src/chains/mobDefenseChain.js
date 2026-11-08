@@ -11,7 +11,7 @@
 import {SingleTaskChain} from './singleTaskChain.js';
 import {chainConfig,inGame,onFire} from './settings.js';
 import {getHostiles,nearestDistance,withinRange,distanceTo,armorValue,BURNS_IN_SUNLIGHT,canDealWithCount,evaluateFight,isCornered,canCraftWoodenSword,hasItemName,inventoryItems,nightish,isMeleeMob} from './combatPolicy.js';
-import {movementTask,RunAwayFromHostilesTask,RunAwayFromCreepersTask,DodgeProjectilesTask,KeepDistanceTask,KillEntitiesTask,CraftWeaponTask,ShelterTask,SleepTask,NightPillarTask,WitchCoverTask,pillarBlocks,cellAt,projectileClose,approachingProjectiles} from './fallbackTasks.js';
+import {movementTask,RunAwayFromHostilesTask,RunAwayFromCreepersTask,DodgeProjectilesTask,KeepDistanceTask,KillEntitiesTask,CraftWeaponTask,ShelterTask,SleepTask,NightPillarTask,PERCH_RETRY_S,WitchCoverTask,pillarBlocks,cellAt,projectileClose,approachingProjectiles} from './fallbackTasks.js';
 import {nightRefuge,pillarRoom,DAY_CROWD} from '../night.js';
 import {dayTicks} from '../daytime.js';
 import {FightTask} from './fightTask.js';
@@ -361,6 +361,9 @@ export class MobDefenseChain extends SingleTaskChain{
    this._pillarRetryAt=this.now()+(p.hold?pillarBackoff(this._pillarStreak):10);
   }
   if(p&&p.phase==='perch')this._pillarStreak=0;
+  // Round 105: a perch pinned past dawn came down on purpose; climbing straight back up on the
+  // same deck would hold it again (a day crowd of DAY_CROWD still plans a pillar).
+  if(p&&p.pinned)this._pillarRetryAt=Math.max(this._pillarRetryAt||0,this.now()+PERCH_RETRY_S);
   this._pillar=null;
   if(this.now()<(this._pillarRetryAt||0))return null;
   const e=bot.entity,w=ctx&&ctx.worker;
