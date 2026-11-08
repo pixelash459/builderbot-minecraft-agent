@@ -13,7 +13,8 @@ function walker(items=[{name:'stone_sword',count:1},{name:'cobblestone',count:49
  return {entity:{position:new Vec3(0,64,0)},entities:{},health:20,food:20,
   inventory:{items:()=>items,slots:[]},registry:{foodsByName:{}},time:{timeOfDay:1500},heldItem:null,blockAt:()=>null};
 }
-const setup=bot=>{const logs=[],m=new MobDefenseChain(),ctx={config:{chains:{}},move:{},trackers:{},blacklist:{},worker:{log:x=>logs.push(x)}};return {m,ctx,logs};};
+// Round 108: the flee speed meter's `Speed:` lines are left out of these logs (round108.test.js).
+const setup=bot=>{const logs=[],m=new MobDefenseChain(),ctx={config:{chains:{}},move:{},trackers:{},blacklist:{},worker:{log:x=>{if(!/^Speed: /.test(x))logs.push(x);}}};return {m,ctx,logs};};
 
 test('round 95: a chased creeper that closes to 6 through the keep-away is fought from a pillar at once',()=>{
  assert.equal(CREEPER_CLOSING_NEAR,6);assert.ok(CREEPER_CHASE_S<CREEPER_PERSIST);

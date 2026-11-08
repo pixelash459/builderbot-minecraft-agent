@@ -14,7 +14,8 @@ function pinnedBot({health=5.7,entities={},solid=()=>false}={}){
   registry:{foodsByName:{}},time:{timeOfDay:6000},heldItem:{name:'stone_sword'},
   blockAt:p=>{const s=solid(Math.floor(p.x),Math.floor(p.y),Math.floor(p.z));return {name:s?'stone':'air',boundingBox:s?'block':'empty',position:p.floored()};}};
 }
-const chainCtx=logs=>({config:{chains:{}},move:{},trackers:{},blacklist:{},worker:{log:m=>logs.push(m)}});
+// Round 108: the flee speed meter's `Speed:` lines are left out of these logs (round108.test.js).
+const chainCtx=logs=>({config:{chains:{}},move:{},trackers:{},blacklist:{},worker:{log:m=>{if(!/^Speed: /.test(m))logs.push(m);}}});
 // Round 107 fights a melee mob that keeps up with a flee for 1 s (round107.test.js); these tests
 // keep to the round-91 pinned path on its own.
 class PinnedOnly extends MobDefenseChain{_chasedBy(){return null;}}

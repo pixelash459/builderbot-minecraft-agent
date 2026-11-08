@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Vec3} from 'vec3';
-import {MobDefenseChain,CHASE_NEAR,CHASE_S,CHASE_MAX_MELEE,OUTRUNS} from '../src/chains/mobDefenseChain.js';
+import {MobDefenseChain,CHASE_NEAR,CHASE_S,CHASE_MAX_MELEE} from '../src/chains/mobDefenseChain.js';
 import {leaveAlone} from '../src/chains/combatPolicy.js';
 import {markProvoked,provoked} from '../src/provoked.js';
 console.error=()=>{};
@@ -16,7 +16,8 @@ function armedBot({health=17,entities={},solid=()=>false,sword=true,tod=5760,sky
   inventory:{items:()=>items,slots:[]},registry:{foodsByName:{}},time:{timeOfDay:tod},heldItem:sword?{name:'stone_sword'}:null,
   blockAt:p=>{const s=solid(Math.floor(p.x),Math.floor(p.y),Math.floor(p.z));return {name:s?'stone':'air',boundingBox:s?'block':'empty',position:p.floored(),skyLight:sky};}};
 }
-const chainCtx=logs=>({config:{chains:{}},move:{},trackers:{},blacklist:{},worker:{log:m=>logs.push(m)}});
+// Round 108: the flee speed meter's `Speed:` lines are left out of these logs (round108.test.js).
+const chainCtx=logs=>({config:{chains:{}},move:{},trackers:{},blacklist:{},worker:{log:m=>{if(!/^Speed: /.test(m))logs.push(m);}}});
 // the bot runs east 1.5 blocks a tick and the mob keeps `gap` behind it
 function chaseTicks(m,bot,ctx,id,name,gap,n,clock){
  const out=[];
@@ -28,15 +29,18 @@ function chaseTicks(m,bot,ctx,id,name,gap,n,clock){
  return out;
 }
 
-test('round 107: a spider on the bot through a vulnerable flee is fought at once (round-106 hard3)',()=>{
- assert.equal(CHASE_NEAR,3);assert.equal(CHASE_S,1);assert.equal(CHASE_MAX_MELEE,2);assert.ok(OUTRUNS.has('spider'));
+test('round 107/108: a spider that stays on the bot through a vulnerable flee for CHASE_S is fought (round-106 hard3)',()=>{
+ assert.equal(CHASE_NEAR,3);assert.equal(CHASE_S,1);assert.equal(CHASE_MAX_MELEE,2);
  const bot=armedBot({entities:{5:mob(5,'spider',2.0)}}),logs=[],m=new MobDefenseChain(),ctx=chainCtx(logs);
  let t=1000;m.now=()=>t;
  assert.equal(m.priority(bot,ctx),70,'health 17, armour 0: the vulnerable flee first');
  assert.match(logs.at(-1),/\(vulnerable\)$/);
- t+=0.25;assert.equal(m.priority(bot,ctx),85,'the spider is still on it: stand and fight');
+ // round 108: a sprinting bot outruns a spider, so it is not fought at once - only once it has kept up
+ t+=0.25;assert.equal(m.priority(bot,ctx),70,'the clock starts');
+ t+=0.5;assert.equal(m.priority(bot,ctx),70,'0.5 s: still fleeing');
+ t+=0.5;assert.equal(m.priority(bot,ctx),85,'1 s on the bot: the flee is not working - stand and fight');
  assert.equal(m.root.name,'KillEntitiesTask');assert.equal(m.root.lastResort,true);
- assert.equal(logs.at(-1),'Reflex: spider 1.5 away outruns the RunAwayFromHostilesTask (health 17, held stone_sword, 1 melee within 8); standing to fight');
+ assert.equal(logs.at(-1),'Reflex: spider 1.5 away has kept up with the RunAwayFromHostilesTask for 1.0 s (health 17, held stone_sword, 1 melee within 8); standing to fight');
  assert.ok(!logs.some(l=>/cornered/.test(l)),'not the 2-s pinned line');
  // the spider bit the bot (entityHurt marks it): hopping back to 3.5 by day keeps the fight on
  assert.equal(markProvoked(bot,bot.entities[5]),true);

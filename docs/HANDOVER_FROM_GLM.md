@@ -3766,3 +3766,24 @@ Removing the `respawnEscaping` check from `survivalHold` fails 1 test. 875 pass,
 - hard1's skeleton snipes (death 2 had 0 hostiles within 8) and the late wood (1748 s).
 - hard3's death 2 in its own mine at y=37 (`pillar-up failed ... on unloaded`).
 - Waiting out the night on the death screen, the night job behind a queued craft, beds never slept in, and the older items.
+
+## Round 108 (2026-11-08)
+
+**Round 107 was stopped before its soak.** The tester had pulled `61bbe50`, passed the units (879) and was restarting the services when the user stopped it. It is replaced by this round, so round 107's stand-and-fight has never run in a soak.
+
+**A correction to round 107.** Its comment said a spider is about as fast as a sprinting player, so a spider within 3 was fought at once. That was wrong.
+- **The game's figures** (the wiki's Sprinting and Walking pages): sprinting 5.612 blocks/s, walking 4.317, sprint-jumping about 7.13.
+- **Mob speeds:** the mob speed attribute (spider 0.3) is not on the player's scale. A spider runs about 3.9 blocks/s and a zombie about 2.3, so a sprinting player outruns both.
+- **How players escape:** they sprint (food above 6) and break line of sight. They get into light, where a spider that followed calms down unless it was hit. A 1-wide gap stops a spider; a 2-high pillar, water or a door stops a zombie. They fight when the run cannot work.
+- **What round 106 actually showed:** the bot's flees were not moving. hard3 was `stranded at (809, 93, -544) (drops on every side)` on its box top 9 s before the spider got it, and moved about 5 blocks in its last 7 s. hard2's flee was stopped by `Lava guard: ... lava ahead`. hard2's second death was in the river, where drowned outswim a player.
+
+**Fix: the stand rule without the spider exception** (`mobDefenseChain.js`). `OUTRUNS` is gone, so every melee mob is fought only once it has kept within `CHASE_NEAR` (3) of a flee for `CHASE_S` (1 s), which a sprinting flee never allows. The line is always `Reflex: <mob> D away has kept up with the <flee> for N s (health H, held X, M melee within 8); standing to fight`. The rest of round 107 stands: the conditions (a real weapon, at most 2 melee mobs within 8, not a creeper, in sight), the cornered fight, and the provoked spider.
+
+**New: the speed meter** (the user asked for it, to match the bot's real sprint against the game's).
+- **Flee episodes** (`mobDefenseChain.js` `_fleeMeter`, `GAME_SPRINT`, `FLEE_METER_MIN` 1 s). Each run-away, creeper keep-away or keep-distance episode of 1 s or more logs, when it ends: `Speed: the <flee> ran P blocks (straight S) in T s = V blocks/s, N% of the game sprint 5.612 (walk 4.317); sprint key A% and forward B% of K ticks, food F; nearest hostile <mob D> -> <mob D|none>`.
+- **Every 5 minutes** (`worker.js` `speedTick`, beside the sprint-share gauge). The measured horizontal speed while the forward key is down on land, given for sprinting, for sprinting on the flat (on the ground, y steady, no jump, the first 10 ticks of each stretch left out), the best 1-s flat window, and walking: `Speed: sprinting V blocks/s over T s (N% of the game sprint 5.612), on the flat V over T s (N%), best 1 s V (N%); walking V over T s (the game walk 4.317)`. A tick over 200 ms or a step over 2 blocks (lag, a teleport) is not counted.
+- **The reason:** it shows whether the bot's sprint is really a sprint, and which flees ran and which stood still.
+
+**Tests:** `round108.test.js` (4): the 5-minute line at the game's own speeds (lag and teleports left out), a slow sprint and a sprint-jump kept off the flat figure, no line in water, a flee's speed line with its sprint share, nothing for a flee under 1 s, and the stand line before the speed line of the flee it ended. In `round107.test.js`, the spider is fought after 1 s, not at once. The chain tests that compare the last log line (rounds 75, 91, 95, 98, 107) leave `Speed:` lines out of their logs. Disabling the flee meter fails 2 tests; dropping the speed-up ticks from the flat figure fails 1. 883 pass; resources 9.
+
+**Next, once the meter shows it:** make a stuck flee move. When the flee is stranded on a box top, at a lava edge or in water, drop off the side away from the mob and sprint; head for daylight from a spider; use a 1-wide gap against a spider and a 2-high pillar against zombies. Flee only from the mobs that can reach the bot, not from 30 mobs underground.

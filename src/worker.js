@@ -580,6 +580,43 @@ export function gaitTick(bot,g,now){
  g.walk=0;g.sprint=0;g.since=now;
  return line;
 }
+// Round 108 (the user: record how fast the bot actually sprints and match it against the real
+// figure): every SPEED_LOG_MS, the bot's measured horizontal speed while the forward key is down,
+// out of water and lava - sprinting, walking, and sprinting on the flat (on the ground, y steady, no
+// jump; the first SPEED_SETTLE ticks of each stretch, the speed-up, left out) with the best 1-s
+// stretch - against the game's 5.612 blocks/s sprint and 4.317 walk (the wiki's Sprinting and
+// Walking pages; sprint-jumping about 7.13). A tick over SPEED_GAP_MS or a step over SPEED_JUMP
+// blocks (a teleport, a lag spike) is not counted.
+export const GAME_SPRINT=5.612,GAME_WALK=4.317,SPEED_LOG_MS=5*60000,SPEED_SETTLE=10,SPEED_WINDOW_MS=1000,SPEED_GAP_MS=200,SPEED_JUMP=2;
+export const newSpeed=()=>({since:null,last:null,sprint:{d:0,s:0},walk:{d:0,s:0},flat:{d:0,s:0},best:0,run:null});
+export function speedTick(bot,st,now){
+ if(st.since==null)st.since=now;
+ const e=bot&&bot.entity,p=e&&e.position;
+ const key=k=>{try{return !!bot.getControlState?.(k);}catch{return false;}};
+ if(p){
+  const moving=key('forward')&&!e.isInWater&&!e.isInLava,sprint=moving&&key('sprint'),l=st.last;
+  const dt=l?(now-l.t)/1000:0,d=l?Math.hypot(p.x-l.x,p.z-l.z):0;
+  if(l&&moving&&l.moving&&dt>0&&dt*1000<=SPEED_GAP_MS&&d<=SPEED_JUMP){
+   const g=sprint?st.sprint:st.walk;g.d+=d;g.s+=dt;
+   const flat=sprint&&e.onGround&&l.ground&&Math.abs(p.y-l.y)<0.01&&!key('jump');
+   if(flat){
+    const r=st.run||(st.run={n:0,win:[]});r.n++;
+    if(r.n>SPEED_SETTLE){
+     st.flat.d+=d;st.flat.s+=dt;
+     r.win.push({d,dt});let wd=0,ws=0;for(const w of r.win){wd+=w.d;ws+=w.dt;}
+     while(r.win.length&&ws-r.win[0].dt>=SPEED_WINDOW_MS/1000){ws-=r.win[0].dt;wd-=r.win[0].d;r.win.shift();}
+     if(ws>=SPEED_WINDOW_MS/1000-1e-9)st.best=Math.max(st.best,wd/ws);
+    }
+   }else st.run=null;
+  }else st.run=null;
+  st.last={x:p.x,y:p.y,z:p.z,t:now,moving,ground:!!e.onGround};
+ }
+ if(now-st.since<SPEED_LOG_MS)return null;
+ const v=g=>g.s>0?g.d/g.s:0,f=n=>n.toFixed(2),pc=n=>Math.round(100*n/GAME_SPRINT)+'%';
+ const line=st.sprint.s+st.walk.s>=1?'Speed: sprinting '+f(v(st.sprint))+' blocks/s over '+Math.round(st.sprint.s)+' s ('+pc(v(st.sprint))+' of the game sprint '+GAME_SPRINT+'), on the flat '+f(v(st.flat))+' over '+Math.round(st.flat.s)+' s ('+pc(v(st.flat))+'), best 1 s '+f(st.best)+' ('+pc(st.best)+'); walking '+f(v(st.walk))+' over '+Math.round(st.walk.s)+' s (the game walk '+GAME_WALK+')':null;
+ const last=st.last;Object.assign(st,newSpeed(),{since:now,last});
+ return line;
+}
 // Round 31: every fall of FALL_LOG+ blocks is logged once with where it began, so a death
 // `fell from a high place` names its start (round 30's normal2 fall had no line for 80 s).
 // `st` keeps {top} between ticks. Returns {from,at} the tick a fall first passes FALL_LOG.
@@ -1273,7 +1310,7 @@ export class Worker extends EventEmitter {
   const bot=this.bot=mineflayer.createBot({...this.config.server,hideErrors:true});
   installMovementFix(bot);installWeatherFix(bot);this.trackMeals(bot);guardEquip(bot);guardPlace(bot);installDigWatch(bot,m=>this.log(m),()=>(this.jobs||[]).find(j=>j.status==='running')?.spec?.type);installProvoked(bot,m=>this.log(m));bot.__windowLog=m=>this.log(m);
   bot.loadPlugin(pathfinder);bot.loadPlugin(toolPackage.plugin);
-  bot.once('spawn',()=>{this.ready=true;installToolWear(bot);if(!bot._earnHook){bot._earnHook=true;bot.on('playerCollect',(collector,collected)=>{try{if(collector!==bot.entity)return;const it=collected?.getDroppedItem?.();if(it)this.earn(it.name,it.count);}catch{}});}if(!bot.inventory._lossWatch){bot.inventory._lossWatch=true;watchToolLoss(bot,m=>this.log(m));}const movement=this.movements=this.normalMovements(bot);bot.pathfinder.setMovements(movement);bot.pathfinder.searchRadius=128;if(!bot._ledgeGuard){bot._ledgeGuard=true;let last=0,lastLava=0;const fall={};const gait=newGait();installSprintHold(bot);const sink={};bot.on('physicsTick',()=>{bot.__pathTick=false;try{const sk=sinkGuard(bot,sink,Date.now());if(sk)this.log(sk+' (job '+((this.jobs||[]).find(j=>j.status==='running')?.spec?.type||'none')+', chain '+(this.taskRunner?.active?.name||this.taskRunner?.current?.name||'?')+')');}catch{}try{sprintAssist(bot);const g=gaitTick(bot,gait,Date.now());if(g)this.log(g);{const lv=lavaGuard(bot);if(lv&&Date.now()-lastLava>5000){lastLava=Date.now();this.log('Lava guard: stopped at '+bot.entity.position.floored()+' (lava ahead at '+lv+'; job '+((this.jobs||[]).find(j=>j.status==='running')?.spec?.type||'none')+')');}}if(ledgeGuard(bot)&&Date.now()-last>5000){last=Date.now();this.log('Ledge guard: stopped at '+bot.entity.position.floored()+' (a '+LEDGE_DROP+'+ drop ahead)');}const f=fallWatch(bot,fall);if(f)this.log('Fall: dropping from '+new Vec3(f.from.x,f.from.y,f.from.z).floored()+' (job '+((this.jobs||[]).find(j=>j.status==='running')?.spec?.type||'none')+', pathing '+!!bot.pathfinder?.isMoving?.()+', sprint '+!!bot.getControlState?.('sprint')+')');}catch{}});}bot.pathfinder.LOSWhenPlacingBlocks=false;bot.pathfinder.thinkTimeout=10000;/* round 27: 5 s timed out every night-mine climb home (`Took to long to decide path to goal!`) *//* round 25: its returningPos is never cleared by a reset and wedged all pathing */// in blocks: bounds searches for unreachable goals; legit paths may still cost up to goal distance + 128
+  bot.once('spawn',()=>{this.ready=true;installToolWear(bot);if(!bot._earnHook){bot._earnHook=true;bot.on('playerCollect',(collector,collected)=>{try{if(collector!==bot.entity)return;const it=collected?.getDroppedItem?.();if(it)this.earn(it.name,it.count);}catch{}});}if(!bot.inventory._lossWatch){bot.inventory._lossWatch=true;watchToolLoss(bot,m=>this.log(m));}const movement=this.movements=this.normalMovements(bot);bot.pathfinder.setMovements(movement);bot.pathfinder.searchRadius=128;if(!bot._ledgeGuard){bot._ledgeGuard=true;let last=0,lastLava=0;const fall={};const gait=newGait(),speed=newSpeed();installSprintHold(bot);const sink={};bot.on('physicsTick',()=>{bot.__pathTick=false;try{const sk=sinkGuard(bot,sink,Date.now());if(sk)this.log(sk+' (job '+((this.jobs||[]).find(j=>j.status==='running')?.spec?.type||'none')+', chain '+(this.taskRunner?.active?.name||this.taskRunner?.current?.name||'?')+')');}catch{}try{sprintAssist(bot);const g=gaitTick(bot,gait,Date.now());if(g)this.log(g);const sp=speedTick(bot,speed,Date.now());if(sp)this.log(sp);{const lv=lavaGuard(bot);if(lv&&Date.now()-lastLava>5000){lastLava=Date.now();this.log('Lava guard: stopped at '+bot.entity.position.floored()+' (lava ahead at '+lv+'; job '+((this.jobs||[]).find(j=>j.status==='running')?.spec?.type||'none')+')');}}if(ledgeGuard(bot)&&Date.now()-last>5000){last=Date.now();this.log('Ledge guard: stopped at '+bot.entity.position.floored()+' (a '+LEDGE_DROP+'+ drop ahead)');}const f=fallWatch(bot,fall);if(f)this.log('Fall: dropping from '+new Vec3(f.from.x,f.from.y,f.from.z).floored()+' (job '+((this.jobs||[]).find(j=>j.status==='running')?.spec?.type||'none')+', pathing '+!!bot.pathfinder?.isMoving?.()+', sprint '+!!bot.getControlState?.('sprint')+')');}catch{}});}bot.pathfinder.LOSWhenPlacingBlocks=false;bot.pathfinder.thinkTimeout=10000;/* round 27: 5 s timed out every night-mine climb home (`Took to long to decide path to goal!`) *//* round 25: its returningPos is never cleared by a reset and wedged all pathing */// in blocks: bounds searches for unreachable goals; legit paths may still cost up to goal distance + 128
   if(!this.trackersTimer){ // tracker refresh + preemption resume + idle armour, port of the reflex cadence
    this.loopWatch.start();
    this.trackersTimer=setInterval(()=>this.loopWatch.timeTick('cadence',()=>{

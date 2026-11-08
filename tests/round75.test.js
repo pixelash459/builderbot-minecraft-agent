@@ -13,7 +13,8 @@ function hurtBot({food=6,items=[]}={}){
   inventory:{items:()=>items,slots:[]},registry:{foodsByName:{bread:{foodPoints:5},spider_eye:{foodPoints:2}}},
   time:{timeOfDay:6000},heldItem:null,blockAt:()=>null};
 }
-const chainCtx=logs=>({config:{chains:{}},move:{},trackers:{},blacklist:{},worker:{log:m=>logs.push(m)}});
+// Round 108: the flee speed meter's `Speed:` lines are left out of these logs (round108.test.js).
+const chainCtx=logs=>({config:{chains:{}},move:{},trackers:{},blacklist:{},worker:{log:m=>{if(!/^Speed: /.test(m))logs.push(m);}}});
 test('round 75: the recovering hold is only for a bot that can heal',()=>{
  assert.equal(canHeal(hurtBot()),false,'bar 6, nothing to eat');
  assert.equal(canHeal(hurtBot({items:[{name:'spider_eye',count:3}]})),false,'unsafe food does not count');

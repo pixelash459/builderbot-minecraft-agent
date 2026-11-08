@@ -83,14 +83,20 @@ const FLEES=new Set(['RunAwayFromHostilesTask','RunAwayFromCreepersTask','KeepDi
 // Round 107 (round-106: hard3 opened its box with a stone sword at health 17, struck a spider once,
 // then `fleeing ... (vulnerable)` - armour 0 and health under 18 - and was bitten 17 -> 14 -> 11 ->
 // 8 -> 5 -> 2 -> 0 in 7 s from behind; `cornered - fighting back` came at health 2. hard2 ran the
-// same way from one zombie, cornered at health 4.3, and died. A spider is about as fast as a
-// sprinting player and climbs; a mob that stays on the bot through a flee is landing free hits.)
-// A skilled player does not turn their back on one or two melee mobs already on them: with a real
-// weapon and at most CHASE_MAX_MELEE melee mobs within 8, a melee mob (not a creeper) within
-// CHASE_NEAR in sight through a flee is fought - at once when it OUTRUNS the bot, after CHASE_S
-// otherwise - as the cornered fight (round 91), which keeps on while one stays within PINNED_KEEP.
+// same way from one zombie, cornered at health 4.3, and died. A mob that stays on the bot through a
+// flee is landing free hits.) A sprinting player (5.6 blocks/s) outruns a spider (about 3.9) and a
+// zombie (about 2.3), so a melee mob that keeps within CHASE_NEAR for CHASE_S means the flee is not
+// working - hard3 was stranded on its box top, hard2's flee stopped at lava. Then a skilled player
+// turns and fights: with a real weapon and at most CHASE_MAX_MELEE melee mobs within 8, that mob (not
+// a creeper, in sight) is fought as the cornered fight (round 91), which keeps on while one stays
+// within PINNED_KEEP. Round 108: no mob is fought at once any more (round 107 took a spider for as
+// fast as a sprint, which it is not).
 export const CHASE_NEAR=3,CHASE_S=1,CHASE_MAX_MELEE=2;
-export const OUTRUNS=new Set(['spider','cave_spider']);
+// Round 108 (the user: measure how fast the bot really runs): every flee episode of FLEE_METER_MIN s
+// or more logs the distance it covered, its speed against the game's sprint (5.612 blocks/s, the
+// wiki's Sprinting page; walking 4.317, sprint-jumping about 7.13), the sprint and forward key
+// shares of its ticks, and the nearest hostile at its start and end - whether the flee ran at all.
+export const GAME_SPRINT=5.612,GAME_WALK=4.317,GAME_SPRINT_JUMP=7.13,FLEE_METER_MIN=1;
 // Round 98 (WitchCoverTask in fallbackTasks.js): a cover with no cell left to fill falls back to the
 // flee for WITCH_COVER_OFF s before it looks again from the same spot.
 export const WITCH_COVER_OFF=3;
@@ -116,7 +122,35 @@ export class MobDefenseChain extends SingleTaskChain{
   let p=this._priorityInner(bot,ctx);
   if(p>=0&&this._holdStood(bot,ctx))p=-1;
   this._cachedLastPriority=p;this._cachedAt=Date.now();
+  try{this._fleeMeter(bot,ctx,p);}catch{}
   return p;
+ }
+ // Round 108: the flee speed meter (above). One episode is one flee task name on consecutive ticks.
+ _fleeMeter(bot,ctx,p){
+  const r=this.root,me=bot&&bot.entity&&bot.entity.position;
+  if(!me)return;
+  const now=this.now(),name=p>=0&&r&&FLEES.has(r.name)?r.name:null,m=this._meter;
+  const key=k=>{try{return !!bot.getControlState?.(k);}catch{return false;}};
+  if(m&&m.name===name){
+   m.path+=Math.hypot(me.x-m.lx,me.z-m.lz);m.lx=me.x;m.lz=me.z;m.t1=now;m.n++;
+   if(key('sprint'))m.sprint++;
+   if(key('forward'))m.fwd++;
+   return;
+  }
+  if(m){this._meter=null;m.path+=Math.hypot(me.x-m.lx,me.z-m.lz);m.t1=now;this._meterLog(bot,ctx,m);} // the last step ran under the flee
+  if(name)this._meter={name,t0:now,t1:now,x0:me.x,z0:me.z,lx:me.x,lz:me.z,path:0,n:0,sprint:0,fwd:0,food:bot.food,near0:this._nearestNamed(bot,ctx)};
+ }
+ _nearestNamed(bot,ctx){
+  let best=null;
+  for(const e of getHostiles(bot,ctx)){const d=distanceTo(e,bot);if(d<Infinity&&(!best||d<best.d))best={name:e.name,d};}
+  return best?best.name+' '+best.d.toFixed(1):'none';
+ }
+ _meterLog(bot,ctx,m){
+  const secs=m.t1-m.t0;
+  if(secs<FLEE_METER_MIN)return;
+  const me=bot.entity.position,straight=Math.hypot(me.x-m.x0,me.z-m.z0),v=m.path/secs;
+  const pct=x=>m.n?Math.round(100*x/m.n):0;
+  if(ctx&&ctx.worker&&ctx.worker.log)try{ctx.worker.log('Speed: the '+m.name+' ran '+m.path.toFixed(1)+' blocks (straight '+straight.toFixed(1)+') in '+secs.toFixed(1)+' s = '+v.toFixed(2)+' blocks/s, '+Math.round(100*v/GAME_SPRINT)+'% of the game sprint '+GAME_SPRINT+' (walk '+GAME_WALK+'); sprint key '+pct(m.sprint)+'% and forward '+pct(m.fwd)+'% of '+m.n+' ticks, food '+(m.food??'?')+'; nearest hostile '+m.near0+' -> '+this._nearestNamed(bot,ctx));}catch{}
  }
  // Seconds the flee this chain ran on its last tick has kept the bot within FLEE_PINNED_BLOCKS.
  _pinnedFor(bot){
@@ -139,7 +173,7 @@ export class MobDefenseChain extends SingleTaskChain{
   const c=this._chase&&now-this._chase.seen<=1?this._chase:(this._chase={since:now});
   c.seen=now;
   const e=near[0],secs=now-c.since;
-  return OUTRUNS.has(e.name)||secs>=CHASE_S?{e,secs,melee}:null;
+  return secs>=CHASE_S?{e,secs,melee}:null;
  }
  _holdStood(bot,ctx){
   const r=this.root;
@@ -216,7 +250,7 @@ export class MobDefenseChain extends SingleTaskChain{
     if(!this._cornered&&chased){
      const e=chased.e,hp=Math.round(bot.health*10)/10;
      this._fleeTag=null;
-     this._fleeLog(ctx,'chased','Reflex: '+e.name+' '+distanceTo(e,bot).toFixed(1)+' away '+(OUTRUNS.has(e.name)?'outruns the '+flee.name:'has kept up with the '+flee.name+' for '+chased.secs.toFixed(1)+' s')+' (health '+hp+', held '+(bot.heldItem?bot.heldItem.name:'nothing')+', '+chased.melee+' melee within 8); standing to fight');
+     this._fleeLog(ctx,'chased','Reflex: '+e.name+' '+distanceTo(e,bot).toFixed(1)+' away has kept up with the '+flee.name+' for '+chased.secs.toFixed(1)+' s (health '+hp+', held '+(bot.heldItem?bot.heldItem.name:'nothing')+', '+chased.melee+' melee within 8); standing to fight');
     }else if(!this._cornered){
      const h=flee&&flee.heading,hp=Math.round(bot.health*10)/10;
      this._fleeTag=null;

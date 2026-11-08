@@ -26,7 +26,8 @@ function holeBot({health=13.8,solid=hole,items=[{name:'cobblestone',count:6,slot
   places:[],unplace:()=>placed.clear()};
  return bot;
 }
-const chainCtx=logs=>({config:{chains:{}},move:{},trackers:{},blacklist:{},worker:{log:m=>logs.push(m)}});
+// Round 108: the flee speed meter's `Speed:` lines are left out of these logs (round108.test.js).
+const chainCtx=logs=>({config:{chains:{}},move:{},trackers:{},blacklist:{},worker:{log:m=>{if(!/^Speed: /.test(m))logs.push(m);}}});
 
 test('round 98: the cover cell is the first open cell on the line to the witch',()=>{
  assert.equal(WITCH_COVER_TRIES,2);assert.equal(WITCH_COVER_REACH,4.5);
