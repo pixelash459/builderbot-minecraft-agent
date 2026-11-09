@@ -3806,3 +3806,30 @@ Removing the `respawnEscaping` check from `survivalHold` fails 1 test. 875 pass,
 **Tests:** `round109.test.js` (5): the step jump, the sprint-jump and every case it refuses; the kept heading and the avoided one; a dead-end pocket that logs `no headway`, turns, stops logging once moving, forgets the heading after 3 s, and logs at most 3 lines; the step jump inside the task, and a heading blocked by water standing without a jump; and time off the flee not counted. `round108.test.js`'s flee line has the jump share. Removing the jump fails 2 tests; removing the avoid list 1; removing the pause reset 2 (with round 87's fuse wall). 888 pass; resources 9.
 
 **Next:** read the flee lines again. Flees should run at 4+ blocks/s with a jump share on rough ground, `Flee: no headway` lines should be followed by movement, and there should be fewer `cornered` lines and deaths after them. Then armour: all four round-107 deaths had armour 0, and only single helmets were made.
+
+## Round 110 (2026-11-09)
+
+**What the round-109 soak showed** (`57c14d4`, bot code `765e802`; the tee is named `soak-round108.log` but the code was round 109's). The flee moves now: 21 flee lines, median 4.53 blocks/s (round 107: 1.2), jump share 42-56% on the running flees, one `Flee: no headway` line that turned into a 105.9-block flee at 92% of the game sprint. 0 `cornered - fighting back` lines (round 107: 4). Iron pick on 6 of 6 runs, two full iron kits, and 1 death (round 107: 4).
+
+**The one death** (hard3, 02:43:41Z). The box was pinned at dawn by a creeper and a skeleton under rock. The bot climbed out under the canopy into a crowd and went back to crafting. A skeleton fight (`spacing skeleton`, 0 hits, 5.9 taken) left it at health 7. The 30-block flee ran 7.3 blocks in 1.4 s, then the `still recovering` branch replaced it with `KeepDistanceTask(16)`, with the skeleton 10.0 away. It was `shot by Skeleton` 3 s later: health 14.8 -> 7.4 -> 1.8 -> 0, armour 2.
+
+**Why.**
+- The keep-away (`KeepDistanceTask`, also used for the daylight-burn flee) never got the round-109 flee: it had no jump and no turn off a heading that does not move it.
+- Its 16 blocks are inside a skeleton's bow. The wiki's skeleton shoots within 15 blocks with a line of sight, and under leaves it does not burn.
+- Between 16 and 20 blocks it walked back toward the mob, so it hovered at the edge of the bow's reach.
+
+**The fix (what a skilled player does: get out of the bow's reach or out of its sight).**
+- `fallbackTasks.js`: the round-109 flee step is one function, `fleeStep`, used by both the run-away and the keep-away.
+- A skeleton, stray or bogged within `RANGED_KEEP` (24) that can see the bot (`inSight`, eye to eye, every half block) keeps the keep-away running until it is past 24 or out of sight, with no back-walk toward it. This is logged once a keep-away as `Reflex: <mob> D away has the bot in sight (health H); keeping 24 away, past its bow range`.
+- Melee mobs keep the old 16-block keep-away and the 16-20 hover.
+
+**Tests:** `round110.test.js` (3):
+- the skeleton at 10 (flee, one line), at 18 (still running, no back-walk) and past 24 (done), and a zombie at 18 (the old hover);
+- a skeleton behind a wall (not in sight: the old keep-away);
+- the keep-away's step jump and its `no headway` turn, 3 lines at most.
+
+Each test fails with its part of the fix taken out. 891 pass with resources.test.js left out of the batch (3 more than at `765e802`), resources 9, metrics ok.
+
+**Next:**
+- Count the new `in sight` lines and the deaths by arrows, and read the keep-away speed lines (they should carry a jump share now).
+- normal3 lost its iron pick at t=1802 with no wood to replace it: 1 stick, 1 plank, no logs. It was then stranded at (763, 71, -459) on a pillar top, with every path failing at once for its last 3 minutes. Keep a wood reserve for a replacement pick, and fix the general no-path stranded retry.

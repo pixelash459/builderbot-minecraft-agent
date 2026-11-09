@@ -84,6 +84,33 @@ export const cellAt=bot=>(x,y,z)=>{try{return (bot&&bot.blockAt&&bot.blockAt(new
 // aside for FLEE_AVOID_S, logged (the first FLEE_STUCK_LOGS times a flee) as
 // `Flee: no headway for N s heading <dir> from (x, y, z) (ahead: feet F, head H); trying another way`.
 export const FLEE_STUCK_S=1,FLEE_STUCK_BLOCKS=0.8,FLEE_AVOID_S=3,FLEE_STUCK_LOGS=3,FLEE_STUCK_GAP=0.5;
+// One tick of the round-109 flee for `task` (a RunAwayTask or the KeepDistanceTask): the headway
+// check, the heading (kept, set-aside headings avoided) and the forward/sprint/jump keys.
+function fleeStep(task,bot,ctx,list){
+ const c=pickCtx(task,ctx),w=c&&c.worker,me=bot.entity.position,now=task.now(),at=cellAt(bot);
+ task._avoid=task._avoid.filter(a=>a.until>now);
+ const pr=task._prog,prev=task.heading||null,gap=now-(task._at??-1e9);
+ task._at=now;
+ // a pause off the flee (the fuse wall holding, the chain elsewhere) is not time without headway
+ if(!pr||!task._go||gap>FLEE_STUCK_GAP||Math.hypot(me.x-pr.x,me.z-pr.z)>=FLEE_STUCK_BLOCKS)task._prog={x:me.x,z:me.z,t:now};
+ else if(now-pr.t>=FLEE_STUCK_S&&prev){
+  task._avoid.push({x:prev.x,z:prev.z,until:now+FLEE_AVOID_S});
+  task.stuck++;task._prog={x:me.x,z:me.z,t:now};
+  if(task.stuck<=FLEE_STUCK_LOGS&&w&&w.log)try{
+   const ax=Math.floor(me.x+prev.x*0.8),ay=Math.floor(me.y),az=Math.floor(me.z+prev.z*0.8),nm=b=>(b&&b.name)||'?';
+   w.log('Flee: no headway for '+(now-pr.t).toFixed(1)+' s heading '+compass(prev.x,prev.z)+' from ('+Math.floor(me.x)+', '+Math.floor(me.y)+', '+Math.floor(me.z)+') (ahead: feet '+nm(at(ax,ay,az))+', head '+nm(at(ax,ay+1,az))+'); trying another way');
+  }catch{}
+ }
+ const wet=swimming(bot);
+ const h=task.heading=fleeHeading(at,me,list,{shelter:w&&w.shelterSpot||null,inWater:wet,health:bot.health,prev,avoid:task._avoid});
+ look(bot,yawToward(h.x,h.z),0); // along the chosen away vector (heading.js convention)
+ // Every heading is a hazard (cornered against a lake or a cliff): stand, do not walk in.
+ const go=task._go=!h.blocked,sprint=go&&(bot.food||20)>6; // 7f: sprint needs food > 6
+ setControl(bot,'forward',go);
+ setControl(bot,'sprint',sprint);
+ setControl(bot,'jump',go&&fleeJump(at,me,h,{sprint,inWater:wet}));
+ return null;
+}
 class RunAwayTask extends Task{
  constructor(name,distance,{kinds=null,exclude=null}={}){super(name);this.distance=distance;this.kinds=kinds;this.exclude=exclude;this.stuck=0;this._avoid=[];}
  now(){return Date.now()/1000;}
@@ -97,29 +124,7 @@ class RunAwayTask extends Task{
  onTick(bot,ctx){
   const list=this.targets(bot,ctx).filter(e=>withinRange(e,bot,Math.max(this.distance,16)));
   if(!list.length){forget(bot,'forward','sprint','jump');return null;}
-  const c=pickCtx(this,ctx),w=c&&c.worker,me=bot.entity.position,now=this.now(),at=cellAt(bot);
-  this._avoid=this._avoid.filter(a=>a.until>now);
-  const pr=this._prog,prev=this.heading||null,gap=now-(this._at??-1e9);
-  this._at=now;
-  // a pause off the flee (the fuse wall holding, the chain elsewhere) is not time without headway
-  if(!pr||!this._go||gap>FLEE_STUCK_GAP||Math.hypot(me.x-pr.x,me.z-pr.z)>=FLEE_STUCK_BLOCKS)this._prog={x:me.x,z:me.z,t:now};
-  else if(now-pr.t>=FLEE_STUCK_S&&prev){
-   this._avoid.push({x:prev.x,z:prev.z,until:now+FLEE_AVOID_S});
-   this.stuck++;this._prog={x:me.x,z:me.z,t:now};
-   if(this.stuck<=FLEE_STUCK_LOGS&&w&&w.log)try{
-    const ax=Math.floor(me.x+prev.x*0.8),ay=Math.floor(me.y),az=Math.floor(me.z+prev.z*0.8),nm=b=>(b&&b.name)||'?';
-    w.log('Flee: no headway for '+(now-pr.t).toFixed(1)+' s heading '+compass(prev.x,prev.z)+' from ('+Math.floor(me.x)+', '+Math.floor(me.y)+', '+Math.floor(me.z)+') (ahead: feet '+nm(at(ax,ay,az))+', head '+nm(at(ax,ay+1,az))+'); trying another way');
-   }catch{}
-  }
-  const wet=swimming(bot);
-  const h=this.heading=fleeHeading(at,me,list,{shelter:w&&w.shelterSpot||null,inWater:wet,health:bot.health,prev,avoid:this._avoid});
-  look(bot,yawToward(h.x,h.z),0); // along the chosen away vector (heading.js convention)
-  // Every heading is a hazard (cornered against a lake or a cliff): stand, do not walk in.
-  const go=this._go=!h.blocked,sprint=go&&(bot.food||20)>6; // 7f: sprint needs food > 6
-  setControl(bot,'forward',go);
-  setControl(bot,'sprint',sprint);
-  setControl(bot,'jump',go&&fleeJump(at,me,h,{sprint,inWater:wet}));
-  return null;
+  return fleeStep(this,bot,ctx,list);
  }
  onStop(bot){forget(bot,'forward','sprint','jump');}
  isEqual(o){return o&&o.constructor===this.constructor&&Math.abs(o.distance-this.distance)<1;}
@@ -271,25 +276,57 @@ export class WitchCoverTask extends Task{
  isEqual(o){return o===this;}
 }
 // 7f daylight-burn ladder step: undead burn in the sun, so merely staying out of reach wins.
+// Round 110 (round-109 hard3, the soak's one death: `still recovering` at health 7 after a skeleton
+// fight, the KeepDistanceTask(16) took over from the 30-block flee with the skeleton 10.0 away under
+// the canopy and `shot by Skeleton` came 3 s later, health 14.8 -> 7.4 -> 1.8 -> 0). The keep-away
+// never got the round-109 flee (no jump, no turn off a heading that does not move it), and 16 is
+// inside a skeleton's bow: the wiki's skeleton shoots within 15 blocks with a line of sight, and
+// the 16-20 band walked the bot back toward it. A skilled player gets out of the bow's reach or its
+// sight. Now the keep-away runs the round-109 flee, and a skeleton, stray or bogged within
+// RANGED_KEEP that can see the bot is kept RANGED_KEEP away (no walking back toward it), logged once
+// a keep-away as `Reflex: <mob> D away has the bot in sight (health H); keeping 24 away, past its bow range`.
+export const RANGED_MOBS=new Set(['skeleton','stray','bogged']),RANGED_KEEP=24,BOW_RANGE=15;
+// The mob's eyes to the bot's eyes, sampled every half block; no block data counts as seen.
+export const inSight=(bot,e)=>{
+ try{
+  const me=bot.entity.position,eyes=e.position.offset(0,e.height?e.height*0.9:1.6,0),mine=me.offset(0,1.6,0);
+  const steps=Math.ceil(e.position.distanceTo(me)*2);
+  for(let i=1;i<steps;i++){
+   const t=i/steps,b=bot.blockAt&&bot.blockAt(mine.offset((eyes.x-mine.x)*t,(eyes.y-mine.y)*t,(eyes.z-mine.z)*t));
+   if(b&&b.boundingBox==='block')return false;
+  }
+ }catch{}
+ return true;
+};
 export class KeepDistanceTask extends Task{
- constructor(distance){super('KeepDistanceTask');this.distance=distance;}
- isFinished(bot,ctx){return !getHostiles(bot,ctx).some(e=>withinRange(e,bot,this.distance));}
+ constructor(distance){super('KeepDistanceTask');this.distance=distance;this.stuck=0;this._avoid=[];this.bowLogged=false;}
+ now(){return Date.now()/1000;}
+ bowmen(bot,hs){return hs.filter(e=>RANGED_MOBS.has(e.name)&&withinRange(e,bot,RANGED_KEEP)&&inSight(bot,e));}
+ isFinished(bot,ctx){const hs=getHostiles(bot,ctx);return !hs.some(e=>withinRange(e,bot,this.distance))&&!this.bowmen(bot,hs).length;}
  onTick(bot,ctx){
-  const near=getHostiles(bot,ctx).sort((a,b)=>distanceTo(a,bot)-distanceTo(b,bot))[0];
-  if(!near){forget(bot,'forward','sprint','back');return null;}
+  const hs=getHostiles(bot,ctx),near=[...hs].sort((a,b)=>distanceTo(a,bot)-distanceTo(b,bot))[0];
+  if(!near){forget(bot,'forward','sprint','back','jump');return null;}
+  const bow=this.bowmen(bot,hs);
+  if(bow.length){
+   if(!this.bowLogged){
+    this.bowLogged=true;
+    const b=bow.sort((a,c)=>distanceTo(a,bot)-distanceTo(c,bot))[0],w=pickCtx(this,ctx)?.worker;
+    if(w&&w.log)try{w.log('Reflex: '+b.name+' '+distanceTo(b,bot).toFixed(1)+' away has the bot in sight (health '+Math.round(bot.health*10)/10+'); keeping '+RANGED_KEEP+' away, past its bow range');}catch{}
+   }
+   setControl(bot,'back',false);
+   return fleeStep(this,bot,ctx,hs.filter(e=>withinRange(e,bot,16)||bow.includes(e)));
+  }
   const d=distanceTo(near,bot);
+  // Opening the gap walks forward: the round-109 flee, the same water/drop-aware crowd heading.
+  if(d<this.distance){setControl(bot,'back',false);return fleeStep(this,bot,ctx,hs.filter(e=>withinRange(e,bot,16)));}
   const dx=near.position.x-bot.entity.position.x,dz=near.position.z-bot.entity.position.z;
-  const tooClose=d<this.distance;
-  // Opening the gap walks forward: the same water/drop-aware crowd heading as the run-away.
-  const h=this.heading=tooClose?fleeHeading(cellAt(bot),bot.entity.position,getHostiles(bot,ctx).filter(e=>withinRange(e,bot,16)),{inWater:swimming(bot),health:bot.health}):null;
-  look(bot,h?yawToward(h.x,h.z):yawToward(-dx,-dz),0); // face AWAY from the threat: forward opens the gap
-  const go=tooClose&&!(h&&h.blocked);
-  setControl(bot,'forward',go);
-  setControl(bot,'back',!tooClose&&d<this.distance+4);
-  setControl(bot,'sprint',go&&(bot.food||20)>6);
+  this.heading=null;this._go=false;
+  look(bot,yawToward(-dx,-dz),0); // face AWAY from the threat: forward opens the gap
+  forget(bot,'forward','sprint','jump');
+  setControl(bot,'back',d<this.distance+4);
   return null;
  }
- onStop(bot){forget(bot,'forward','back','sprint');}
+ onStop(bot){forget(bot,'forward','back','sprint','jump');}
  isEqual(o){return o&&o.constructor===this.constructor&&Math.abs(o.distance-this.distance)<1;}
 }
 // projectiles: closest approach along the velocity line (port of the arrow-dodge check).
