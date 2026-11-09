@@ -24,7 +24,7 @@ import {TaskRunner} from './tasks/runner.js';
 import {defaultChains} from './chains/index.js';
 import {airFall} from './chains/worldSurvivalChain.js';
 import {waterlogged,riseBlockedCentre} from './tasks/movement/get-out-of-water-task.js';
-import {inLava} from './tasks/movement/escape-from-lava-task.js';
+import {inLava,pourSpot,POUR_REACH} from './tasks/movement/escape-from-lava-task.js';
 import {FightTask} from './chains/fightTask.js';
 import {createTrackers} from './trackers/index.js';
 import {createMoveApi,setDefaultMoveContext} from './tasks/movement/move.js';
@@ -3196,9 +3196,11 @@ export class Worker extends EventEmitter {
   const feet=b.entity.position.floored();
   const here=b.blockAt(feet);
   if(here&&here.name==='water')return; // standing in water already: doused
-  const support=b.blockAt(feet.offset(0,-1,0));
-  if(!support||support.boundingBox!=='block')throw Error('No ground below to pour against');
-  const aim=support.position.offset(0.5,1.0,0.5);
+  // Round 111: not only the ground under the feet - the pool floor through the lava, or its rim.
+  const spot=pourSpot(b);
+  if(!spot)throw Error('No solid block within '+POUR_REACH+' to pour against');
+  if(!spot.floor)this.log('Douse: no ground under the feet; pouring into ('+spot.cell.x+', '+spot.cell.y+', '+spot.cell.z+') against the '+spot.block.name+' '+spot.side);
+  const aim=spot.aim;
   await b.lookAt(aim,true).catch(()=>{});
   await sleep(250);
   if(!owned())throw Error('Douse interrupted: control changed hands');
@@ -3208,8 +3210,8 @@ export class Worker extends EventEmitter {
   await this.settleBlockChange(feet,'water',this.epoch);
   // Into-LAVA pours are a success too: the source turns to obsidian/cobble under the bot
   // (that is the point) - only a dry feet cell means the pour missed.
-  const after=b.blockAt(feet)?.name;
-  if(after!=='water'&&after!=='obsidian'&&after!=='cobblestone'&&after!=='lava')this.log('Douse: the water did not register at '+feet.floored());
+  const after=b.blockAt(spot.cell)?.name;
+  if(after!=='water'&&after!=='obsidian'&&after!=='cobblestone'&&after!=='lava')this.log('Douse: the water did not register at '+spot.cell);
  }
  async use(job,token){
   const b=this.bot,s=job.spec;

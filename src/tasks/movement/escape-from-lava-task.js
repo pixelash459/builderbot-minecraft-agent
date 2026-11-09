@@ -31,6 +31,50 @@ export function inLava(bot){
 export function isOnFire(bot){
  try{return !!(bot.entity?.metadata?.[0]&0x01);}catch{return false;}
 }
+// Round 111 (round-110 normal3, `burned to death` holding the water bucket it had filled 14 min
+// earlier: both `Bucket-into-lava skipped: No ground below to pour against` - the block under its
+// feet was lava). The pour only ever aimed at the top of a solid block under the feet. A skilled
+// player in lava pours wherever the water can land on or under them: the wiki's water flowing into
+// a lava source turns it to obsidian, and water placed at the feet douses the burn. A water
+// bucket's use ray passes through fluids to the solid block behind, and the water lands in the
+// open cell on the face it hits. So the cells to fill are, best first: the feet, the cell under
+// the feet when it is lava, then the lava beside the feet (at the feet and one below); each is
+// filled against a solid neighbour (under it first, then its sides, then over it) within the
+// game's 4.5-block reach, with no solid block between the eyes and the face.
+export const POUR_REACH=4.5;
+const POUR_FACES=[[0,-1,0,'top'],[1,0,0,'west side'],[-1,0,0,'east side'],[0,0,1,'north side'],[0,0,-1,'south side'],[0,1,0,'underside']];
+export function pourSpot(bot){
+ try{
+  const me=bot.entity.position,f=me.floored(),eye=me.offset(0,1.62,0);
+  const at=(x,y,z)=>{try{return bot.blockAt(new Vec3(x,y,z));}catch{return null;}};
+  const solid=b=>!!b&&b.boundingBox==='block';
+  const cells=[[f.x,f.y,f.z]];
+  if(isLava(at(f.x,f.y-1,f.z)))cells.push([f.x,f.y-1,f.z]);
+  for(const dy of [0,-1])for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]])if(isLava(at(f.x+dx,f.y+dy,f.z+dz)))cells.push([f.x+dx,f.y+dy,f.z+dz]);
+  for(const [cx,cy,cz] of cells){
+   if(solid(at(cx,cy,cz)))continue;
+   for(const [dx,dy,dz,side] of POUR_FACES){
+    const bx=cx+dx,by=cy+dy,bz=cz+dz,b=at(bx,by,bz);
+    if(!solid(b))continue;
+    // the middle of the face the water lands on
+    const aim=new Vec3(bx+0.5-dx*0.5,by+0.5-dy*0.5,bz+0.5-dz*0.5);
+    const d=eye.distanceTo(aim);
+    if(d>POUR_REACH)continue;
+    // the eyes must be on the open side of that face, or the ray meets another face first
+    if((eye.x-aim.x)*-dx+(eye.y-aim.y)*-dy+(eye.z-aim.z)*-dz<=0.05)continue;
+    let clear=true;
+    for(let s=0.1;s<d-0.05&&clear;s+=0.1){
+     const t=s/d,px=Math.floor(eye.x+(aim.x-eye.x)*t),py=Math.floor(eye.y+(aim.y-eye.y)*t),pz=Math.floor(eye.z+(aim.z-eye.z)*t);
+     if(px===bx&&py===by&&pz===bz)continue;
+     if(solid(at(px,py,pz)))clear=false;
+    }
+    if(!clear)continue;
+    return {cell:new Vec3(cx,cy,cz),block:b,side,aim,floor:cx===f.x&&cy===f.y&&cz===f.z&&dy===-1};
+   }
+  }
+ }catch{}
+ return null;
+}
 export function findSafeBlock(bot,from,radius=16,skip=null){
  const skipped=p=>!!skip&&skip.has(p.x+','+p.y+','+p.z);
  const floor=(p)=>bot.blockAt(new Vec3(p.x,p.y-1,p.z));

@@ -3833,3 +3833,30 @@ Each test fails with its part of the fix taken out. 891 pass with resources.test
 **Next:**
 - Count the new `in sight` lines and the deaths by arrows, and read the keep-away speed lines (they should carry a jump share now).
 - normal3 lost its iron pick at t=1802 with no wood to replace it: 1 stick, 1 plank, no logs. It was then stranded at (763, 71, -459) on a pillar top, with every path failing at once for its last 3 minutes. Keep a wood reserve for a replacement pick, and fix the general no-path stranded retry.
+
+## Round 111 (2026-11-09)
+
+**What the round-110 soak showed** (`4bb931e`, bot code `2126eff`). 4 deaths (0/0/2/0/1/1), all environment deaths: two lava deaths on normal3, an underground zombie crowd on hard2, and a creeper blast plus a skeleton on hard3. Iron pick on 5 of 6 runs; beds on two normals (normal1 at t=452, the earliest of the 2400-s era).
+- **The round-110 keep-away never fired** (0 `has the bot in sight` lines). hard3's death came during the creeper flee, not the keep-away: health 12.2 -> 1.7 in one second with no creeper left within 8 at the death (the creeper went off), then `shot by Skeleton` from 6.6. The creeper flee does not count skeletons.
+- **Flee median 1.12 blocks/s** (round 109: 4.53), 45 `Flee: no headway` lines. 28 of them came from one stone pocket on hard3 at (808, 82, -532), about 7 minutes. The shelter could not seal there (`1 open cells, first at 808,82,-532`, which is the bot's own cell, the bot at z -531.4), so the night pillar was tried and refused (`room 1`), and the flee thrashed in a pocket the mobs could not reach. No damage; food 18 -> 6.
+
+**The death fixed this round** (normal3 d1, 09:05:19Z, `burned to death` at (836, 77, -407), armour 8, health 17 -> 0 in 5 s). The bot was dropping junk beside a lava pool and went in (`in lava; escaping ... (head air, feet air)`: the block under its feet was lava). It held the water bucket it had filled 14 minutes earlier. Both pours were refused: `Bucket-into-lava skipped: No ground below to pour against` x2. The escape headings then thrashed 2 blocks away until the death. d2, 3.75 minutes later, was the bag run back into the second pool beside it, with no bucket left (it burned with d1's drops).
+
+**Why.** `douseFire` only aimed at the top of a solid block directly under the feet. Standing on lava, there is none.
+
+**The fix (what a skilled player does: pour the water wherever it lands on or under them).** The wiki says water flowing into a lava source turns it to obsidian (flowing lava to cobblestone). Guides tell a player who falls in to place the water at or over themselves. A water bucket's use ray passes through fluids to the solid block behind it, and the water lands in the open cell on the face it hits.
+- `escape-from-lava-task.js`: new `pourSpot(bot)`. It picks the cells to fill, best first: the feet, the lava under the feet, then the lava beside the feet (at the feet and one below). Each is filled against a solid neighbour: the block under it first, then its sides, then the one over it. The face must be within the game's 4.5 reach (`POUR_REACH`), with the eyes on the open side of it and no solid block between.
+- `worker.douseFire` pours at that spot. A pour that is not the plain ground-under-the-feet one is logged as `Douse: no ground under the feet; pouring into (x, y, z) against the <block> <side>`. With nothing to pour against it fails with `No solid block within 4.5 to pour against` (was `No ground below to pour against`). The water check reads the filled cell.
+
+**Tests:** `round111.test.js` (3):
+- standing on a one-deep pool: the pour goes into the lava under the feet against the pool floor's top, with one log line;
+- a four-deep pool: the pour goes against the rim beside the feet; with ground under the feet it is the old pour, with no log line;
+- nothing solid in reach: an honest refusal.
+
+Taking out the under-the-feet cell fails 2 tests; taking out the floor faces fails 2. The reach check is a safeguard: every face it tries is within about 3.6 of the eyes. 894 pass with resources.test.js left out of the batch (3 more than at `2126eff`), resources 9, metrics ok.
+
+**Next:**
+- Count the `Douse: no ground under the feet` lines, the lava deaths, and `Bucket-into-lava skipped` by message.
+- The creeper flee should count a skeleton that can see the bot (hard3's death).
+- The shelter's own-cell open seal (hard3's 7-minute pocket thrash).
+- The hard2 underground zombie crowd during the night tunnel mine.
