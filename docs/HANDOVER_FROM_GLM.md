@@ -3860,3 +3860,47 @@ Taking out the under-the-feet cell fails 2 tests; taking out the floor faces fai
 - The creeper flee should count a skeleton that can see the bot (hard3's death).
 - The shelter's own-cell open seal (hard3's 7-minute pocket thrash).
 - The hard2 underground zombie crowd during the night tunnel mine.
+
+## Round 112 (2026-11-09)
+
+**What the round-111 soak showed** (`0984431`, bot code `e9769f2`). **0 deaths on all six runs, the first zero-death soak since runs went to 2400 s.**
+- Iron pick on 5 of 6 runs (hard3 missed it: its ingots peaked at 0). Two armour pieces on all three normal runs.
+- The bed on normal3 came at t=693. Every hard run ran the full 2400 s.
+- The round-111 douse fix never fired: the bot never entered lava. The round-110 keep-away never fired either: no skeleton ever had the bot in sight.
+- 13 `Flee: no headway` lines with no cell over 5, so no pocket thrash.
+- 3 pinned climbs, all completed. The probe matches earlier rounds.
+
+**The problem fixed this round** (the group's builds; hard3, 15:40-15:52Z). After a night mine, the morning climb out of its box (`Boxed in ... dug 4 steps up east to (916, 83, -444)`, then `Ascend: no sky at y=83 ...; pillaring to the sky`) came up through the floor of a nether wart farm. The farm is a soul_sand bed at y=99 with warts at y=100, around (913-917, -443..-445).
+- Next came `Navigation: stranded at (914, 99, -444) ... allowing drops of up to 6 and digging` on the farm itself.
+- The night shelter then failed among the crop rows (`open cells 913,100,-445=nether_wart ...`, 25 open cells), and the bot night-pillared on the farm until morning.
+- Its final bag held `nether_wart 5`.
+- There were 0 `Dig: broke` lines: soul_sand is natural ground to every dig rule (`NATURAL_DIG`, `BURROW_SOFT`), and a wart pops off as an item when its soul sand goes.
+
+**Why.** No dig rule knew about farms. The explore pathfinder, the stranded retry (which turns `canDig` on for the normal movements, whose `safeToBreak` is the library default), the ascend and stranded pillars, and the boxed-in stair-out could all dig soul sand under a wart, or farmland.
+
+**The fix (what a player on a shared server does: never break someone else's farm).** On a shared server, breaking someone else's work is griefing, and a crop field is someone's work. Nether wart outside the Nether is always planted by a player. Breaking the soul sand under a wart, or the farmland under a crop, pops the crop off.
+- `worker.js`: new `farmBlock(bot, block)`, which returns `'a crop'`, `'farmland'` or `'under a <crop> crop'`, else null. The crops are nether_wart, wheat, carrots, potatoes, beetroots, the melon and pumpkin stems, torchflower, pitcher and cocoa.
+- `farmHarvest(block, spec)`: a gather job may harvest the crop it names (the wheat harvest). Never a wart, never farmland, never the block under a crop.
+- `guardDig(bot, ...)`, installed at spawn: wraps `bot.dig` and refuses a farm block. The refusal is logged once per block as `Farm guard: not breaking <block> at (x, y, z) - <why>; a player-made farm (job <type>)` and throws `Farm guard: ...`. This is the backstop for every dig, the pathfinder's included (its dig error replans).
+- `farmSafeMoves(m, bot)` on the normal movements, and a farm check in the explore movements' `safeToBreak`: the pathfinder never plans a farm dig.
+- The ascend and stranded pillars' `clear` refuses a farm block, so they stop with `Pillar: ceiling at ...` under a farm floor.
+
+**Tests:** `round112.test.js` (3):
+- `farmBlock` and `farmHarvest`: the wart, the soul sand under it, farmland, bare soul sand and the rim beside the farm; harvests of wheat, carrots, a wart and the soil.
+- `bot.dig` refuses the soul sand under a wart and farmland, with one log line per block. Plain dirt and a wheat harvest go through; a wart under a gather job is refused.
+- With real `Movements` (prismarine-registry 1.21.4), both the explore and normal movements refuse the soul sand under a wart and allow the dirt rim. The sky climb's pillar `clear` refuses the farm floor.
+
+**Mutation checks:**
+- Taking out each of these fails at least one test: the normal guard, the explore guard, the ascend guard, the dig guard, the wart rule, and the under-a-crop rule (that last one fails all 3).
+- The stranded pillar's own guard is not caught by any test. The `bot.dig` backstop covers it.
+
+897 pass with resources.test.js left out of the batch (3 more than at `e9769f2`); resources 9; metrics ok.
+
+**Next:**
+- Count `Farm guard:` lines and `Dig: broke` lines, and what each climb that stopped under a farm floor did next.
+- A climb that hits a farm floor should step a block or two sideways and come up beside it.
+- A shelter should not be sited among crop rows; it moves off a farm before sealing.
+- The autopilot's `gather wheat` from ripe farms takes from other players' farms too. It is out of scope this round; flagged for the user.
+- hard3's missed iron pick (ingots peaked at 0).
+- normal1's 35-minute flooded-quarry stretch (navigation refusals).
+- hard1's night mine came back one block below its box.

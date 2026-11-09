@@ -512,6 +512,52 @@ export function builtLooking(bot,block){
  }
  return null;
 }
+// Round 112 (round-111 soak, hard3: the morning climb out of a night-mine box pillared up through
+// the floor of the group's nether wart farm at (913-917, 99, -443..-445) - soul_sand is natural
+// ground to the dig rules - and the bot stood on the farm with 5 nether_wart in its bag, then
+// tried to seal its night box among the crop rows). A player on a shared server never breaks
+// another player's farm: not the crop, not the farmland, not the block a crop grows on (breaking
+// the soul sand pops the wart off). Nether wart outside the Nether is always planted by a player.
+// So no dig of a crop (unless a gather job is harvesting that crop on purpose - never a wart),
+// of farmland, or of a block with a crop on it: the pathfinder never plans one, the pillar and
+// the stranded dig treat one as a ceiling, and bot.dig itself refuses one as a backstop.
+export const CROP=/^(nether_wart|wheat|carrots|potatoes|beetroots|melon_stem|pumpkin_stem|attached_melon_stem|attached_pumpkin_stem|torchflower_crop|pitcher_crop|cocoa)$/;
+export function farmBlock(bot,block){
+ const name=block&&block.name||'';
+ if(name==='farmland')return 'farmland';
+ if(CROP.test(name))return 'a crop';
+ try{
+  const up=block&&block.position&&typeof bot?.blockAt==='function'?bot.blockAt(block.position.offset(0,1,0)):null;
+  if(up&&CROP.test(up.name))return 'under a '+up.name+' crop';
+ }catch{}
+ return null;
+}
+export function farmHarvest(block,spec){
+ const name=block&&block.name||'',want=String(spec&&spec.block||'');
+ return !!spec&&spec.type==='gather'&&CROP.test(name)&&name!=='nether_wart'&&!!want&&(name===want||name.startsWith(want.replace(/s$/,'')));
+}
+export function guardDig(bot,log,specOf){
+ if(!bot||bot.__rawDig)return;
+ if(typeof bot.dig!=='function')return afterInject(bot,'dig',()=>guardDig(bot,log,specOf));
+ const raw=bot.__rawDig=bot.dig.bind(bot),told=new Set();
+ bot.dig=async(block,...rest)=>{
+  const why=farmBlock(bot,block);
+  if(why){
+   let spec=null;try{spec=specOf();}catch{}
+   if(!farmHarvest(block,spec)){
+    const at=block.position?block.position.x+', '+block.position.y+', '+block.position.z:'?';
+    if(!told.has(at)){told.add(at);log('Farm guard: not breaking '+block.name+' at ('+at+') - '+why+'; a player-made farm (job '+(spec&&spec.type||'none')+')');}
+    throw Error('Farm guard: '+block.name+' at ('+at+') is '+why);
+   }
+  }
+  return raw(block,...rest);
+ };
+}
+export function farmSafeMoves(m,bot){
+ const base=m.safeToBreak.bind(m);
+ m.safeToBreak=block=>!farmBlock(bot,block)&&base(block);
+ return m;
+}
 export function installDigWatch(bot,log,jobOf){
  if(!bot||bot.__digWatch||typeof bot.on!=='function')return;
  bot.__digWatch=true;
@@ -1308,7 +1354,7 @@ export class Worker extends EventEmitter {
  connect(){
   if(this.bot)return;
   const bot=this.bot=mineflayer.createBot({...this.config.server,hideErrors:true});
-  installMovementFix(bot);installWeatherFix(bot);this.trackMeals(bot);guardEquip(bot);guardPlace(bot);installDigWatch(bot,m=>this.log(m),()=>(this.jobs||[]).find(j=>j.status==='running')?.spec?.type);installProvoked(bot,m=>this.log(m));bot.__windowLog=m=>this.log(m);
+  installMovementFix(bot);installWeatherFix(bot);this.trackMeals(bot);guardEquip(bot);guardPlace(bot);guardDig(bot,m=>this.log(m),()=>(this.jobs||[]).find(j=>j.status==='running')?.spec);installDigWatch(bot,m=>this.log(m),()=>(this.jobs||[]).find(j=>j.status==='running')?.spec?.type);installProvoked(bot,m=>this.log(m));bot.__windowLog=m=>this.log(m);
   bot.loadPlugin(pathfinder);bot.loadPlugin(toolPackage.plugin);
   bot.once('spawn',()=>{this.ready=true;installToolWear(bot);if(!bot._earnHook){bot._earnHook=true;bot.on('playerCollect',(collector,collected)=>{try{if(collector!==bot.entity)return;const it=collected?.getDroppedItem?.();if(it)this.earn(it.name,it.count);}catch{}});}if(!bot.inventory._lossWatch){bot.inventory._lossWatch=true;watchToolLoss(bot,m=>this.log(m));}const movement=this.movements=this.normalMovements(bot);bot.pathfinder.setMovements(movement);bot.pathfinder.searchRadius=128;if(!bot._ledgeGuard){bot._ledgeGuard=true;let last=0,lastLava=0;const fall={};const gait=newGait(),speed=newSpeed();installSprintHold(bot);const sink={};bot.on('physicsTick',()=>{bot.__pathTick=false;try{const sk=sinkGuard(bot,sink,Date.now());if(sk)this.log(sk+' (job '+((this.jobs||[]).find(j=>j.status==='running')?.spec?.type||'none')+', chain '+(this.taskRunner?.active?.name||this.taskRunner?.current?.name||'?')+')');}catch{}try{sprintAssist(bot);const g=gaitTick(bot,gait,Date.now());if(g)this.log(g);const sp=speedTick(bot,speed,Date.now());if(sp)this.log(sp);{const lv=lavaGuard(bot);if(lv&&Date.now()-lastLava>5000){lastLava=Date.now();this.log('Lava guard: stopped at '+bot.entity.position.floored()+' (lava ahead at '+lv+'; job '+((this.jobs||[]).find(j=>j.status==='running')?.spec?.type||'none')+')');}}if(ledgeGuard(bot)&&Date.now()-last>5000){last=Date.now();this.log('Ledge guard: stopped at '+bot.entity.position.floored()+' (a '+LEDGE_DROP+'+ drop ahead)');}const f=fallWatch(bot,fall);if(f)this.log('Fall: dropping from '+new Vec3(f.from.x,f.from.y,f.from.z).floored()+' (job '+((this.jobs||[]).find(j=>j.status==='running')?.spec?.type||'none')+', pathing '+!!bot.pathfinder?.isMoving?.()+', sprint '+!!bot.getControlState?.('sprint')+')');}catch{}});}bot.pathfinder.LOSWhenPlacingBlocks=false;bot.pathfinder.thinkTimeout=10000;/* round 27: 5 s timed out every night-mine climb home (`Took to long to decide path to goal!`) *//* round 25: its returningPos is never cleared by a reset and wedged all pathing */// in blocks: bounds searches for unreachable goals; legit paths may still cost up to goal distance + 128
   if(!this.trackersTimer){ // tracker refresh + preemption resume + idle armour, port of the reflex cadence
@@ -1552,7 +1598,7 @@ export class Worker extends EventEmitter {
       // pillar did, twice): climb STRAND_PILLAR and path once more from the top.
       this._strandPillar=true;
       try{
-       const safe=bl=>{const up=bot.blockAt(bl.position.offset(0,1,0));return !/bedrock|obsidian|chest|furnace|crafting_table|spawner/.test(bl.name)&&!isFluid(bl)&&!isFluid(up)&&!isGravity(up);};
+       const safe=bl=>{const up=bot.blockAt(bl.position.offset(0,1,0));return !/bedrock|obsidian|chest|furnace|crafting_table|spawner/.test(bl.name)&&!isFluid(bl)&&!isFluid(up)&&!isGravity(up)&&!farmBlock(bot,bl);};
        const y0=Math.floor(bot.entity.position.y);
        const plan=strandPlan(this.strandPillars,bot.entity.position);this.strandPillars=plan.recent;
        if(plan.action==='dig'){
@@ -1683,6 +1729,7 @@ export class Worker extends EventEmitter {
   // sprinting was off here since the first import): sprint like the explore movements do. The
   // ledge guard (round 31) lets go of the sprint key beside any 5+ drop.
   const movement=new Movements(bot);movement.canDig=false;movement.allow1by1towers=false;movement.allowParkour=false;movement.allowSprinting=true;movement.canOpenDoors=false;movement.maxDropDown=3;
+  farmSafeMoves(movement,bot); // round 112: the stranded dig turns canDig on here
   this.applyMobAvoidance(movement,bot);this.avoidHazards(movement,bot);
   return waterExits(guardDiagonals(waterAware(movement)));
  }
@@ -1703,6 +1750,7 @@ export class Worker extends EventEmitter {
   const base=m.safeToBreak.bind(m);
   m.safeToBreak=block=>{
    if(!natural.has(block.type))return false;
+   if(farmBlock(b,block))return false; // round 112: soul_sand under a wart is natural ground, a farm all the same
    // The library already refuses digs beside or above fluids; also refuse digging above a fluid.
    const below=b.blockAt(block.position.offset(0,-1,0));
    if(below&&(below.name==='lava'||below.name==='water'))return false;
@@ -5021,7 +5069,7 @@ export class Worker extends EventEmitter {
   // Round 40 (round-39 normal: `ascend` for food from y=53 x16, every one `No path to the goal!
   // (empty path ...)` - an enclosed cell with no way up the pathfinder can see): pillar straight
   // up instead, digging any ceiling that has no fluid or falling block over it.
-  const safe=bl=>{const up=b.blockAt(bl.position.offset(0,1,0));return !/bedrock|obsidian|chest|furnace|crafting_table|spawner/.test(bl.name)&&!isFluid(bl)&&!isFluid(up)&&!isGravity(up);};
+  const safe=bl=>{const up=b.blockAt(bl.position.offset(0,1,0));return !/bedrock|obsidian|chest|furnace|crafting_table|spawner/.test(bl.name)&&!isFluid(bl)&&!isFluid(up)&&!isGravity(up)&&!farmBlock(b,bl);};
   const skyOpen=()=>headSky(b,b.entity.position.floored())>=SKY_OPEN;
   // Round 96: under a canopy, ground beside the bot is out too.
   const beside=()=>toSky?walkOut(b,b.entity.position.floored()):null;
