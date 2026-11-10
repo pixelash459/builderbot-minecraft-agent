@@ -3949,3 +3949,35 @@ Taking out the under-the-feet cell fails 2 tests; taking out the floor faces fai
 - A gaze guard if `Enderman:` lines ever show stares.
 - noPath stranded retry.
 - #375 skipped.
+
+## Round 115 (2026-11-11)
+
+**Soak (report `002568a`, round 114, bot code `86933a6`):** clean and promoted. **1 death** = 0/0/0/0/1/0. Iron pick on 5 of 6 runs (482/844/636/-/1266/1717); normal1's 482 is the era's fastest. normal1 made its third diamond pick in a row, and normal3 matched the 5-diamond record. hard1, which died twice in round 113's cave, had no deaths; it missed its iron pick (food and exploring, not the new skip). **The round-114 skip fired on the round-113 killer cave by name:** `Gather: iron_ore at (801, 66, -569) has 10 hostiles within 16 of it (...); a mob cave - its ores set aside for 20 min`, 0.03 s after the job went out and before a step. No death came within 24 of either marked spot, and the iron rung was not slowed overall.
+
+**Cause (the one death, hard2 17:40:42):** a morning crowd of 40+ mobs. The bot fought a zombie and landed 2 hits; the zombie was burning in daylight. At 17:40:32.571 `Misc World Survival Chain engaging` (the soak's only in-run preempt by that chain), and from that moment the health fell exactly 1 a sample: `15.5 -> 14.5 -> ... -> 7.5`. That is the fire's 1-a-second burn, while the nearest hostile was 9.8-10.4 away. Then `the RunAwayFromHostilesTask has kept the bot in one spot for 4.6 s with zombie 2.7 away (health 8.5, held iron_sword); cornered - fighting back`, with the flee's speed line at 0.09 blocks/s, and the zombie finished it 3 -> 2 -> 0.
+
+A burning zombie sets its target alight. The bot carried no water bucket, so the chain's extinguish branch rooted `GetToBlockTask('water')`, which walks to any water within 48, at priority 90. That is above every flee band, so the chain took the bot from the flee to steer at far-off water and held it in one spot. The burn was never logged, because that branch had no log line; this is likely, not proven. A fire a mob lights lasts a few seconds, and a skilled player does not leave a fight to find water for it.
+
+**Fix (one change - no walk to far water while burning):**
+- worker-side: `worldSurvivalChain.js`, with new exports `FIRE_WATER_NEAR=8` and `nearWater(bot, r)`.
+- On fire with no water bucket, the walk to water runs only when water is within 8 blocks, or in the 4-s window after leaving lava. A lava fire lasts 15 s and the pool's rim keeps burning, so it keeps the old walk.
+- Otherwise the chain stands down (-1), so the flee or the fight keeps the bot, and a walk already rooted is dropped once the water falls out of range.
+- The water-bucket douse is unchanged.
+- New lines, once per burn:
+  - `WorldSurvival: on fire with no water bucket; walking to the water D away` / `...; out of lava, walking to water`
+  - `WorldSurvival: on fire with no water bucket and no water within 8 (health H); not leaving for water, it burns out`
+
+**Tests:** `tests/round115.test.js` (3):
+- The death's shape: burning, no bucket, water 30 away. The chain stays at -1 and roots no GetToBlockTask; the line logs once per burn and again for a new burn.
+- Unchanged: water 4.6 away (the walk, with its line), a lava exit with water far (the walk), a water bucket (the douse), not burning (nothing).
+- A walk rooted to water 6 away is dropped when the flee carries the bot 16 from it.
+
+903 -> 906 pass with resources.test.js left out; resources 9; rung table ok. Mutation: widening `nearWater` back to 48 fails all three tests.
+
+**Next candidates:**
+- hard3's 40-line `Flee: no headway` pocket at (816, 84, -526) over 8.3 min under its night-mine box (flee median 0.78, the era's worst; no damage).
+- A death in a crowd at armour 0 on every hard run: no hard run wore armour this soak.
+- hard1's iron miss (food set aside 3 times, ate 15).
+- Round 113's death-2 shape: a bag run into a crowd that still holds the spot, and a food-emergency fight inside a crowd.
+- The airborne night pillar-up; a sword sweep clipping a calm enderman.
+- noPath stranded retry; #375 skipped.

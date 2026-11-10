@@ -13,6 +13,17 @@ import {hasItemName} from './combatPolicy.js';
 import {movementTask,EscapeFromLavaTask,EscapeFreezingTask,EscapeSuffocationTask,GetToBlockTask,PutOutFireTask,SafeRandomShimmyTask,ExtinguishWithWaterTask,InteractWithBlockTask,SwimUpTask} from './fallbackTasks.js';
 import {inLava as blockInLava} from '../tasks/movement/escape-from-lava-task.js';
 import {waterlogged} from '../tasks/movement/get-out-of-water-task.js';
+// Round 115 (round-114 hard2, its one death: set alight by a burning zombie in the morning, the bot
+// had no water bucket, and this chain's walk to any water within 48 outranked the flee from a
+// 40+ mob crowd at 90 - the flee read `kept the bot in one spot for 4.6 s`, the health fell 1 a
+// second 15.5 -> 7.5 with no hostile within 8, then the zombie closed and finished it): a fire a
+// mob lights burns out in a few seconds, and a player does not leave a fight to find water for it.
+// With no water bucket the walk to water runs only for water within FIRE_WATER_NEAR, or after
+// lava (that fire lasts 15 s and keeps burning in the lava's edge). Logged once a burn.
+export const FIRE_WATER_NEAR=8;
+export function nearWater(bot,r=FIRE_WATER_NEAR){
+ try{return bot.findBlock?.({matching:b=>b&&b.name==='water',useExtraInfo:false,maxDistance:r})||null;}catch{return null;}
+}
 export class WorldSurvivalChain extends SingleTaskChain{
  constructor(){
   super('Misc World Survival Chain');
@@ -90,9 +101,18 @@ export class WorldSurvivalChain extends SingleTaskChain{
      this._extinguishWaterPosition=bot.entity.position.clone?bot.entity.position.clone():bot.entity.position;
      return 90;
     }
-    this.root=movementTask(ctx,'GetToBlockTask',()=>new GetToBlockTask('water'));
-    return 90;
+    const lavaBurn=this.now()<this._lavaUntil,water=lavaBurn?null:nearWater(bot);
+    if(lavaBurn||water){
+     if(!this._burnLogged){this._burnLogged=true;const w=ctx&&ctx.worker;const me=bot.entity.position;
+      if(w&&w.log)try{w.log('WorldSurvival: on fire with no water bucket; '+(lavaBurn?'out of lava, walking to water':'walking to the water '+water.position.distanceTo(me).toFixed(1)+' away'));}catch{}}
+     this.root=movementTask(ctx,'GetToBlockTask',()=>new GetToBlockTask('water'));
+     return 90;
+    }
+    if(!this._burnLogged){this._burnLogged=true;const w=ctx&&ctx.worker;
+     if(w&&w.log)try{w.log('WorldSurvival: on fire with no water bucket and no water within '+FIRE_WATER_NEAR+' (health '+bot.health+'); not leaving for water, it burns out');}catch{}}
+    if(this.root?.name==='GetToBlockTask')this.root=null;
    }
+   if(!burning)this._burnLogged=false;
    if(hasItemName(bot,'bucket')&&!hasItemName(bot,'water_bucket')&&this._extinguishWaterPosition&&this._stillWater(bot,this._extinguishWaterPosition)){
     this.root=new InteractWithBlockTask(this._extinguishWaterPosition,'water_bucket');
     return 60;
