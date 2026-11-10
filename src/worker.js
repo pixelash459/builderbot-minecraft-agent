@@ -16,6 +16,7 @@ import {craftConfirmedRetry as craftConfirmed} from './crafting.js';
 import {survey} from './observe.js';
 import {dayTicks,isNight} from './daytime.js';
 import {installProvoked,provoked,installEndermanWatch} from './provoked.js';
+import {endermanAngry} from './chains/combatPolicy.js';
 import {Autopilot,escapeY,deathBag,BAG_RUN_MS} from './autopilot.js';
 import {SMELTING} from './smelting.js';
 import {buildChain,BREED_FOOD} from './howto.js';
@@ -274,6 +275,19 @@ export const HAZARD_NEAR=8,HAZARD_MS=5*60000,DEEP_DARK_AVOID=32,DEEP_DARK_MS=30*
 // Round 52: a mob cave - a crowd met underground (round 50 hard2 and round 51's first run died
 // in the same cave under the spawn, y 38-40, 20+ hostiles): its ores are set aside for a while.
 export const MOB_CAVE_AVOID=24,MOB_CAVE_MS=20*60000,MOB_CAVE_NEAR=24,MOB_CAVE_CROWD=6;
+// Round 114 (round-113 hard1: three minutes fleeing a 40+ mob crowd round a cave mouth, then the
+// iron gather picked an ore at (807, 66, -571) in that cave; `a mob cave (10 hostiles within 24 at
+// (809, 71, -563))` was logged only once the bot was inside, and it was shot dead 8 s later): a
+// player who can see a crowd round an ore mines somewhere else. An ore (or stone) with ORE_CROWD+
+// hostiles within ORE_CROWD_R of it is not picked; its spot is marked a mob cave, so the ores
+// round it are set aside for MOB_CAVE_MS like a cave the bot walked into. A calm enderman is no
+// crowd (round 113).
+export const ORE_CROWD_R=16,ORE_CROWD=MOB_CAVE_CROWD;
+export function crowdAt(bot,pos,r=ORE_CROWD_R){
+ if(!bot||!pos)return [];
+ return Object.values(bot.entities||{}).filter(e=>e&&e!==bot.entity&&(e.type==='hostile'||provoked(bot,e))&&e.position&&e.isValid!==false
+  &&!(e.name==='enderman'&&!endermanAngry(e))&&e.position.distanceTo(pos)<=r).sort((a,c)=>a.position.distanceTo(pos)-c.position.distanceTo(pos));
+}
 // Round 52: a store job that put nothing away stands the store down this long (the old
 // drop/deposit path runs meanwhile).
 export const STORE_RETRY_MS=5*60000;
@@ -3729,6 +3743,7 @@ export class Worker extends EventEmitter {
     const naturalUnder=t=>NATURAL_DIG.has(t.name)||/_leaves$/.test(t.name)||/_log$/.test(t.name);
     const maxY=s.belowFoots?b.entity.position.y+4:Infinity;
     const columns=new Map();
+    const nearestOf=col=>col.reduce((a,c)=>c.position.distanceTo(b.entity.position)<a.position.distanceTo(b.entity.position)?c:a);
     for(const t of targets){
      if(t.position.y>maxY)continue;
      const k=t.position.x+','+t.position.z;
@@ -3741,6 +3756,14 @@ export class Worker extends EventEmitter {
      const ck=col[0].position.x+','+col[0].position.z;
      if(job.badColumns.includes(ck))continue; // one unreachable trunk must not abort the whole job
      if(this.nearHazard?.(col[0].position))continue; // round 38: a job just led into a hazard there
+     if(UNDERGROUND.test(s.block)){
+      const near=nearestOf(col),crowd=crowdAt(b,near.position);
+      if(crowd.length>=ORE_CROWD){
+       job.badColumns.push(ck);
+       if(this.markMobCave?.(near.position))this.log('Gather: '+near.name+' at '+near.position+' has '+crowd.length+' hostiles within '+ORE_CROWD_R+' of it ('+crowd.slice(0,4).map(e=>e.name+' '+e.position.distanceTo(near.position).toFixed(1)).join(', ')+(crowd.length>4?' and '+(crowd.length-4)+' more':'')+'); a mob cave - its ores set aside for '+MOB_CAVE_MS/60000+' min');
+       continue;
+      }
+     }
      const d=Math.min(...col.map(t=>t.position.distanceTo(b.entity.position)));
      const base=Math.min(...col.map(t=>t.position.y));
      const penalty=(s.surface&&job.surfaceY!==undefined&&base<job.surfaceY-1)?6:0
@@ -4992,8 +5015,8 @@ export class Worker extends EventEmitter {
   return crowd+' hostiles within '+MOB_CAVE_NEAR+' at '+p.floored()+' (sky '+sky+', surface '+top+')';
  }
  // Round 52: true when this is a new mob cave (not within MOB_CAVE_AVOID of a marked one).
- markMobCave(){
-  const p=this.bot?.entity?.position;if(!p)return false;
+ markMobCave(at){
+  const p=at||this.bot?.entity?.position;if(!p)return false;
   const now=Date.now();this.mobCaves=(this.mobCaves||[]).filter(h=>h.until>now);
   if(this.mobCaves.some(h=>Math.hypot(h.x-p.x,h.y-p.y,h.z-p.z)<=MOB_CAVE_AVOID))return false;
   this.mobCaves=this.mobCaves.concat([{x:p.x,y:p.y,z:p.z,until:now+MOB_CAVE_MS}]).slice(-6);

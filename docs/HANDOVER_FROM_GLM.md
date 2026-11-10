@@ -3920,3 +3920,32 @@ Taking out the under-the-feet cell fails 2 tests; taking out the floor faces fai
 **Tests:** `tests/round113.test.js` (3): the death-2 shape (a pinned, chased flee with a calm enderman at 2.0 then 0.4 - never cornered or stand, never a KillEntitiesTask; the same enderman screaming is answered); the force field never swings at a calm enderman, carrying a block or not, and swings at an angry one; the anger line logs once, names a stare and the last swing, and clears when calm. `mob-etiquette.test.js`'s "cornered: answer it" case flipped (it encoded the bug). 900 pass with resources.test.js left out (+3), resources 9, rung table ok. Mutations: moving the enderman check back after the 2-block rule fails test 1; the old metadata-16 forcefield check fails test 2. The reflexes.js change has no unit test (the old reflex is a fallback path).
 
 **Next candidates:** a sword sweep can still clip a calm enderman standing beside the zombie being fought; a gaze guard if the new line shows stares; hard runs' night crowds (flee median under 1 block/s on hard2, the 29-line no-headway pocket on hard3 at (812, 67, -552)); death 5's armed bot pinned 1 s against stone without the cornered gate; normal3 pick/wood and the noPath stranded retry still open; #375 skipped.
+
+## Round 114 (2026-11-10)
+
+**Soak (report `13f915c`, round 113, bot code `040662c`):** clean and promoted. 2 deaths = 0/0/0/2/0/0, both hard1; **iron pick 6 of 6**, the first full sweep since round 109; normal1 mined 3 diamonds and made the era's first diamond pickaxe. Both armed stands won (hard3, the second at health 1.7). The round-113 enderman fix was not exercised (0 `Enderman:` lines, 0 enderman deaths; the one enderman near a death was calm at 7.8 and not the killer). The farm guard and the lava douse were idle for the third round running.
+
+**Cause:** hard1's death 1. By day, after a night skip, the bot spent three minutes (06:26-06:29) fleeing and keeping away from a 40+ mob crowd round a cave mouth near (805, 70, -565). It crafted, ate, and then the ladder's iron gather (`targetY 16`) picked an ore at (807, 66, -571) in that cave. It walked down, and at 06:29:19 logged `a mob cave (10 hostiles within 24 at (809, 71, -563) (sky 0, surface 90))`, but only once it was inside. Then came a spider hit, a creeper fuse and a failed pillar-up (airborne). It was shot dead 8 s later at armour 2, holding cobblestone. Death 2, 4 min later, was the bag run back to the same spot at dusk with armour 0. The mob-cave guard (`mobCaveHere`) only reads the crowd round the bot, so a cave is marked after the bot has walked into it. A player who can see a crowd round an ore mines somewhere else.
+
+**Fix (one change - an ore gather does not pick an ore with a crowd round it):**
+- worker.js `crowdAt(bot, pos, r)` (new export): the hostiles (or provoked mobs) within r of a spot, nearest first. A calm enderman is not counted (round 113).
+- The gather's column choice: for an underground block (`UNDERGROUND`: ores, stone, deepslate, tuff, cobblestone), a column whose nearest block has `ORE_CROWD` (6, = `MOB_CAVE_CROWD`) or more hostiles within `ORE_CROWD_R` (16) is refused and added to `badColumns`. Its spot is marked a mob cave (`markMobCave(at)` now takes a position), so every ore within `MOB_CAVE_AVOID` (24) is set aside for `MOB_CAVE_MS` (20 min) through `nearHazard`, the same as a cave the bot walked into.
+- One line per cave: `Gather: <ore> at P has N hostiles within 16 of it (mob d, ... and K more); a mob cave - its ores set aside for 20 min`.
+- With only refused columns left, the existing branch runs: the descent if the job's depth isn't reached yet, else `only refused <block> ...; searching further afield`.
+- Wood, crops and the night mine (which digs on its own, not through the gather) are unchanged.
+
+**Tests:** `tests/round114.test.js` (3):
+- The death shape: a nearer ore with 7 hostiles round it is passed over for a clear one 28 away. The line is logged, the spot is marked for 20 min, and the next job sets aside an ore near the mark with no second line.
+- Unchanged: 5 hostiles (one short of a crowd), 7 calm endermen, a crowd 20 from the ore, and a wood gather beside 8 zombies. `crowdAt` counts 7 angry endermen.
+- Every ore in a crowd: the job takes a search leg and mines elsewhere, with no dig in the cave.
+
+900 -> 903 pass with resources.test.js left out; resources 9; rung table ok. Mutation: disabling the crowd check fails tests 1 and 3.
+
+**Next candidates:**
+- Death 2's shape: a bag run back to a death spot that a crowd still holds, at dusk and unarmoured, and a food-emergency chicken fight queued with 8 hostiles within 8 (`foodEmergency` overrides the crowd gate).
+- The night-crowd pillar-up failing when airborne (`left the column at 0/3 ... airborne`).
+- normal2 broke its iron pick and never re-made it (3 ingots, no sticks or wood, 304 s pick-less).
+- A sword sweep can still clip a calm enderman.
+- A gaze guard if `Enderman:` lines ever show stares.
+- noPath stranded retry.
+- #375 skipped.
