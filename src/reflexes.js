@@ -8,6 +8,7 @@
 import pathfinderPackage from 'mineflayer-pathfinder';
 import {Vec3} from 'vec3';
 import {eatMeal} from './eating.js';
+import {endermanAngry} from './chains/combatPolicy.js';
 const {goals}=pathfinderPackage;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const UNSAFE=new Set(['spider_eye','poisonous_potato','pufferfish']);
@@ -113,6 +114,8 @@ function canSee(b,at){
 // Neutral mobs are left alone unless they are on top of the bot or just hurt it.
 function isRealThreat(worker,b,e){
  if(!NEUTRAL.has(e.name))return true;
+ // Round 113: a calm enderman is never fought, however close (a hit is what provokes it).
+ if(e.name==='enderman')return endermanAngry(e);
  if(e.position.distanceTo(b.entity.position)<=2)return true;
  const now=Date.now();
  return worker.hurtBy===e.id&&now-worker.hurtAt<5000;

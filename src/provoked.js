@@ -24,6 +24,36 @@ export function provoked(bot,e,now=Date.now()){
  }
  return false;
 }
+// Round 113: the moment an enderman turns angry (metadata 17, screaming), say why it might have:
+// how far it is, how many degrees the bot's look was off its eyes (the game provokes on a look
+// within acos(1 - 0.025/d) with a clear line, up to 64 blocks), and when the bot last swung at it.
+export const ENDER_EYE=2.55,ENDER_STARE_RANGE=64;
+export function lookOffEyes(bot,e){
+ const me=bot.entity,p=me.position,y=me.yaw||0,pt=me.pitch||0;
+ const vx=-Math.sin(y)*Math.cos(pt),vy=Math.sin(pt),vz=-Math.cos(y)*Math.cos(pt);
+ const dx=e.position.x-p.x,dy=e.position.y+ENDER_EYE-(p.y+1.62),dz=e.position.z-p.z,d=Math.hypot(dx,dy,dz)||1;
+ const dot=(vx*dx+vy*dy+vz*dz)/d;
+ return {d,deg:Math.acos(Math.max(-1,Math.min(1,dot)))*180/Math.PI,stare:dot>1-0.025/d};
+}
+export function installEndermanWatch(bot,log=()=>{}){
+ if(!bot||bot._enderWatch)return;
+ bot._enderWatch=true;
+ const angry=new Set(),hits=new Map();
+ const raw=bot.attack;
+ if(typeof raw==='function')bot.attack=function(target,...a){try{if(target&&target.name==='enderman')hits.set(target.id,Date.now());}catch{}return raw.call(this,target,...a);};
+ bot.on('entityUpdate',e=>{
+  try{
+   if(!e||e.name!=='enderman'||!e.position||!bot.entity?.position)return;
+   const m=e.metadata||[],now=m[17]===true||m[17]===1;
+   if(!now){angry.delete(e.id);return;}
+   if(angry.has(e.id))return;
+   angry.add(e.id);
+   const o=lookOffEyes(bot,e),h=hits.get(e.id);
+   log('Enderman: the one at '+e.position.floored()+' ('+o.d.toFixed(1)+' away) turned angry; '+"the bot's look was "+o.deg.toFixed(1)+' deg off its eyes'+(o.stare?' (a stare)':'')+'; last swung at it '+(h?((Date.now()-h)/1000).toFixed(1)+' s ago':'never'));
+  }catch{}
+ });
+ bot.on('entityGone',e=>{try{e&&(angry.delete(e.id),hits.delete(e.id));}catch{}});
+}
 export function installProvoked(bot,log=()=>{}){
  if(!bot||bot._provokedHook)return;
  bot._provokedHook=true;

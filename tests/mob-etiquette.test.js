@@ -12,12 +12,13 @@ function bot({tod=6000,sky=15,entities=[]}={}){
  entities.forEach((e,i)=>{b.entities[i+1]=e;});
  return b;
 }
-test('leaveAlone: a calm enderman, but not an angry one or one on top of the bot',()=>{
+test('leaveAlone: a calm enderman at any distance (round 113), but not an angry one',()=>{
  const b=bot();
  assert.equal(leaveAlone(mob('enderman',6),b),true);
  const angry=mob('enderman',6);angry.metadata=[];angry.metadata[17]=true;
  assert.equal(leaveAlone(angry,b),false,'screaming: it is coming');
- assert.equal(leaveAlone(mob('enderman',LEAVE_ALONE_CLOSE),b),false,'cornered: answer it');
+ assert.equal(leaveAlone(mob('enderman',LEAVE_ALONE_CLOSE),b),true,'round 113: a calm one beside the bot is still harmless - a hit provokes it');
+ assert.equal(leaveAlone(mob('enderman',0.5),b),true);
 });
 test('leaveAlone: a spider in daylight, never at night, in the dark or a cave spider',()=>{
  assert.equal(leaveAlone(mob('spider',6),bot()),true);

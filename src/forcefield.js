@@ -11,6 +11,7 @@
 //     it swings only what is already within reach.
 // Swing rate is the vanilla cooldown of the held weapon (server-authoritative anyway).
 import {readGear,cooldownSeconds,hasLineOfSight} from './combat.js';
+import {endermanAngry} from './chains/combatPolicy.js';
 const dist=(a,b)=>{if(!a||!b)return Infinity;const dx=a.x-b.x,dy=a.y-b.y,dz=a.z-b.z;return Math.sqrt(dx*dx+dy*dy+dz*dz);};
 
 const state={lastSwing:-Infinity,lastGlance:-Infinity};
@@ -37,7 +38,9 @@ export function forceFieldTick(bot,worker){
   if(e.username)continue; // never players
   const META_HOSTILE=e.metadata&&(e.metadata[0]||0);
   void META_HOSTILE;
-  if(e.name&&/^(enderman)$/.test(e.name)&&!(e.metadata&&((e.metadata[16]||0)&1)))continue; // neutral unless provoked
+  // Round 113: metadata 16 is the block an enderman carries, not its anger - one carrying a
+  // block with an odd state id read as provoked. Screaming (17) is the angry flag.
+  if(e.name==='enderman'&&!endermanAngry(e))continue; // neutral unless provoked
   const d=dist(e.position,me.position);
   if(d>3.1||d>=targetDist)continue;
   if(!hasLineOfSight(bot,e))continue;

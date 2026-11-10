@@ -40,10 +40,19 @@ export const distanceTo=(e,bot)=>e&&e.position&&bot.entity?dist(e.position,bot.e
 // spider, or a spider in a cave or at night, is not), unless it is on top of the bot. Creepers
 // (never melee - the flee branch) and witches (backed away from) keep their own rules.
 export const LEAVE_ALONE_CLOSE=2;
+// Round 113 (round-112 hard2: an enderman stood 1.8-2.0 from the bot for 6 s while its health
+// rose 9 -> 14 - calm - then the 2-block rule made it a threat, `cornered - fighting back` hit it,
+// and it answered 14 -> 3.5 -> 0, `slain by Enderman`; 3 of the soak's 6 deaths were endermen on
+// one cave floor). The wiki: an enderman attacks only a player who looks at its eyes or hits it
+// first. A skilled player never swings at a calm one however close it walks - it is harmless
+// until provoked, and 40 health with a 10.5 hit on hard is no fight for an unarmoured bot. So a
+// calm enderman is left alone at any distance; only a screaming one (angry, metadata 17) is a
+// threat.
+export const endermanAngry=e=>{const m=(e&&e.metadata)||[];return m[17]===true||m[17]===1;};
 export function leaveAlone(e,bot){
  if(!e||!e.position)return false;
+ if(e.name==='enderman')return !endermanAngry(e);
  if(distanceTo(e,bot)<=LEAVE_ALONE_CLOSE)return false;
- if(e.name==='enderman'){const m=e.metadata||[];return !(m[17]===true||m[17]===1);}
  if(e.name==='spider'){
   if(provoked(bot,e))return false; // round 107: it bit the bot - not neutral any more
   const tod=dayTicks(bot);

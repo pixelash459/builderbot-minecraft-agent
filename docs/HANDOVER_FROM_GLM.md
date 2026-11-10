@@ -3904,3 +3904,19 @@ Taking out the under-the-feet cell fails 2 tests; taking out the floor faces fai
 - hard3's missed iron pick (ingots peaked at 0).
 - normal1's 35-minute flooded-quarry stretch (navigation refusals).
 - hard1's night mine came back one block below its box.
+
+## Round 113 (2026-11-10)
+
+**Soak (report `c44aa36`, round 112, bot code `7173d54`):** clean, 6 deaths = 0/0/0/1/2/3, all on hard runs at armour 0; normals zero-death for the third round running; iron pick 4 of 6 (hard2 and hard3 lost their ingots on the floor). The round-112 farm guard never fired (0 `Farm guard:` lines; the climbs stayed ~95 blocks from the wart farm) - correct and unexercised. **3 deaths were endermen**, the first of the soak era, and 4 of the 6 fell within 4 blocks of each other on the cave floor at (857-860, 57-60, -542..-545).
+
+**Cause:** hard2's death 2 - an enderman stood 1.8-2.0 from the bot for about 6 s while the bot's health rose 9 -> 14 (it was calm: an angry enderman at 2 blocks strikes at once). `leaveAlone` made any enderman within `LEAVE_ALONE_CLOSE` (2) a threat whether or not it was screaming, so the pinned KeepDistanceTask's `cornered - fighting back` (01:05:53.968, "enderman 2.0 away") hit it with the KillEntitiesTask, and `standing to fight` followed; the enderman answered 14 -> 3.5 -> 0 (`slain by Enderman`, 10.5 a hit on hard). The wiki: an enderman attacks only a player who looks at its eyes or hits it first.
+
+**Fix (one change - never provoke a calm enderman):**
+- `combatPolicy.leaveAlone`: an enderman is left alone at any distance unless it is screaming (metadata 17, new export `endermanAngry`); the 2-block rule still holds for the day spider. So `getHostiles`, the cornered and stand fights, the night-mine guard and the shelter guard never pick a calm enderman.
+- `reflexes.isRealThreat`: the same for the old 6-block threat reflex (it fought a neutral within 2).
+- `forcefield.js`: it read metadata 16 (the block an enderman carries) as the anger flag - one carrying a block with an odd state id was swung at. Now it uses `endermanAngry`.
+- Diagnostic: `installEndermanWatch` (provoked.js, installed at spawn) logs once per anger `Enderman: the one at P (D away) turned angry; the bot's look was A deg off its eyes[ (a stare)]; last swung at it N s ago|never` - the game's stare test is a look within acos(1 - 0.025/d) of the eyes (2.55 up) with a clear line, so a level look at one 20+ blocks ahead provokes it. The next soak tells whether the bot's looks (pathfinder yaw/pitch, flee headings) provoke endermen too; a gaze guard is the follow-up if they do.
+
+**Tests:** `tests/round113.test.js` (3): the death-2 shape (a pinned, chased flee with a calm enderman at 2.0 then 0.4 - never cornered or stand, never a KillEntitiesTask; the same enderman screaming is answered); the force field never swings at a calm enderman, carrying a block or not, and swings at an angry one; the anger line logs once, names a stare and the last swing, and clears when calm. `mob-etiquette.test.js`'s "cornered: answer it" case flipped (it encoded the bug). 900 pass with resources.test.js left out (+3), resources 9, rung table ok. Mutations: moving the enderman check back after the 2-block rule fails test 1; the old metadata-16 forcefield check fails test 2. The reflexes.js change has no unit test (the old reflex is a fallback path).
+
+**Next candidates:** a sword sweep can still clip a calm enderman standing beside the zombie being fought; a gaze guard if the new line shows stares; hard runs' night crowds (flee median under 1 block/s on hard2, the 29-line no-headway pocket on hard3 at (812, 67, -552)); death 5's armed bot pinned 1 s against stone without the cornered gate; normal3 pick/wood and the noPath stranded retry still open; #375 skipped.
