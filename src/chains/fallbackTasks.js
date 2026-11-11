@@ -827,6 +827,14 @@ export const RING=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
 // the side away from them and comes down; Mob Defense then answers them on the ground, by day, and
 // does not climb again for PERCH_RETRY_S. PERCH_OPEN_S caps the opening.
 export const PERCH_PINNED_S=30,PERCH_OPEN_S=20,PERCH_RETRY_S=120;
+// Round 118 (round-117 hard3: a day crowd of 7 at tod ~1300 put the bot on a day perch at
+// (790, 88, -569) over the mob cave it had just climbed out of; a day perch came down only after
+// 15 s with no hostile within 16, the cave's mobs 5-14 below in the rock never left, and the perch
+// held from t=904 to the end of the run - 1506 s, the queued stone-sword craft never ran, no
+// furnace, no iron). A skilled player does not stand on a pillar all day over mobs that cannot
+// climb it: a day perch held PERCH_DAY_S by hostiles within 16 that the sun will not clear comes
+// down the round-105 way (the wall away from them, no re-climb for PERCH_RETRY_S).
+export const PERCH_DAY_S=60;
 const SUN_BURNS=/^(zombie|zombie_villager|skeleton|stray|bogged|drowned|phantom)$/;
 const SIDE_NAMES={'1,0':'east','-1,0':'west','0,1':'south','0,-1':'north'};
 // Anything solid over the mob's head (the ring, a roof, leaves) keeps the sun off it.
@@ -1013,7 +1021,8 @@ export class NightPillarTask extends Task{
  // Log what, once; PERCH_PINNED_S later, if the sun will clear none of it, open the wall away from
  // it. True while the opening owns the tick (no ring or wall goes back up meanwhile).
  _holders(bot,ctx,tod){
-  const r=tod<MORNING_LATE?REFUGE_CLEAR:REFUGE_WALL;
+  // a day perch: the hostiles its quiet rule waits on (within 16, whatever the hour)
+  const r=this.day?16:tod<MORNING_LATE?REFUGE_CLEAR:REFUGE_WALL;
   return getHostiles(bot,ctx).filter(h=>h&&h.position&&withinRange(h,bot,r)).sort((a,b)=>distanceTo(a,bot)-distanceTo(b,bot));
  }
  _spread(bot,list){
@@ -1021,14 +1030,14 @@ export class NightPillarTask extends Task{
   return list.slice(0,4).map(h=>h.name+' '+distanceTo(h,bot).toFixed(1)+' dy '+Math.round(h.position.y-me.y)+(underCover(bot,h.position)?' under cover':' in the open')).join(', ')+(list.length>4?' and '+(list.length-4)+' more':'');
  }
  _pinnedTick(bot,ctx,now){
-  if(this.day)return false;
   const tod=dayTicks(bot);
   if(!this.pinned){
    if(tod==null||stillNight(tod))return false;
    const held=this._holders(bot,ctx,tod);
    if(!held.length)return false;
-   if(this.heldAt==null){this.heldAt=now;this._log(ctx,'Night: held on the perch past dawn by '+this._spread(bot,held));return false;}
-   if(now-this.heldAt<PERCH_PINNED_S||held.some(h=>sunClears(bot,h)))return false;
+   const what=this.day?'the day perch':'the perch';
+   if(this.heldAt==null){this.heldAt=now;this._log(ctx,'Night: held on '+what+(this.day?'':' past dawn')+' by '+this._spread(bot,held));return false;}
+   if(now-this.heldAt<(this.day?PERCH_DAY_S:PERCH_PINNED_S)||held.some(h=>sunClears(bot,h)))return false;
    // the side whose cell is farthest from the nearest holder
    let best=null;
    for(const [dx,dz] of RING.slice(0,4)){
@@ -1037,7 +1046,7 @@ export class NightPillarTask extends Task{
     if(!best||d>best.d)best={dx,dz,d};
    }
    this.pinned=true;this.exit={dx:best.dx,dz:best.dz,at:now};this._lower(bot);
-   this._log(ctx,'Night: pinned on the perch '+Math.round(now-this.heldAt)+' s past dawn by '+this._spread(bot,held)+'; opening the '+SIDE_NAMES[best.dx+','+best.dz]+' wall and coming down');
+   this._log(ctx,'Night: pinned on '+what+' '+Math.round(now-this.heldAt)+' s'+(this.day?'':' past dawn')+' by '+this._spread(bot,held)+'; opening the '+SIDE_NAMES[best.dx+','+best.dz]+' wall and coming down');
   }
   if(this.opened)return true;
   const x=this.base.x+this.exit.dx,z=this.base.z+this.exit.dz,feet=this.base.y+this.height;

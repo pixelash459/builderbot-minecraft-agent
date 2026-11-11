@@ -83,12 +83,12 @@ test('round 105: a mob the sun will clear keeps the old hold; a dark morning and
   const {t,ctx,tick}=perch(bot,logs);
   tick();tick(60);tick(60);
   assert.deepEqual(logs,[]);assert.equal(t.isFinished(bot,ctx),false);assert.equal(calls.filter(c=>c[0]==='dig').length,0);}
- // a day pillar keeps its own rule (down once quiet)
+ // a day pillar keeps its own rule (down once quiet) - until round 118's PERCH_DAY_S (60 s) hold
  {const world=perchWorld(),logs=[];
   const {bot,calls}=perchBot(world,{hostiles:UNDER});
   const {tick}=perch(bot,logs,{day:true});
-  tick();tick(60);tick(60);
-  assert.deepEqual(logs,[]);assert.equal(calls.filter(c=>c[0]==='dig').length,0);}
+  tick();tick(30);tick(29);
+  assert.deepEqual(logs,['Night: held on the day perch by zombie 3.2 dy -3 under cover, creeper 3.2 dy -3 under cover']);assert.equal(calls.filter(c=>c[0]==='dig').length,0);}
 });
 test('round 105: past MORNING_LATE only the holders within 6 count; a held hold pillar pins the same way',async()=>{
  const world=perchWorld(),logs=[];

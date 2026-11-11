@@ -4073,3 +4073,51 @@ The bot went from y=44 to y=22 instead of up, and three zombies and a creeper ki
 - The airborne night-crowd pillar-up (hard1's death minute, again).
 - No armour worn on any hard run, eighth round running.
 - Round 113's death-2 shape; noPath stranded retry; #375 skipped.
+
+## Round 118 (2026-11-11)
+
+**Soak (report `7b68c56`, round 117, bot code `16b6928`):** clean and promoted. **4 deaths** = 0/0/0/2/2/0. Iron pick on **3 of 6** runs (572/632/934/-/1477/-). hard1 never smelted iron across its two deaths. **hard3 never placed a furnace**, the era's first run without one.
+- The round-117 fix fired twice, both on hard1 (`mob defense: no hunting`). Each time the ladder moved on to its iron step. Neither death came from a food trip.
+- hard2's food fight at health 2 went out under the emergency clause. The report also found one collect at bar 18, an edge of that clause, and no harm came of it.
+- The round-116 climb gave its first clean mass climb: hard2 went from y=50 to the surface in 18 s with no damage.
+
+**The deaths:**
+- hard1 had a zombie thrash: six `cornered` lines in 19 s, in a nine-line no-headway pocket.
+- hard1 was blown up by a creeper from outside 8, with one tick of trail.
+- hard2 was sniped twice by skeletons outside 8: once at health 2-3 during the emergency chicken fight, and once 1.2 s after a legal eat, while the keep-away held the skeleton at 10-15.
+
+**What the report missed: the hard3 stall (this round's fix).**
+- After 231 s of fleeing in its mob cave, the dawn shelter's pinned climb brought the bot out at (788, 88, -569), tod ~1300.
+- 0.5 s later a crowd of 7 made Mob Defense plan a **day** perch (`night crowd (7 hostiles); pillaring up instead of fleeing`). The bot `perched 3 up`, then laid the ring and the walls.
+- A day perch came down only after 15 s with no hostile within 16. The cave's mobs, 5-14 below in the rock, never left.
+- The bot stood on that deck from 12:09:14 to the end of the run, 1506 s, with only `Speed:`/`Movement:` lines. The queued stone-sword craft never ran, so the run got no furnace and no iron.
+- The round-105 pinned exit (`held on the perch past dawn` -> `pinned ... opening the wall`) returns at once for a day perch, so nothing ever came down.
+- The report's "3-minute queued/paused stands: none" missed this. It is the round-104 hard1 shape, on a day perch.
+
+**Fix (one change: a day perch gets the round-105 pinned exit):**
+- `fallbackTasks.js` `NightPillarTask._pinnedTick` no longer returns for `day`. A day perch's holders are the hostiles its quiet rule waits on (`_holders`: within 16 at any hour).
+- After **`PERCH_DAY_S = 60`** held, if the sun will clear none of them (each is under cover or does not burn), the bot opens the wall on the side away from them and comes down.
+  - The lines are `Night: held on the day perch by ...` and `Night: pinned on the day perch N s by ...; opening the <side> wall and coming down`.
+  - Mob Defense does not climb again for `PERCH_RETRY_S` (the round-105 code: `p.pinned`).
+- Unchanged:
+  - the 15-s quiet rule;
+  - a holder in the open by day still waits for the sun;
+  - a day perch that runs into the night stays the night's refuge (`stillNight`);
+  - night perches keep round 105's 30 s and wording.
+
+**Tests:**
+- `tests/round118.test.js` (2):
+  - The round-117 shape: three mobs in a cave cut into the rock under the deck, 9-12 away and 9-10 below. At 59 s only the held line; at 61 s the pinned line opens the west wall, head then feet. No block goes back up, and `resumeCopy` keeps `day`, `pinned` and `opened`.
+  - The old rules: a zombie in the open by day is held for 180 s; quiet is down after 15 s with no line; at tod 14000 nothing opens, then at the next morning it pins after 61 s; a night perch still pins at 31 s 'past dawn'.
+- `tests/round105.test.js`: the day-pillar case now asserts the held line and no dig through 59 s. It used to assert a day perch never pins.
+
+913 -> 915 pass with resources.test.js left out; resources 9; rung table ok. Mutation: with the old `if(this.day)return false;` put back, both round-118 tests fail.
+
+**Next candidates:**
+- hard2's lava fall (round 116, still untraced).
+- Upstream ports #369 / #4068 / #4062.
+- The airborne night-crowd pillar-up.
+- No armour worn on a hard run, ninth round running.
+- The emergency clause's bar-18 edge (`< 18` lets a collect out at 18 with health 2: harmless this time).
+- Skeleton snipes from outside 8 at low health.
+- noPath stranded; #375 skipped.
