@@ -3981,3 +3981,59 @@ A burning zombie sets its target alight. The bot carried no water bucket, so the
 - Round 113's death-2 shape: a bag run into a crowd that still holds the spot, and a food-emergency fight inside a crowd.
 - The airborne night pillar-up; a sword sweep clipping a calm enderman.
 - noPath stranded retry; #375 skipped.
+
+## Round 116 (2026-11-11)
+
+**Soak (report `a2a9596`, round 115, bot code `86dc472`):** clean and promoted. **2 deaths** = 0/0/0/0/1/1. Iron pick on **6 of 6** runs (513/1025/636/1330/1326/1152), the second full sweep in three rounds. All three hard furnaces came in under 610 s for the first time. normal1's bed at 211 s is the era's earliest. Other firsts: no night mine and no iron-pick break in the whole soak. The round-99 vertical rule fired for the first time (`Bag run: skipped (86 above or below)`).
+
+**The round-115 fix fired once, and that bot died anyway (hard3 23:46:51 `burned to death`):**
+- The bot was caught out at dawn in a 28+ mob crowd, and its pillar-up failed.
+- The round-107 stand fired: `zombie 2.1 away has kept up ... (health 11, held cobblestone, 1 melee within 8); standing to fight`.
+- The zombie was burning in daylight. Its hits took the bot 15.5 -> 11 -> 6.5 -> 7.5 -> 3, and the last one set it alight.
+- `on fire with no water bucket and no water within 8 (health 3); not leaving for water` followed, and the burn took the last 3 HP.
+- Plainly: the zombie's three hits killed it, and the fire only finished the job. The stand's `KillEntitiesTask` swings from where it stands, with no spacing. It took 3 hits at health 11 with no armour on hard.
+- This is left as the next candidate (see below); it is not this round's fix.
+
+**Cause (this round's fix, hard2 23:05:45 `slain by Zombie` at y=24):** five `Autopilot: a mob cave (...); its ores set aside for 20 min, climbing out` lines in 74 s, from (860, 44, -536) down to (810, 23, -527). Each submitted an `ascend` to y=103. Mob Defense paused each climb within a second, and while it was paused the autopilot's idle branch kept submitting. A new submit supersedes a paused reflex job (`Reflex: the paused ascend job was superseded; cancelled`). In order, these jobs went out over the climbs:
+- `drop cobblestone` ×2 (the inventory step);
+- `smelt porkchop`;
+- a `heal` meal;
+- `gather iron_ore ... targetY 16` ×2, which went back down;
+- the night `shelter`.
+
+The bot went from y=44 to y=22 instead of up, and three zombies and a creeper killed it 6 s after the fifth mark. It held cobblestone, so the gates rightly stayed off. A skilled player who walks into a mob-filled cave gets out first: no drops, no smelting, no new dig.
+
+**Fix (one change - the climb out of a mob cave is the only autopilot job):**
+- `autopilot.js`: new `caveClimb(b)`, called in the idle branch right after `publishReserve`. That is before the night job, the recovery wait, the bag run and `decide()`.
+- It applies when the bot is under rock, more than 8 below the surface anchor, and within 24 of a live mob-cave mark it stood in.
+  - Then an `ascend` that is running, queued or paused is left alone, and nothing else is submitted (state `mob cave near: climbing out`).
+  - With no climb pending, one is submitted, with `Autopilot: under rock at y=Y (surface S), D from the mob cave marked at (P) N s ago; climbing out before any other job`.
+- A cap of `CAVE_CLIMBS=3` climbs in `CAVE_CLIMB_MS=10 min`. Past it: `Autopilot: 3 climbs out of the mob cave at (P) in 10 min did not get the bot out; back to the ladder`, once, and the ladder runs.
+- The model is round 49's warden rule (`a warden D away; climbing out, nothing else`), which already held a paused climb.
+- `worker.js`:
+  - mob-cave marks now carry `at` and `kind`: `'here'` from `mobCaveHere()` where the bot stood, `'ore'` from round 114's crowded-ore skip;
+  - new `mobCaveNear(pos)` returns the nearest live `'here'` mark within `MOB_CAVE_AVOID`.
+  - Ore marks do not force a climb, because the bot never stood in that crowd.
+- FoodChain's own meals, Mob Defense and World Survival are untouched (they are reflexes, not autopilot jobs).
+
+**Tests:** `tests/round116.test.js` (4):
+- The death's shape: y=24, 7 from a mark made 6 s before. The climb goes out with its line; with that climb paused, queued or running, nothing is submitted and nothing more is logged.
+- Unchanged:
+  - within 8 of the surface;
+  - under sky;
+  - a mark 25 away;
+  - an `'ore'` mark;
+  - an expired mark;
+  - no marks;
+  - the kinds the two mark paths write.
+- The cap: 3 climbs, then the `did not get the bot out` line once, and the climbs come back 10 min on.
+- The tick itself, at night with a paused climb: no submit, and none of the bag run, home, recovery or ladder are reached. With the climb done and the bot near the surface, the tick goes on.
+
+906 -> 910 pass with resources.test.js left out; resources 9; rung table ok. Mutation: removing the tick's `caveClimb` call fails the tick test.
+
+**Next candidates:**
+- **The stand's fight:** the round-107 stand and the cornered fight use `KillEntitiesTask`, with plain swings from where the bot stands. The combat controller's `FightTask` backpedals between hits, but disengages at health 12. hard3's stand at 11 HP took 3 zombie hits. Options: back away between swings on the stand, or refuse a stand on hard below about 12 HP with no armour against a burning zombie.
+- The dawn pillar failure (`left the column at 0/3; rose 0.20, 0 clicks`) in hard3's death minute.
+- No armour worn on any hard run, for the seventh round running.
+- hard3's 22-line no-headway pocket at (799, 89, -568).
+- Round 113's death-2 shape; the airborne pillar-up; noPath stranded retry; #375 skipped.

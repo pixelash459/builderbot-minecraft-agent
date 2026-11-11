@@ -10,6 +10,13 @@ import {EDIBLE_SKIP} from './observe.js';
 import {isExposed} from './digDown.js';
 import {storePlan} from './storage.js';
 const MOB_CAVE_MS=20*60000; // worker.js MOB_CAVE_MS
+// Round 116 (round-115 hard2: five `a mob cave ... climbing out` lines in 74 s at y=44 down to 22 -
+// each climb, paused by a flee, was superseded within seconds by a cobblestone drop, a porkchop
+// smelt, a heal meal, an iron gather to y=16 and the night shelter, and the bot was killed by
+// zombies at y=24, 6 s after the fifth mark): under rock near a mob cave it stood in, climbing out
+// is the autopilot's only job - a paused climb is left to resume - for up to CAVE_CLIMBS climbs in
+// CAVE_CLIMB_MS.
+export const CAVE_CLIMBS=3,CAVE_CLIMB_MS=10*60000;
 
 const BED=/(_bed)$/;
 const WOOLS=['white_wool','light_gray_wool','gray_wool','black_wool','brown_wool','red_wool','orange_wool','yellow_wool','lime_wool','green_wool','cyan_wool','light_blue_wool','blue_wool','purple_wool','magenta_wool','pink_wool'];
@@ -1054,6 +1061,7 @@ export class Autopilot{
   }
   if(this.current)this.settle(w.jobs.find(j=>j.id===this.current.id)||{status:'complete',id:this.current.id});
   this.publishReserve(b);
+  if(this.caveClimb(b))return; // round 116: before the night job, a meal, a drop or a gather
   if(!shelterDue(dayTicks(b))&&this.recovering(b))return; // the night job (shelter or sleep) still goes out
   if(!shelterDue(dayTicks(b))&&this.bagRun(b))return;
   this.rememberHome(b);
@@ -1230,6 +1238,26 @@ export class Autopilot{
   const b=this.worker.bot,p=b?.entity?.position,y=p?.y,top=this.lastSurfaceY??this.foodAnchorY;
   if(!(Number.isFinite(y)&&Number.isFinite(top)&&y<top-SHALLOW_BELOW))return false;
   try{const head=b.blockAt(p.offset(0,1.6,0));return !!head&&head.skyLight===0;}catch{return false;}
+ }
+ // Round 116 (CAVE_CLIMBS above): true when this tick belongs to the climb out of a mob cave.
+ caveClimb(b){
+  const p=b?.entity?.position;if(!p)return false;
+  const mark=this.worker.mobCaveNear?.(p);if(!mark)return false;
+  const top=escapeY(this.lastSurfaceY);
+  if(!(p.y<top-8)||underSky(b))return false;
+  const climbing=(this.worker.jobs||[]).some(j=>['running','queued','paused'].includes(j.status)&&j.spec?.type==='ascend');
+  if(climbing){this.state='mob cave near: climbing out';return true;}
+  const now=Date.now();
+  this.caveClimbs=(this.caveClimbs||[]).filter(t=>now-t<CAVE_CLIMB_MS);
+  const where=Math.round(mark.x)+', '+Math.round(mark.y)+', '+Math.round(mark.z);
+  if(this.caveClimbs.length>=CAVE_CLIMBS){
+   if(this.caveClimbOut!==where){this.caveClimbOut=where;this.log('Autopilot: '+CAVE_CLIMBS+' climbs out of the mob cave at ('+where+') in '+CAVE_CLIMB_MS/60000+' min did not get the bot out; back to the ladder');}
+   return false;
+  }
+  this.caveClimbs.push(now);
+  this.log('Autopilot: under rock at y='+Math.floor(p.y)+' (surface '+top+'), '+Math.round(mark.d)+' from the mob cave marked at ('+where+') '+Math.round((now-mark.at)/1000)+' s ago; climbing out before any other job');
+  this.submit('escape',{type:'ascend',y:top});
+  return true;
  }
  // Round 77 (round-76 hard1: slept at (811, 32, -549), 39 under the anchor, and set the respawn
  // point in a mob cave): a spot no bed belongs at - more than ASCEND_BELOW under the surface, or

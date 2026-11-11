@@ -5015,12 +5015,26 @@ export class Worker extends EventEmitter {
   return crowd+' hostiles within '+MOB_CAVE_NEAR+' at '+p.floored()+' (sky '+sky+', surface '+top+')';
  }
  // Round 52: true when this is a new mob cave (not within MOB_CAVE_AVOID of a marked one).
+ // Round 116: a mark made where the bot stood (mobCaveHere) is kind 'here'; one made at an ore
+ // the gather passed over (round 114) is kind 'ore'.
  markMobCave(at){
   const p=at||this.bot?.entity?.position;if(!p)return false;
   const now=Date.now();this.mobCaves=(this.mobCaves||[]).filter(h=>h.until>now);
   if(this.mobCaves.some(h=>Math.hypot(h.x-p.x,h.y-p.y,h.z-p.z)<=MOB_CAVE_AVOID))return false;
-  this.mobCaves=this.mobCaves.concat([{x:p.x,y:p.y,z:p.z,until:now+MOB_CAVE_MS}]).slice(-6);
+  this.mobCaves=this.mobCaves.concat([{x:p.x,y:p.y,z:p.z,until:now+MOB_CAVE_MS,at:now,kind:at?'ore':'here'}]).slice(-6);
   return true;
+ }
+ // Round 116: the nearest live mob cave the bot itself stood in, within MOB_CAVE_AVOID of pos
+ // ({x,y,z,at,d}), or null.
+ mobCaveNear(pos){
+  if(!pos)return null;
+  const now=Date.now();let best=null;
+  for(const h of this.mobCaves||[]){
+   if(!(h.until>now)||h.kind==='ore')continue;
+   const d=Math.hypot(h.x-pos.x,h.y-pos.y,h.z-pos.z);
+   if(d<=MOB_CAVE_AVOID&&(!best||d<best.d))best={...h,d};
+  }
+  return best;
  }
  nearHazard(pos){
   const now=Date.now();
