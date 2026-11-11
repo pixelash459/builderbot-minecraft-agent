@@ -442,7 +442,11 @@ export function duskHuntOff(tod,choice,c,ctx){
  // Round 29 (round-28 hard2 `shot by Skeleton` at tod ~9950 chasing a pig through a crowd under
  // the dark-forest canopy, where mobs spawn by day): a crowd of CROWD_NEAR+ hostiles within 16
  // holds food trips back too.
- const crowd=(ctx?.crowd||0)>=CROWD_NEAR;
+ // Round 117 (round-116 hard3: `Autopilot [food] fight pig` 3 s after `Mob Defense engaging`,
+ // then fight/collect pairs each submitted within a second of the flee pausing the last, with 36
+ // hostiles on the flee list; a collect walked the bot to a zombie, killed at food 11): while
+ // Mob Defense is fleeing or fighting (ctx.defending) no food trip goes out either.
+ const crowd=(ctx?.crowd||0)>=CROWD_NEAR||!!ctx?.defending;
  if(!crowd&&!(tod!=null&&tod>=DUSK_PREP&&tod<SUNSET))return false;
  if(choice?.step!=='food'||!['fight','hunt','collect','explore'].includes(choice.job?.type))return false;
  return !foodEmergency(c,ctx);
@@ -1191,6 +1195,13 @@ export class Autopilot{
   let d=Infinity;for(const e of Object.values(b.entities||{}))if(e&&e.name==='warden'&&e.position)d=Math.min(d,e.position.distanceTo(me));
   return d;
  }
+ // Round 117: 'active' while the Mob Defense chain holds the runner (a flee, a fight, a keep-away),
+ // 'paused a job' while a job it preempted is still paused; null otherwise.
+ mobDefenseOn(){
+  const w=this.worker,rs=w?.taskRunner?.status?.();
+  if(/Mob Defense/.test(rs?.chain||''))return 'active';
+  return (w?.jobs||[]).some(j=>j.status==='paused'&&/^Reflex: preempted by Mob Defense/.test(String(j.message)))?'paused a job':null;
+ }
  crowdNear(b){
   const me=b?.entity?.position;if(!me)return 0;
   return Object.values(b.entities||{}).filter(e=>e&&e.type==='hostile'&&e.position&&e.position.distanceTo(me)<=16).length;
@@ -1612,7 +1623,8 @@ export class Autopilot{
    this.log('Autopilot: a mob cave ('+cave+'); its ores set aside for '+MOB_CAVE_MS/60000+' min, climbing out');
    this.submit('escape',{type:'ascend',y:escapeY(this.lastSurfaceY)});return;
   }}
-  if(duskHuntOff(dayTicks(b),choice,c=>counts[c]||0,{...ctx,crowd})){const st=crowd>=CROWD_NEAR?'crowd: no hunting':'dusk: no hunting';if(this.state!==st)this.log('Autopilot: '+st+' ('+crowd+' hostiles within 16)');this.state=st;choice=plan(counts,{...ctx,kitSkip:this.kitSkip||null,blocked:'food'});}
+  const defending=this.mobDefenseOn();
+  if(duskHuntOff(dayTicks(b),choice,c=>counts[c]||0,{...ctx,crowd,defending})){const st=crowd>=CROWD_NEAR?'crowd: no hunting':defending?'mob defense: no hunting':'dusk: no hunting';if(this.state!==st)this.log('Autopilot: '+st+(st.startsWith('mob')?' (Mob Defense '+defending+'; ':' (')+crowd+' hostiles within 16)');this.state=st;choice=plan(counts,{...ctx,kitSkip:this.kitSkip||null,blocked:'food'});}
   if(!choice.step){this.state='all steps satisfied';return;}
   // A batch for the furnace: load it and move on (efficiency 1).
   if(choice.job&&choice.job.type==='smelt'&&!choice.job.take&&choice.job.count>=SMELT_LEAVE_AT&&!this.worker.furnaceRun)choice.job={...choice.job,leave:true};

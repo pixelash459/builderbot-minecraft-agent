@@ -4037,3 +4037,39 @@ The bot went from y=44 to y=22 instead of up, and three zombies and a creeper ki
 - No armour worn on any hard run, for the seventh round running.
 - hard3's 22-line no-headway pocket at (799, 89, -568).
 - Round 113's death-2 shape; the airborne pillar-up; noPath stranded retry; #375 skipped.
+
+## Round 117 (2026-11-11)
+
+**Soak (report `c92a897`, round 116, bot code `7e73303`):** clean and promoted. **3 deaths** = 0/0/0/1/1/1. Iron pick on **5 of 6** runs (667/908/904/-/1115/2229); hard1 missed it after its death. All three hard runs had wood, stone pick and furnace inside 550 s. hard3 placed a bed at 1988 s, the first hard-run bed since round 107. The round-116 fix never armed: no mob cave was marked where the bot stood. The round-115 paused-climb shape did not recur either (0 `the paused ascend job was superseded` lines).
+
+**The three deaths:**
+- **hard1 05:56:27 `shot by Skeleton`.** Phantoms at dawn (the era's first `Threat: phantom` lines; it had not slept), a 23+ mob crowd, and two night-crowd pillar-ups that failed (`left the column at 0/3; rose 0.42, 0 clicks, holding dirt, on grass_block, airborne`). Three arrows, then the finisher at 1.4.
+- **hard2 06:50:38 `tried to swim in lava`.** The furnace side job's `gather coal_ore radius 16` started at the furnace (836, 88, -412). 2.3 s later the bot was in a lava pool 7 below at (834, 81, -409). It got 2 blocks up toward its 1.6-away exit and died after 1.9 s (16 -> 12 -> 8 -> 4 -> 0). No line shows how it got in: no `Fall:`, no `Lava guard:`, no tunnel or descend line. The drops burned in the lava. Not fixed this round; it needs a trace (see the candidates).
+- **hard3 07:21:40 `slain by Zombie` (this round's fix).** At dawn, with 36 hostiles on the flee list (nearest 27-30 at first):
+  - `Mob Defense engaging` at 07:20:49.977; the food explore went out 1.4 s later and was cancelled for `animals in range`;
+  - `fight pig` at 07:20:54.5, while the flee still ran (it stood down at 07:21:13 after 20 s without moving);
+  - then three rounds of the same thing: the flee paused the fight, a `collect radius 16` went out within a second and superseded it, then a new `fight pig`;
+  - the last collect walked the bot to a zombie: 13.5 -> 9 -> 4.5 -> 0, food 11, no armour, stone sword held.
+  - The round-29 crowd hold never fired (0 `crowd: no hunting` lines). It counts hostiles within 16, and the crowd mostly stood 16-30 off.
+  - A skilled player being chased by a horde does not go after a pig or pick up drops. Food 11 is no emergency.
+
+**Fix (one change - no food trip while Mob Defense is on):**
+- `autopilot.js`: new `mobDefenseOn()`. It returns `'active'` while the runner's chain is Mob Defense (a flee, a fight, a keep-away), `'paused a job'` while a job it preempted is still paused, and null otherwise.
+- `decide()` passes it to `duskHuntOff` as `ctx.defending`, which now holds the food step's `fight`/`hunt`/`collect`/`explore` exactly as the round-29 crowd hold does. The ladder moves on to the next step (`blocked: 'food'`), with the line `Autopilot: mob defense: no hunting (Mob Defense active; N hostiles within 16)` once per state change.
+- `foodEmergency` still sends the trip: bar <= 6, or health under minHealth with the bar under 18, with nothing edible held. Cooking held meat (`smelt`) and the other steps are untouched.
+- Mob Defense, World Survival and FoodChain are unchanged.
+
+**Tests:** `tests/round117.test.js` (3):
+- `duskHuntOff` with `defending`: all four trip types held, both kinds held; not held with Mob Defense idle and 2 hostiles within 16; starving and hurt-and-hungry still go; smelt and other steps untouched.
+- `mobDefenseOn`: the chain, a job paused by Mob Defense, a job paused by World Survival (null), a cancelled job (null), another chain (null), no runner (null).
+- `decide()` at the hard3 moment (stone kit and furnace held, no food, a pig in range, food 11): with Mob Defense idle it sends `fight pig`; with the chain active, or with a job it paused, it sends the stone kit's craft instead, with the state and the line.
+
+910 -> 913 pass with resources.test.js left out; resources 9; rung table ok. Mutation: with `defending` forced to null, the decide test fails.
+
+**Next candidates:**
+- **hard2's lava fall:** a coal gather from a furnace ledge put the bot in lava 7 below inside 2.3 s with no line. Add a trace first (the pathfinder's next nodes and the gather target at a `WorldSurvival: in lava` line), then fix.
+- Upstream ports not in our installed versions (both one or two lines): pathfinder #369 (the open-set heap's sift-down skips the right child: `smallerChild < size - 1` should be `< size`, so A* pops nodes out of order) and mineflayer #4068 (after an event-loop stall, physics replays the backlog at up to 4x speed instead of dropping it). Also #4062 (1.21.2+ `entity_teleport` read with the old layout).
+- The stand's fight spacing (round 116's candidate; 0 stands this soak).
+- The airborne night-crowd pillar-up (hard1's death minute, again).
+- No armour worn on any hard run, eighth round running.
+- Round 113's death-2 shape; noPath stranded retry; #375 skipped.
