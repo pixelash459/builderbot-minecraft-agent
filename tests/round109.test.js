@@ -28,9 +28,9 @@ test('round 109: the flee jumps a one-block step and sprint-jumps open ground, n
  assert.equal(fleeJump(world({'0,66,0':S}),me,east,{sprint:true}),false);
  // no footing ahead (a hole or a drop): no hop into it
  assert.equal(fleeJump(world({'1,63,0':A}),me,east,{sprint:true}),false);
- // water ahead, or swimming: no hop
+ // water ahead: no hop (swimming: round 119 holds jump - see round119.test.js)
  assert.equal(fleeJump(world({'1,64,0':W}),me,east,{sprint:true}),false);
- assert.equal(fleeJump(world(),me,east,{sprint:true,inWater:true}),false);
+ assert.equal(fleeJump(world(),me,east,{sprint:true,inWater:true}),true);
  // a blocked heading: no jump
  assert.equal(fleeJump(world(),me,{x:1,z:0,blocked:true},{sprint:true}),false);
  assert.equal(compass(1,0),'east');assert.equal(compass(0,-1),'north');assert.equal(compass(-0.7,0.7),'south-west');

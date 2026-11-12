@@ -248,9 +248,17 @@ export function fleeHeading(blockAt,me,hostiles,{shelter=null,inWater=false,heal
 // block - one block of rise stopped it dead with sprint and forward held. Jump when the cell ahead is
 // a one-block step with room over it, and sprint-jump on open ground (the game's sprint-jump is about
 // 7.1 blocks/s against the sprint's 5.6, the way players outrun mobs) when there is headroom here and
-// ahead and footing ahead. Never in water (the swim has its own jump).
+// ahead and footing ahead.
+// Round 119 (round-118 hard3, the soak's one death: a flee through the spawn river at dawn never
+// pressed jump in the water - the old rule said the swim had its own jump, but that one comes only
+// after 8 s with the head under - so the bot sank to the riverbed 5 below the surface and ran into
+// its stone banks: 13 `no headway` lines and 5 `head under for 8 s` rescues in three minutes, then a
+// drowned killed it, unarmed, in the water). A player fleeing through water holds jump the whole
+// way: the bot swims at the surface and climbs out where the heading meets the bank. In water the
+// flee always holds jump, even when every heading is blocked (sinking is never better).
 export function fleeJump(blockAt,me,h,{sprint=false,inWater=false}={}){
- if(!h||h.blocked||inWater)return false;
+ if(inWater)return true;
+ if(!h||h.blocked)return false;
  const fx=Math.floor(me.x),fy=Math.floor(me.y),fz=Math.floor(me.z);
  let x=Math.floor(me.x+h.x*0.8),z=Math.floor(me.z+h.z*0.8);
  if(x===fx&&z===fz){x=Math.floor(me.x+h.x*1.3);z=Math.floor(me.z+h.z*1.3);}

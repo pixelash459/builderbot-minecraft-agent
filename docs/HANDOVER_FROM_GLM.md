@@ -4121,3 +4121,45 @@ The bot went from y=44 to y=22 instead of up, and three zombies and a creeper ki
 - The emergency clause's bar-18 edge (`< 18` lets a collect out at 18 with health 2: harmless this time).
 - Skeleton snipes from outside 8 at low health.
 - noPath stranded; #375 skipped.
+
+## Round 119 (2026-11-12)
+
+**Soak (report `f8df933`, round 118, bot code `2e3e13f`):** clean and promoted. **1 death** = 0/0/0/0/0/1, the fewest of the 2400-s era. Iron pick on **6 of 6** runs (542/753/1114/1356/1205/2350). normal1 wore 3 pieces of armour at 1205 s, and hard1 placed a bed at 1416 s. normal2 built a 7-chest storage row, and hard1 deposited into it.
+- The round-118 day-perch hold fired once, on hard2: `held on the day perch by drowned 7.2 dy -7 in the open ...`. The run ended 58 s into the hold, 2 s short of the wall-open. No 3-minute same-position, same-job stand outside a night box anywhere.
+- The round-117 hold fired 6 times. On hard3 the bed rung's own sheep hunt went out while Mob Defense was on. The fix holds only the food step, so this is noted as a candidate.
+
+**The death (this round's fix):** hard3 `slain by Drowned` at t=196, at dawn in the spawn river, unarmed (fresh run).
+- The flee from a 28+ mob crowd went into the river.
+- `fleeJump` returned false whenever the bot was in water. Round 109's note said "the swim has its own jump", but that rescue fires only after 8 s with the head under. So the bot sank to the bed at y=57, 5 below the surface, and ran into the stone banks.
+- In three minutes: 13 `Flee: no headway ... (ahead: feet stone, head stone)` lines and 5 `Water: head under for 8 s ... with no swim-up` rescues. Then `cornered - fighting back` at health 10.5, holding nothing, and the drowned killed it in the water.
+- The respawned bot made the same river flees (y=57 again) but lived.
+
+**Fix (one change: the flee holds jump in water):**
+- `night.js` `fleeJump` returns true whenever the bot is swimming.
+- `fallbackTasks.js` `fleeStep` sets jump when `go || wet`.
+- So a flee through water swims at the surface, climbs out where its heading meets the bank, and still swims up when every heading is blocked (standing in place, forward off).
+- Dry-land flees are unchanged: the step jump, the sprint-jump, and no jump on a blocked heading.
+- The creeper flee and the keep-away share `fleeStep`.
+
+**Tests:**
+- `tests/round119.test.js` (2):
+  - `fleeJump` in water, blocked or not.
+  - The hard3 riverbed: jump and forward away from the drowned.
+  - Water in the feet and head cells with `isInWater` false (Via).
+  - At the surface against the bank.
+  - The creeper flee.
+  - A closed pool: jump held.
+  - A dry blocked heading still has no jump; the open-ground sprint-jump is kept; `onStop` releases jump.
+- `tests/round109.test.js`: the swimming case now expects true.
+
+915 -> 917 pass with resources.test.js left out; resources 9; rung table ok. Mutation: with `if(inWater)return false;` put back, both round-119 tests fail.
+
+**Next candidates:**
+- The bed rung's sheep hunt while Mob Defense is on (round 117's hold covers only the food step).
+- The day-perch wall-open is still unexercised.
+- hard2's round-116 lava fall, untraced.
+- Upstream ports #369 / #4068 / #4062.
+- No armour on a hard run, tenth round.
+- The emergency clause's bar-18 / health-10 edges.
+- Skeleton snipes outside 8.
+- noPath stranded; #375 skipped.

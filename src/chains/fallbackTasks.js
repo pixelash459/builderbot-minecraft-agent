@@ -108,7 +108,7 @@ function fleeStep(task,bot,ctx,list){
  const go=task._go=!h.blocked,sprint=go&&(bot.food||20)>6; // 7f: sprint needs food > 6
  setControl(bot,'forward',go);
  setControl(bot,'sprint',sprint);
- setControl(bot,'jump',go&&fleeJump(at,me,h,{sprint,inWater:wet}));
+ setControl(bot,'jump',(go||wet)&&fleeJump(at,me,h,{sprint,inWater:wet})); // round 119: swim at the surface
  return null;
 }
 class RunAwayTask extends Task{
