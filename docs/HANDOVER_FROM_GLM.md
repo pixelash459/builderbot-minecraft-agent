@@ -4163,3 +4163,44 @@ The bot went from y=44 to y=22 instead of up, and three zombies and a creeper ki
 - The emergency clause's bar-18 / health-10 edges.
 - Skeleton snipes outside 8.
 - noPath stranded; #375 skipped.
+
+## Round 120 (2026-11-12)
+
+**Soak (report `72ea50a`, round 119, bot code `bde2545`):** clean and promoted. **0 deaths** = 0/0/0/0/0/0, the second zero-death soak of the 2400-s era (round 111 was the first). Iron pick on **5 of 6** runs (753/753/814/1990/-/1085). Three beds placed (normal2 1597, normal3 1990, hard2 2141), and every normal run wore 2 armour pieces.
+- The round-119 swim fix was unexercised: 0 flee lines named water ahead, and the one `Water: head under` (normal1's smelt walk) was rescued.
+- The round-118 day-perch hold did not fire (0 day perches).
+- The round-117 hold fired once (hard2), and the next job was the iron step.
+
+**The miss (this round's fix):** hard2 had no iron pick.
+- Its kiln gather left it 3 iron ingots at t=1870 (07:09:19), with 12 planks, 0 sticks and a table held.
+- Then came, in order: a food ascend, a chicken fight and smelt; a stone-kit stick and stone_shovel craft; 8 torches; a 90-s cow fight that timed out.
+- At 07:12:36 the dusk bed prep went out. `bedJob` crafted shears from 2 of the 3 ingots, then the bed.
+- 3 more raw iron smelted to 4 ingots, but the sticks had gone into the shovel and torches. The night shelter and a morning cow fight filled the rest of the run: 4 ingots, no pick.
+- Health sat at 15.5 all run (hard: no regen under a bar of 18, and it ate 10 times with 1 food item at peak). So `lowHealth` kept round 43's iron-first rule off, and the food step held the ladder.
+- The dusk `duskKitJob` pick clause did not fire either (`sunsetKit` is gated on stone failures and a hostile within `KIT_HOSTILE`).
+
+**Fix (one change: the iron pick's ingots go to the pick first):**
+- `autopilot.js` `ironPickFirst`, in `plan()` right after round 65's `pickFirst`. It runs with `IRON_PICK_INGOTS=3` ingots held and no iron, diamond or netherite pick.
+- It crafts sticks from held planks (or planks from a held log), then the pick. The food emergency waits the seconds this takes.
+- It returns null with no wood held, or with no table and fewer planks than sticks plus a table. In that case it is never a log trip.
+- It also returns null when the iron step is blocked or `kitSkip.iron_pickaxe` is set.
+- `bedJob` makes shears only from ingots beyond the pick's 3 (`2+(hasIronPick?0:3)`). Without spare iron, the sword hunts the sheep.
+- What a player does: 3 ingots and a stick are a pickaxe before anything else; shears come from the next ingots.
+
+**Tests:**
+- `tests/round120.test.js` (3):
+  - hard2's inventory gives sticks, then the pick, ahead of food, also at bar 3.
+  - The log-only and table-near variants; the no-table plank arithmetic.
+  - With the pick held, 2 ingots, no wood, `blocked:'iron'` or a kit skip, the ladder is unchanged. With no pick at all, the stone pick still comes first.
+  - Shears: 3 ingots and no pick give a sheep hunt (also via `bedPrepJob` at dusk); 5 ingots give shears; 2 ingots with the pick held give shears; unarmed with only the pick's ingots gives null.
+- `tests/bed-wool.test.js`: its 2-ingot shears case now holds an iron pick.
+
+917 -> 920 pass with resources.test.js left out; resources 9; rung table ok. Mutation: with both changes removed, round-120 tests 1 and 3 fail.
+
+**Next candidates:**
+- Chronic hard hunger: hard2 sat at health 15.5 with 1 food item at peak, and cow and chicken fights timed out.
+- The bed rung's sheep hunt during Mob Defense.
+- The day-perch wall-open, and the round-119 swim, both still unexercised.
+- hard2's round-116 lava fall.
+- Upstream ports #369 / #4068 / #4062.
+- noPath stranded; #375 skipped.

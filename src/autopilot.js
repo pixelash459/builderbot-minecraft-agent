@@ -262,7 +262,9 @@ export function bedJob(c,ctx){
  if(c('shears')>=1)return {type:'shear'};
  // Shears (2 ingots) before killing: a kill drops 1 wool, a shear 1-3 and the sheep stays for
  // the next one (round 11 killed 2 sheep in two runs and never reached 3 wool of one colour).
- if(c('iron_ingot')>=2)return {type:'craft',item:'shears',count:1};
+ // Round 120 (round-119 hard2: 3 ingots held, the dusk bed prep crafted shears from 2 of them and
+ // the run ended with no iron pick): the shears come out of ingots beyond the pick's 3.
+ if(c('iron_ingot')>=2+(hasIronPick(c)?0:3))return {type:'craft',item:'shears',count:1};
  if(Object.keys(PLATE).concat(['wooden','stone']).some(t=>c(t+'_sword')>=1))return {type:'hunt',entity:'sheep',count:Math.max(1,Math.min(3-c(wool),ctx.sheepNear))};
  return null;
 }
@@ -369,6 +371,23 @@ export const STONE_TOOL_ROCK=['cobblestone','cobbled_deepslate','blackstone'];
 export function pickFirst(c,ctx){
  if(PICKS.some(n=>c(n)>0)||ctx.blocked==='stone')return null;
  return spareStonePick(c,ctx,{anyStone:true});
+}
+// Round 120 (round-119 hard2: 3 iron ingots held from t=1870, then food, stick, shovel, torch and
+// cow jobs, and the dusk bed prep spent 2 on shears; health 15.5 on hard kept the iron-first rule
+// off and the run ended with 4 ingots and no iron pick): ingots for the pick become one before any
+// other step, the food emergency included - a craft of seconds from what is held, as a player
+// would. Sticks first from held planks (or planks from a held log); no wood held: the ladder.
+export const IRON_PICK_INGOTS=3;
+const hasIronPick=c=>['iron_pickaxe','diamond_pickaxe','netherite_pickaxe'].some(n=>c(n)>0);
+export function ironPickFirst(c,ctx){
+ if(c('iron_ingot')<IRON_PICK_INGOTS||hasIronPick(c)||ctx.blocked==='iron'||skipped(ctx,'iron_pickaxe'))return null;
+ const table=c('crafting_table')>=1||!!ctx.worldTable;
+ // no table: 4 planks for one on top of the sticks' 2
+ if(!table&&ctx.planksTotal+4*ctx.logsTotal<(c('stick')>=2?4:6))return null;
+ if(c('stick')>=2)return {type:'craft',item:'iron_pickaxe',count:1};
+ if(ctx.planksTotal>=2)return {type:'craft',item:'stick',count:2};
+ if(ctx.logsTotal>=1)return {type:'craft',item:planksFor(ctx.heldLog),count:4};
+ return null;
 }
 function spareStonePick(c,ctx,{anyStone=false}={}){
  if(c('stone_pickaxe')>=STONE_PICKS||(anyStone?STONE_TOOL_ROCK.reduce((a,n)=>a+c(n),0):c('cobblestone'))<3)return null;
@@ -939,6 +958,7 @@ export function plan(counts,ctx={}){
  const c=countFactory(counts);
  ctx=woodTotals(counts,{...ctx});
  {const pick=pickFirst(c,ctx);if(pick)return {step:'stone',job:tableFirst(c,ctx,pick)};}
+ {const pick=ironPickFirst(c,ctx);if(pick)return {step:'iron',job:tableFirst(c,ctx,pick)};}
  // Round 16: a food emergency (nothing to eat, and the bar nearly empty or health low under a
  // bar of 18) jumps the ladder - the wood and stone steps' jobs are all refused meanwhile.
  if(foodEmergency(c,ctx)&&ctx.blocked!=='food'){const food=STEPS.find(e=>e.name==='food');if(!food.done(c,ctx))return {step:'food',job:food.next(c,ctx)};}
