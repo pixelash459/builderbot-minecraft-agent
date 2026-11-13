@@ -4204,3 +4204,48 @@ The bot went from y=44 to y=22 instead of up, and three zombies and a creeper ki
 - hard2's round-116 lava fall.
 - Upstream ports #369 / #4068 / #4062.
 - noPath stranded; #375 skipped.
+
+## Round 121 (2026-11-13)
+
+**Soak (report `aa31385`, round 120, bot code `65f8108`):** clean and promoted. **2 deaths** = 0/0/0/1/1/0. Iron pick on **5 of 6** runs (603/783/753/-/1205/1325). normal1 wore **4 of 4** armour pieces at 994 s, the era's second full iron kit, and hard3 wore 1.
+- The round-120 iron-first fix held everywhere. No run held 3+ ingots longer than 60 s before its pick, and there was no shears craft.
+- hard1's miss was a different one: 7 raw iron and 1 ingot. It never had the fuel to smelt them (0 torches all run, a coal gather).
+- The round-119 swim fix held its second soak: 0 water-named flee lines.
+
+**The deaths:**
+1. **hard1 `impaled by Drowned`** at 00:26:26, at dawn, in a 25-mob crowd round a drowned with a trident (`Death: health 0 in the last 10 s; armour 0; held stone_shovel; 0 hostile(s) within 8`).
+   - In the last 35 s the wood step's gather went out 5 times. Mob Defense preempted it each time, and a new gather was submitted within a second.
+   - In those 35 s: eight `preempted by Mob Defense` / `resumed the gather job` swaps in 10 s, and two `the paused gather job was superseded; cancelled` lines.
+   - Health went 18.3 -> 10.4 -> 2.1 across the samples.
+   - At health 2.1 and bar 16 with nothing to eat, the low-health food emergency sent `collect`, then `fight pig`, then `collect`, each paused by Mob Defense in turn. The trident landed during the last collect.
+2. **hard2 `shot by Skeleton`** at dusk, 0.7 s after `Ledge guard: stopped at (827, 83, -456) (a 5+ drop ahead)`, inside a 27-mob flee. Two arrows: 13.1 -> 7.1 -> 1.3 -> 0.
+   - Before it: the iron sword craft, then a surface log search leg at dusk.
+
+**Fix (one change: Mob Defense holds the ladder):** a skilled player in a crowd deals with the mobs first. They don't start chopping trees, or chase a pig at 2 hearts, between dodges.
+- `autopilot.js` `defenseHold`. While `mobDefenseOn()` (round 117: the chain running, or a job it preempted still paused), `decide()` submits no walking ladder job.
+  - Held types (`DEFENSE_HOLD_JOBS`): gather, explore, fight, hunt, collect, shear, breed, goto, obtain, deposit, store, build.
+  - The paused job resumes when the reflex lets go.
+  - New line, once per stretch: `Autopilot: mob defense: holding the ladder (Mob Defense <active|paused a job>; N hostiles within 16; the <step> <type> waits)`.
+- Still allowed:
+  - Crafts, smelts, meals, equips and drops.
+  - Escape climbs and the night jobs (outside `decide`).
+  - A starving bot's food trip: bar at `FOOD_CRITICAL` (6) or under, nothing to eat.
+- The low-health emergency (bar under 18, health under 10) now waits. That was hard1's pig fight at health 2.
+- `DEFENSE_PAUSE_MS=60000`: a job paused a minute with the reflex idle no longer holds the ladder, so a pause the reflex never resumes cannot stall the run.
+- The holds come before `decide()`'s habits, so the bed rung's wool hunt (round 118's candidate) and the arm's-reach pickups wait too.
+
+**Tests:**
+- `tests/round121.test.js` (3):
+  - hard1's stone-kit inventory: idle, the wood gather goes. With the chain active, or a preempted gather paused, nothing is submitted and the line logs once.
+  - A pause older than 60 s with the reflex idle releases the hold; the reflex running again starts a fresh one.
+  - `defenseHold`: the health-2 pig fight and the collect wait. A starving bot's fight goes. Food held means no fight. The ascend, shelter, sleep, craft, smelt, eat, equip, drop, place and bagrun jobs are never held. The stone-kit craft goes out with Mob Defense active.
+
+920 -> 923 pass with resources.test.js left out; resources 9; rung table ok. Mutation: with the hold switched off, round-121 tests 1 and 2 fail.
+
+**Next candidates:**
+- hard2's ledge-guard stop under skeleton fire: a measured drop vs the arrows.
+- hard1's no-fuel iron: 7 raw iron, no coal, no torches.
+- Dusk surface log legs into a crowd.
+- The day-perch wall-open is still unexercised.
+- Upstream ports #369 / #4068 / #4062.
+- noPath stranded; #375 skipped.

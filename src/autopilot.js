@@ -470,6 +470,21 @@ export function duskHuntOff(tod,choice,c,ctx){
  if(choice?.step!=='food'||!['fight','hunt','collect','explore'].includes(choice.job?.type))return false;
  return !foodEmergency(c,ctx);
 }
+// Round 121 (round-120 hard1: in a 25-mob dawn crowd round a drowned with a trident, the wood
+// gather was preempted by Mob Defense and a new one submitted within a second, eight times in 10 s,
+// two paused gathers superseded; then a pig fight and a drop collect went out under the low-health
+// emergency at health 2 and a trident killed it): while Mob Defense is fleeing or fighting, or holds
+// a job it paused, no walking ladder job goes out - the paused job resumes when the reflex lets go.
+// A craft, a smelt, a meal and an equip still go; so does a starving bot's food trip (bar at
+// FOOD_CRITICAL or under, nothing to eat). A job paused DEFENSE_PAUSE_MS with the reflex idle no
+// longer holds the ladder (a pause the reflex never resumes must not stall the run).
+export const DEFENSE_HOLD_JOBS=new Set(['gather','explore','fight','hunt','collect','shear','breed','goto','obtain','deposit','store','build']);
+export const DEFENSE_PAUSE_MS=60000;
+export function defenseHold(choice,c,ctx){
+ if(!ctx?.defending||!DEFENSE_HOLD_JOBS.has(choice?.job?.type))return false;
+ if(choice.step==='food'&&c('_edible')<1&&Number.isFinite(ctx.foodBar)&&ctx.foodBar<=FOOD_CRITICAL)return false;
+ return true;
+}
 export function foodEmergency(c,ctx){
  if(c('_edible')>=1||!Number.isFinite(ctx?.foodBar))return false;
  return ctx.foodBar<=FOOD_CRITICAL||(!!ctx.lowHealth&&ctx.foodBar<18);
@@ -1645,6 +1660,15 @@ export class Autopilot{
   }}
   const defending=this.mobDefenseOn();
   if(duskHuntOff(dayTicks(b),choice,c=>counts[c]||0,{...ctx,crowd,defending})){const st=crowd>=CROWD_NEAR?'crowd: no hunting':defending?'mob defense: no hunting':'dusk: no hunting';if(this.state!==st)this.log('Autopilot: '+st+(st.startsWith('mob')?' (Mob Defense '+defending+'; ':' (')+crowd+' hostiles within 16)');this.state=st;choice=plan(counts,{...ctx,kitSkip:this.kitSkip||null,blocked:'food'});}
+  {// round 121: the paused-job hold ends DEFENSE_PAUSE_MS after the reflex last ran
+   if(defending==='paused a job'){this.defensePausedAt??=Date.now();}else this.defensePausedAt=null;
+   const held=defending&&!(defending==='paused a job'&&Date.now()-this.defensePausedAt>=DEFENSE_PAUSE_MS);
+   if(held&&defenseHold(choice,c=>counts[c]||0,{...ctx,defending})){
+    const st='mob defense: holding the ladder';
+    if(this.state!==st)this.log('Autopilot: mob defense: holding the ladder (Mob Defense '+defending+'; '+crowd+' hostiles within 16; the '+choice.step+' '+choice.job.type+' waits)');
+    this.state=st;return;
+   }
+  }
   if(!choice.step){this.state='all steps satisfied';return;}
   // A batch for the furnace: load it and move on (efficiency 1).
   if(choice.job&&choice.job.type==='smelt'&&!choice.job.take&&choice.job.count>=SMELT_LEAVE_AT&&!this.worker.furnaceRun)choice.job={...choice.job,leave:true};
