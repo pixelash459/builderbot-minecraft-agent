@@ -1014,6 +1014,11 @@ export function tunnelHeading(tunnel){
 // reason and the night pillar takes over (round 5 hard1/hard2: 11 min re-walking one
 // unreachable dirt block, cancelled by the soak bell, never sealed).
 const SHELTER_ITEMS=['cobblestone','dirt','cobbled_deepslate','netherrack'];
+// A pillar out of blocks takes one from the wall beside it, the way a player does: a block whose
+// drop is a pillar block with the tool held (stone and its kin drop nothing to a bare hand), at
+// most PILLAR_HARVEST_TRIES wall blocks per level, PILLAR_DROP_MS for the drop to reach the bag.
+export const PILLAR_HARVEST_TRIES=3,PILLAR_DROP_MS=1200,PILLAR_ROOF_DROP_MS=600;
+export const pillarSource=(name,pick)=>/^(dirt|grass_block)$/.test(name||'')||!!pick&&/^(stone|cobblestone|deepslate|cobbled_deepslate|netherrack)$/.test(name||'');
 export const NO_AVOID_LOG_MS=30000,NO_AVOID_NEAR=4;
 // Round 103 (round-101 hard3: the hold ended on the 60 s exit margin, the creeper at the wall then
 // held the walls for the 60 s creeper wait, and `Job time limit reached` fired with the walls up;
@@ -2754,17 +2759,26 @@ export class Worker extends EventEmitter {
  // the head must be open, or a block `clear` accepts, which is dug); three tries per level.
  async pillarUp(targetY,token,{clear=null,maxDigs=TRUNK_PILLAR,until=null}={}){
   const b=this.bot;
-  let digs=0,tries=0;const peaks=[];
+  let digs=0,tries=0,harvests=0,roofDug=false;const peaks=[];
   for(;b.entity.position.floored().y<targetY&&tries<3&&!(until&&until());){
    this.check(token);
    const f=b.entity.position.floored(),y0=f.y;
    const roof=b.blockAt(f.offset(0,2,0));
    if(roof?.boundingBox==='block'){
     if(!clear||!clear(roof)||++digs>maxDigs){this.log('Pillar: ceiling at '+f.offset(0,2,0));return false;}
-    await this.digWith(roof,token);continue;
+    await this.digWith(roof,token);roofDug=true;continue;
    }
-   const item=b.inventory.items().find(i=>SHELTER_ITEMS.includes(i.name));
+   let item=b.inventory.items().find(i=>SHELTER_ITEMS.includes(i.name));
    const ref=b.blockAt(f.offset(0,-1,0));
+   // Out of blocks on a climb that may dig (round-121 hard3, death 1: a box pinned past dawn,
+   // `climbing out through the roof`, `Pillar: stopped at y=89 (no blocks held)` twice one level
+   // short, `could not climb out; holding the box` with the roof open, and a zombie burned it to
+   // death there 30 s later): the roof block just dug is still falling, or the wall has one.
+   if(!item&&clear&&ref?.boundingBox==='block'&&harvests<maxDigs){
+    harvests++;
+    if(await this.pillarHarvest(f,clear,token,roofDug))item=b.inventory.items().find(i=>SHELTER_ITEMS.includes(i.name));
+    roofDug=false;
+   }
    if(!item||ref?.boundingBox!=='block'){this.log('Pillar: stopped at y='+f.y+' ('+(!item?'no blocks held':'no solid block under the feet: '+(ref?.name||'unloaded'))+')');return false;}
    await b.equip(item,'hand');this.check(token);
    try{if(b.pathfinder?.goal)b.pathfinder.setGoal(null);}catch{} // a stale goal clears the controls every tick
@@ -2784,6 +2798,27 @@ export class Worker extends EventEmitter {
   // pillaring` then `y=12 -> 12` 22 times, no Pillar line).
   if(tries>=3){const f=b.entity.position.floored();this.log('Pillar: no rise in 3 jump-places at y='+f.y+' (held '+(b.heldItem?.name||'nothing')+', under '+(b.blockAt(f.offset(0,-1,0))?.name||'unloaded')+', head '+(b.blockAt(f.offset(0,1,0))?.name||'unloaded')+', above '+(b.blockAt(f.offset(0,2,0))?.name||'unloaded')+'; jumps +'+peaks.join(' / ')+', onGround '+b.entity.onGround+', in water '+!!b.entity.isInWater+')');}
   return b.entity.position.floored().y>=targetY;
+ }
+ // One pillar block for a pillar that has none: the drop of a roof block dug a moment ago, or a
+ // wall block beside the head (then the feet) that `clear` lets the climb dig, with no fluid on
+ // any side of it. True once a pillar block is in the bag.
+ async pillarHarvest(f,clear,token,roofDug=false){
+  const b=this.bot;
+  const held=()=>b.inventory.items().some(i=>SHELTER_ITEMS.includes(i.name));
+  const arrived=async ms=>{for(const until=Date.now()+ms;!held()&&Date.now()<until;){await sleep(50);this.check(token);}return held();};
+  if(roofDug&&await arrived(PILLAR_ROOF_DROP_MS))return true;
+  const pick=b.inventory.items().some(i=>/_pickaxe$/.test(i.name));
+  let tried=0;
+  for(const dy of [1,0])for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]){
+   const bl=b.blockAt(f.offset(dx,dy,dz));
+   if(!bl||bl.boundingBox!=='block'||!pillarSource(bl.name,pick)||!clear(bl))continue;
+   const p=f.offset(dx,dy,dz);
+   if([[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]].some(([x,y,z])=>isFluid(b.blockAt(p.offset(x,y,z)))))continue;
+   if(++tried>PILLAR_HARVEST_TRIES)return false;
+   try{await this.digWith(bl,token);}catch(e){this.check(token);continue;}
+   if(await arrived(PILLAR_DROP_MS)){this.log('Pillar: no blocks held at y='+f.y+'; dug the '+bl.name+' beside the '+(dy?'head':'feet')+' for one');return true;}
+  }
+  return false;
  }
  // Round 61 (user, 2026-10-27: the bot breaking blocks with dirt in hand): the pillar's ceiling,
  // the burrow cap and the like were dug with whatever was held - the pillar's own dirt. Every
