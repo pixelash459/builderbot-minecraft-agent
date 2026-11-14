@@ -278,6 +278,27 @@ export const HAZARD_NEAR=8,HAZARD_MS=5*60000,DEEP_DARK_AVOID=32,DEEP_DARK_MS=30*
 // Round 52: a mob cave - a crowd met underground (round 50 hard2 and round 51's first run died
 // in the same cave under the spawn, y 38-40, 20+ hostiles): its ores are set aside for a while.
 export const MOB_CAVE_AVOID=24,MOB_CAVE_MS=20*60000,MOB_CAVE_NEAR=24,MOB_CAVE_CROWD=6;
+// Round 123 (round-122 hard2: 13 `impaled by Drowned` deaths at the spawn river, three of them in
+// 12 s - every respawn sent the wood gather back down the same bank into the tridents; hard1 took
+// one from outside 8 blocks, `0 hostile(s) within 8`): a death with a drowned or a trident in the
+// air within DROWNED_BANK_SEEN marks the spot a drowned bank for DROWNED_BANK_MS. A log within
+// DROWNED_BANK_R of a live mark, or of a drowned seen holding a trident, is not a gather target,
+// and the autopilot walks out of trident range before any other job (autopilot.js bankExit).
+export const DROWNED_BANK_MS=10*60000,DROWNED_BANK_SEEN=32,DROWNED_BANK_R=24,DROWNED_BANK_MERGE=8;
+const TRIDENT_RE=/^(trident|thrown_trident)$/;
+const tridentHeld=e=>{try{return e.heldItem?.name==='trident';}catch{return false;}};
+// The nearest drowned (armed only, with `armed`) or flying trident within r of `at`.
+export function drownedNear(bot,at,r,armed=false){
+ let best=null;
+ for(const e of Object.values(bot?.entities||{})){
+  if(!e||e===bot.entity||!e.position||e.isValid===false)continue;
+  if(!(e.name==='drowned'?(!armed||tridentHeld(e)):TRIDENT_RE.test(e.name||'')))continue;
+  const d=Math.hypot(e.position.x-at.x,e.position.y-at.y,e.position.z-at.z);
+  if(d<=r&&(!best||d<best.d))best={name:e.name==='drowned'?'drowned':'trident',d,x:e.position.x,y:e.position.y,z:e.position.z};
+ }
+ return best;
+}
+export const nearBank=(spots,p)=>(spots||[]).find(h=>Math.hypot(h.x-p.x,h.y-p.y,h.z-p.z)<=DROWNED_BANK_R)||null;
 // Round 114 (round-113 hard1: three minutes fleeing a 40+ mob crowd round a cave mouth, then the
 // iron gather picked an ore at (807, 66, -571) in that cave; `a mob cave (10 hostiles within 24 at
 // (809, 71, -563))` was logged only once the bot was inside, and it was shot dead 8 s later): a
@@ -1451,6 +1472,7 @@ export class Worker extends EventEmitter {
   try{this.log(deathContext(bot,this.hpTrail,Date.now()));}catch{}
   this.hpTrail=[];
   this.lastDeath={pos:at?{x:at.x,y:at.y,z:at.z}:null,t:Date.now(),bag:deathBag(bot,at)};
+  try{this.drownedDeath(bot,at);}catch{}
   // Monotonic, session-wide: the soak counts a run's deaths as this counter's rise (the
   // 100-entry event window scrolls a 'Bot died at' line out within one 30 s sample under a
   // flee storm - round 4 recorded 1 death of 4).
@@ -3677,6 +3699,7 @@ export class Worker extends EventEmitter {
     try{
      const me=b.entity.position,seen=b.findBlocks({matching:match,point:me,maxDistance:SEARCH_SCAN,count:256})
       .filter(p=>p.distanceTo(pos(job.anchor))>radius&&!this.gatherBlacklisted(job,p)&&(!s.belowFoots||Math.abs(p.y-me.y)<=8)&&!(anyLog&&builtLog(at3,p)));
+     if(anyLog){const bank=this.drownedBankSpots?.()||[];if(bank.length)for(let i=seen.length-1;i>=0;i--)if(nearBank(bank,seen[i]))seen.splice(i,1);} // round 123: no leg toward a drowned bank
      const head=searchHeading(me,seen);
      if(head){aim=head.target;direction=head.direction;leg=Math.max(leg,Math.min(64,head.distance-8));this.log('Gather: search leg '+job.searches+' '+direction+' toward '+(anyLog?'logs':s.block)+' at '+head.target);}
     }catch(e){this.check(token);}
@@ -3723,6 +3746,8 @@ export class Worker extends EventEmitter {
     // gather) are skipped. hard1/hard2 sat for minutes re-trying the same canopy logs.
     targets=targets.filter(t=>!this.gatherBlacklisted(job,t.position));
     if(anyLog)targets=targets.filter(t=>!builtLog(at3,t.position));
+    // Round 123: no tree on a drowned bank (a live mark, or a drowned holding a trident).
+    if(anyLog)targets=this.offBank?.(job,targets)??targets;
     // Habit 11: a crop is harvested only ripe (age 7; beetroots 3), never pulled green.
     if(CROP_RIPE[s.block]!=null)targets=targets.filter(t=>blockAge(t)>=CROP_RIPE[s.block]);
     // openSky RANKS open trunks first but never empties the list: the dark-canopy hard
@@ -5083,6 +5108,33 @@ export class Worker extends EventEmitter {
    if(d<=MOB_CAVE_AVOID&&(!best||d<best.d))best={...h,d};
   }
   return best;
+ }
+ // Round 123 (DROWNED_BANK_MS above): a death beside a drowned or a flying trident marks the bank.
+ // A second death within DROWNED_BANK_MERGE renews the mark instead of adding one.
+ drownedDeath(bot,at){
+  if(!at)return null;
+  const seen=drownedNear(bot,at,DROWNED_BANK_SEEN);if(!seen)return null;
+  const now=Date.now();this.drownedBanks=(this.drownedBanks||[]).filter(h=>h.until>now);
+  let mark=this.drownedBanks.find(h=>Math.hypot(h.x-at.x,h.y-at.y,h.z-at.z)<=DROWNED_BANK_MERGE);
+  if(mark){mark.until=now+DROWNED_BANK_MS;mark.at=now;mark.deaths++;}
+  else{mark={x:at.x,y:at.y,z:at.z,until:now+DROWNED_BANK_MS,at:now,deaths:1};this.drownedBanks=this.drownedBanks.concat([mark]).slice(-8);}
+  this.log('Drowned bank: marked ('+Math.floor(at.x)+', '+Math.floor(at.y)+', '+Math.floor(at.z)+') for '+DROWNED_BANK_MS/60000+' min ('+seen.name+' '+Math.round(seen.d)+' away at the death, death '+mark.deaths+' here); logs within '+DROWNED_BANK_R+' are set aside and the ladder walks out of trident range first');
+  return mark;
+ }
+ // Round 123: the gather's log targets with those on a drowned bank taken out.
+ offBank(job,targets){
+  const bank=this.drownedBankSpots?.()||[];if(!bank.length||!targets.length)return targets;
+  let by=null;const kept=targets.filter(t=>{const h=nearBank(bank,t.position);if(h)by=by||h;return !h;});
+  const cut=targets.length-kept.length;
+  if(cut&&job.bankCut!==cut){job.bankCut=cut;this.log('Gather: drowned bank - '+cut+' of '+targets.length+' logs within '+DROWNED_BANK_R+' of '+(by.seen?'a drowned with a trident':'the mark')+' at ('+Math.floor(by.x)+', '+Math.floor(by.y)+', '+Math.floor(by.z)+') set aside');}
+  return kept;
+ }
+ drownedBanksLive(){const now=Date.now();return (this.drownedBanks||[]).filter(h=>h.until>now);}
+ // The live marks, and every drowned in sight that holds a trident.
+ drownedBankSpots(){
+  const spots=this.drownedBanksLive();
+  for(const e of Object.values(this.bot?.entities||{}))if(e&&e.name==='drowned'&&e.position&&e.isValid!==false&&tridentHeld(e))spots.push({x:e.position.x,y:e.position.y,z:e.position.z,seen:true});
+  return spots;
  }
  nearHazard(pos){
   const now=Date.now();

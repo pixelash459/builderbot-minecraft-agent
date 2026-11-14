@@ -554,6 +554,20 @@ export function sheepSearchJob(job,{underSky,standY,lastSurfaceY}={}){
 // Round 52: a crowd of MOB_CAVE_CROWD+ hostiles within 16 with no sky overhead, below the
 // surface anchor: a mob cave - its ores are set aside and the bot climbs out.
 export const MOB_CAVE_CROWD=6;
+// Round 123 (worker.js DROWNED_BANK_MS; round-122 hard2: 13 trident deaths, each respawn's wood
+// gather walking back down the spawn river's bank): within DROWNED_BANK_CLEAR of a live drowned
+// bank mark the first job is a walk straight away from the marks, out of trident range and out of
+// the river's sight - what a player does after dying to a trident. DROWNED_BANK_LEAVES per death.
+export const DROWNED_BANK_CLEAR=40,DROWNED_BANK_LEAVES=3;
+export function bankExit(pos,marks){
+ const flat=h=>Math.hypot(h.x-pos.x,h.z-pos.z);
+ const near=(marks||[]).filter(h=>flat(h)<=DROWNED_BANK_CLEAR);if(!near.length)return null;
+ const mark=near.reduce((m,h)=>flat(h)<flat(m)?h:m),d=flat(mark);
+ let dx=pos.x-near.reduce((n,h)=>n+h.x,0)/near.length,dz=pos.z-near.reduce((n,h)=>n+h.z,0)/near.length;
+ if(Math.hypot(dx,dz)<1){dx=pos.x-mark.x;dz=pos.z-mark.z;} // ringed: away from the nearest
+ const direction=Math.abs(dx)>=Math.abs(dz)?(dx>=0?'east':'west'):(dz>0?'south':'north');
+ return {mark,d,direction,distance:Math.max(16,Math.round(DROWNED_BANK_CLEAR-d)+8)};
+}
 export const mobCave=({crowd,underSky,standY,lastSurfaceY})=>crowd>=MOB_CAVE_CROWD&&!underSky&&Number.isFinite(standY)&&standY<escapeY(lastSurfaceY)-8; // worker.mobCaveHere: the live check (crowd within 24)
 export function underSky(b){
  try{const p=b?.entity?.position;if(!p)return false;const h=b.blockAt(p.offset(0,1.6,0));return !!h&&Number.isFinite(h.skyLight)&&h.skyLight>=12;}catch{return false;}
@@ -1103,6 +1117,7 @@ export class Autopilot{
   if(this.caveClimb(b))return; // round 116: before the night job, a meal, a drop or a gather
   if(!shelterDue(dayTicks(b))&&this.recovering(b))return; // the night job (shelter or sleep) still goes out
   if(!shelterDue(dayTicks(b))&&this.bagRun(b))return;
+  if(!shelterDue(dayTicks(b))&&this.leaveDrownedBank(b))return; // round 123: before a drop, a meal or a gather
   this.rememberHome(b);
   // Dusk prep: without a bed the night shelter needs 25 dirt/cobble in the inventory, so
   // gather the dirt while there is still daylight (once per day). Grass blocks drop dirt.
@@ -1303,6 +1318,22 @@ export class Autopilot{
   this.caveClimbs.push(now);
   this.log('Autopilot: under rock at y='+Math.floor(p.y)+' (surface '+top+'), '+Math.round(mark.d)+' from the mob cave marked at ('+where+') '+Math.round((now-mark.at)/1000)+' s ago; climbing out before any other job');
   this.submit('escape',{type:'ascend',y:top});
+  return true;
+ }
+ // Round 123 (bankExit above): true when this tick sent the walk off a drowned bank. Mob Defense
+ // on: its flee has the bot, and the round-121 hold keeps the ladder's walks back.
+ leaveDrownedBank(b){
+  const p=b?.entity?.position,w=this.worker;if(!p)return false;
+  const exit=bankExit(p,w.drownedBanksLive?.());if(!exit||this.mobDefenseOn())return false;
+  const death=w.lastDeath?.t??0,m=exit.mark,where=Math.floor(m.x)+', '+Math.floor(m.y)+', '+Math.floor(m.z);
+  if(this.bankLeave?.death!==death)this.bankLeave={death,n:0};
+  if(this.bankLeave.n>=DROWNED_BANK_LEAVES){
+   if(!this.bankLeave.out){this.bankLeave.out=true;this.log('Autopilot: '+DROWNED_BANK_LEAVES+' walks off the drowned bank at ('+where+') did not get the bot '+DROWNED_BANK_CLEAR+' clear; back to the ladder');}
+   return false;
+  }
+  this.bankLeave.n++;
+  this.log('Autopilot: drowned bank at ('+where+') '+Math.round(exit.d)+' away, marked '+Math.round((Date.now()-m.at)/1000)+' s ago; walking '+exit.distance+' '+exit.direction+' out of trident range before any other job');
+  this.submit('escape',{type:'explore',direction:exit.direction,distance:exit.distance});
   return true;
  }
  // Round 77 (round-76 hard1: slept at (811, 32, -549), 39 under the anchor, and set the respawn
