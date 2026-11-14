@@ -4311,3 +4311,28 @@ The bot went from y=44 to y=22 instead of up, and three zombies and a creeper ki
 - The bag run still goes first and can walk back to a marked bank.
 - A normal run near a trident drowned loses nearby trees.
 - Also open: the unarmed post-respawn bag run into a crowd; the ledge stop under skeleton fire; chronic hard hunger.
+
+## Round 124
+
+**Round-123 soak (report 41bf2b2):**
+- 6 deaths (0/0/0/1/0/5); iron pick 3 of 6, normals only; normal3 found 3 diamonds.
+- The drowned bank worked on hard2: round 122's 14-death river loop ran the whole 40 minutes with 0 deaths.
+- hard3 still took 5 `impaled by Drowned` deaths in its first 99 s, one mark per death. The third walk-out (35 west, 45 clear) ended it.
+  - Death 1's trail `18.5 -> 6.8 -> 7.2 ... -> 0` is a trident hit it lived through. It then stayed on the bank regenerating until the next trident.
+- hard1: `slain by Silverfish` inside its own night box (7 silverfish within 8).
+- The round-122 pillar clause never fired: 19 `Pillar: stopped at y=62 (no blocks held)` lines, all on non-digging pillars.
+
+**Fix (one change: a trident hit marks the bank):** a player who takes a trident leaves the water's edge before the second one comes.
+- `worker.js` `onHealth` → `drownedHit`: a health drop of 2+ with a trident entity within 6 (`DROWNED_HIT_NEAR`) marks the bank at once. It goes through the same `markBank` as a death: renew within 8, 10 min, up to 8 marks.
+  - Line: `Drowned bank: marked (x, y, z) for 10 min (trident N away at a hit, health A -> B, hit K here); ...`
+  - The death line is unchanged.
+- `autopilot.js` `leaveDrownedBank`: the 3-walk budget is keyed on the last death plus the newest mark time. A new or renewed mark therefore starts a fresh budget, even with no death in between.
+
+**Tests:** `tests/round124.test.js` (2). 942 -> 944 pass; rung table ok.
+- Mutation: with the `onHealth` hook off, both fail. With the old budget key, test 2 fails.
+
+**Next candidates:**
+- Silverfish inside a sealed box: the night box sealed on a silverfish cave.
+- The non-digging pillar stopping with no blocks (hard3, after its deaths).
+- normal1's wood no-path pocket at (853, 64, -439), third soak running.
+- The unarmed post-respawn bag run; the ledge stop under skeleton fire.

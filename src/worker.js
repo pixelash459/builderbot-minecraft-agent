@@ -298,6 +298,12 @@ export function drownedNear(bot,at,r,armed=false){
  }
  return best;
 }
+// Round 124 (round-123 hard3: five `impaled by Drowned` deaths in its first 99 s, one mark per
+// death - death 1's trail `18.5 -> 6.8 -> 7.2 ... -> 0` is a trident hit it lived through, then
+// stayed on the bank to regenerate until the next one): a hit with a trident within
+// DROWNED_HIT_NEAR marks the bank at once, the way a player who takes a trident leaves the water's
+// edge before the second one comes.
+export const DROWNED_HIT_NEAR=6,DROWNED_HIT_MIN=2;
 export const nearBank=(spots,p)=>(spots||[]).find(h=>Math.hypot(h.x-p.x,h.y-p.y,h.z-p.z)<=DROWNED_BANK_R)||null;
 // Round 114 (round-113 hard1: three minutes fleeing a 40+ mob crowd round a cave mouth, then the
 // iron gather picked an ore at (807, 66, -571) in that cave; `a mob cave (10 hostiles within 24 at
@@ -1505,7 +1511,7 @@ export class Worker extends EventEmitter {
  }
  onHealth(bot){
   // Round 85: the death itself is not a hit (the respawn guard reads hurtAt).
-  if(this._lastHp!=null&&bot.health>0&&bot.health<this._lastHp-0.01)this.hurtAt=Date.now();
+  if(this._lastHp!=null&&bot.health>0&&bot.health<this._lastHp-0.01){this.hurtAt=Date.now();try{this.drownedHit(bot,this._lastHp,bot.health);}catch{}}
   this._lastHp=bot.health;
   {const now=Date.now();this.hpTrail=[...(this.hpTrail||[]).filter(h=>now-h.t<=DEATH_TRAIL_MS),{t:now,hp:bot.health}];}
   if(this.busy&&!this.survivalJob&&(bot.health<this.config.limits.minHealth||bot.food<this.config.limits.minFood))this.stop('Health or food is low','health');}
@@ -5114,11 +5120,21 @@ export class Worker extends EventEmitter {
  drownedDeath(bot,at){
   if(!at)return null;
   const seen=drownedNear(bot,at,DROWNED_BANK_SEEN);if(!seen)return null;
+  return this.markBank(at,seen,'the death',m=>'death '+(m.deaths=(m.deaths||0)+1)+' here');
+ }
+ // Round 124 (DROWNED_HIT_NEAR above): a trident hit the bot lived through marks the bank too.
+ drownedHit(bot,before,after){
+  const at=bot?.entity?.position;if(!at||!(before-after>=DROWNED_HIT_MIN))return null;
+  const seen=drownedNear(bot,at,DROWNED_HIT_NEAR);if(!seen||seen.name!=='trident')return null;
+  return this.markBank(at,seen,'a hit, health '+Math.round(before*10)/10+' -> '+Math.round(after*10)/10,m=>'hit '+(m.hits=(m.hits||0)+1)+' here');
+ }
+ // A mark within DROWNED_BANK_MERGE is renewed instead of a new one added; at most 8 are kept.
+ markBank(at,seen,what,count){
   const now=Date.now();this.drownedBanks=(this.drownedBanks||[]).filter(h=>h.until>now);
   let mark=this.drownedBanks.find(h=>Math.hypot(h.x-at.x,h.y-at.y,h.z-at.z)<=DROWNED_BANK_MERGE);
-  if(mark){mark.until=now+DROWNED_BANK_MS;mark.at=now;mark.deaths++;}
-  else{mark={x:at.x,y:at.y,z:at.z,until:now+DROWNED_BANK_MS,at:now,deaths:1};this.drownedBanks=this.drownedBanks.concat([mark]).slice(-8);}
-  this.log('Drowned bank: marked ('+Math.floor(at.x)+', '+Math.floor(at.y)+', '+Math.floor(at.z)+') for '+DROWNED_BANK_MS/60000+' min ('+seen.name+' '+Math.round(seen.d)+' away at the death, death '+mark.deaths+' here); logs within '+DROWNED_BANK_R+' are set aside and the ladder walks out of trident range first');
+  if(mark){mark.until=now+DROWNED_BANK_MS;mark.at=now;}
+  else{mark={x:at.x,y:at.y,z:at.z,until:now+DROWNED_BANK_MS,at:now};this.drownedBanks=this.drownedBanks.concat([mark]).slice(-8);}
+  this.log('Drowned bank: marked ('+Math.floor(at.x)+', '+Math.floor(at.y)+', '+Math.floor(at.z)+') for '+DROWNED_BANK_MS/60000+' min ('+seen.name+' '+Math.round(seen.d)+' away at '+what+', '+count(mark)+'); logs within '+DROWNED_BANK_R+' are set aside and the ladder walks out of trident range first');
   return mark;
  }
  // Round 123: the gather's log targets with those on a drowned bank taken out.

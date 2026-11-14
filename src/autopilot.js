@@ -1325,7 +1325,8 @@ export class Autopilot{
  leaveDrownedBank(b){
   const p=b?.entity?.position,w=this.worker;if(!p)return false;
   const exit=bankExit(p,w.drownedBanksLive?.());if(!exit||this.mobDefenseOn())return false;
-  const death=w.lastDeath?.t??0,m=exit.mark,where=Math.floor(m.x)+', '+Math.floor(m.y)+', '+Math.floor(m.z);
+  // Round 124: a new or renewed mark (a hit, not only a death) starts a fresh budget of walks.
+  const m=exit.mark,death=(w.lastDeath?.t??0)+'|'+Math.max(0,...(w.drownedBanksLive?.()||[]).map(h=>h.at||0)),where=Math.floor(m.x)+', '+Math.floor(m.y)+', '+Math.floor(m.z);
   if(this.bankLeave?.death!==death)this.bankLeave={death,n:0};
   if(this.bankLeave.n>=DROWNED_BANK_LEAVES){
    if(!this.bankLeave.out){this.bankLeave.out=true;this.log('Autopilot: '+DROWNED_BANK_LEAVES+' walks off the drowned bank at ('+where+') did not get the bot '+DROWNED_BANK_CLEAR+' clear; back to the ladder');}
