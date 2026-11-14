@@ -1983,15 +1983,21 @@ export class Worker extends EventEmitter {
   const value=n=>n==='coal'||n==='charcoal'?8:(n.endsWith('_planks')||n.endsWith('_log')?1.5:0);
   if(preferred&&!value(preferred))throw Error(preferred+' is not usable fuel');
   const names=preferred?[preferred]:['coal','charcoal',...b.inventory.items().filter(i=>i.name.endsWith('_planks')).map(i=>i.name),...b.inventory.items().filter(i=>i.name.endsWith('_log')).map(i=>i.name)];
-  const seen=new Set();let remaining=count;
+  // A furnace has one fuel slot, so the plan is one kind of fuel: the first kind that covers the
+  // batch alone. (The plan used to add the kinds up and return only the last one - 2 oak planks
+  // and 3 logs "covered" 7 items and the furnace got the 3 logs, fuel for 4.) When the kinds only
+  // cover the batch together, the kind that burns the most goes in and `covers` says how many
+  // items it smelts; smelt() cuts the batch to that.
+  const seen=new Set();let total=0,best=null;
   for(const n of names){
    if(seen.has(n))continue;seen.add(n);
    const capacity=value(n);if(!capacity)continue;
    const have=this.count(n);if(have<1)continue;
-   const use=Math.min(have,Math.ceil(remaining/capacity));
-   remaining-=use*capacity;
-   if(remaining<=0)return {id:b.registry.itemsByName[n].id,count:use};
+   if(have*capacity>=count)return {id:b.registry.itemsByName[n].id,count:Math.min(have,Math.ceil(count/capacity)),covers:count,name:n};
+   total+=have*capacity;
+   if(!best||have*capacity>best.covers)best={id:b.registry.itemsByName[n].id,count:have,covers:have*capacity,name:n};
   }
+  if(best&&total>=count&&Math.floor(best.covers)>=1)return {...best,covers:Math.floor(best.covers)};
   throw Error('Not enough fuel to smelt '+count+' items; needs coal, charcoal, planks or logs');
  }
  async smelt(job,token){
@@ -2062,6 +2068,10 @@ export class Worker extends EventEmitter {
     const fuelValue=n=>n==='coal'||n==='charcoal'?8:(/_planks$|_log$/.test(n||'')?1.5:0);
     const covered=slot?Math.floor((slot.count||0)*fuelValue(slot.name)):0;
     if(covered<s.count&&fuelErr)throw fuelErr;
+    if(covered<s.count&&fuel&&fuel.covers<s.count){
+     this.log('Smelt: the '+fuel.count+' '+fuel.name+' burn '+fuel.covers+' of the '+s.count+' '+s.item+'; smelting '+fuel.covers+' now');
+     s.count=fuel.covers;
+    }
     await furnace.putInput(input.id,null,s.count);
     if(covered<s.count){
      if(slot&&slot.type!==undefined&&slot.type!==fuel.id){try{await furnace.takeFuel();}catch{}} // a mixed slot refuses
