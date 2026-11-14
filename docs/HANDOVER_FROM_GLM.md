@@ -4249,3 +4249,36 @@ The bot went from y=44 to y=22 instead of up, and three zombies and a creeper ki
 - The day-perch wall-open is still unexercised.
 - Upstream ports #369 / #4068 / #4062.
 - noPath stranded; #375 skipped.
+
+## Round 122
+
+**Round-121 soak (report ac6b195):**
+- 2 deaths, both hard3 (0/0/0/0/0/2); iron pick 5 of 6, hard3 the miss.
+- hard3 death 1: a box pinned past dawn climbed out through its roof. `Pillar: stopped at y=89 (no blocks held)` twice, one level short. It went back to holding the box with the roof open, and a zombie burned it 30 s later.
+- hard3 death 2: a bag run 27 s after respawn, unarmed, into a 40+ mob crowd; a skeleton and a spider killed it. The round-121 hold and the keep-away both fired. Not fixed this round.
+- No deaths on hard1 or hard2. The round-121 Mob Defense hold looks like it helped.
+
+**Fixes (three this round, each with its own log line so the soak can tell them apart):**
+- Commit `74e22b6`, smelt fuel. `fuelPlan` added up every fuel kind held but returned only the last one, so 2 planks and 3 logs under 7 raw iron loaded the 3 logs (burn for 4) and the job timed out.
+  - The plan is now one kind that covers the batch alone.
+  - If the kinds only cover it together, the biggest goes in and `smelt()` cuts the batch to what it burns.
+  - New line: `Smelt: the N <fuel> burn M of the K <item>; smelting M now`.
+  - Test: `tests/review-fuel-plan.test.js`.
+- Commit `4ffc165`, pillar out of blocks (hard3 death 1). A digging pillar (`clear` set) with no blocks held first waits 600 ms for the dug roof block's drop.
+  - Then it digs a wall block beside the head, then the feet: dirt or grass always; stone, cobble, deepslate or netherrack only with a pickaxe.
+  - It skips any block with fluid on a side, and tries at most 3 per level.
+  - Pillars with no `clear` (canopy, box) are unchanged.
+  - New line: `Pillar: no blocks held at y=N; dug the <block> beside the <head|feet> for one`.
+  - Test: `tests/review-pillar-harvest.test.js`.
+- Commit `a1c3d0d`, pathfinder heap (upstream #369). The installed 2.4.5 `lib/heap.js` `pop()` never compares a right child that is the heap's last element, so A* expands nodes out of cost order.
+  - `src/pathfinder-heap.js` probes the class and replaces `pop()` only while the probe shows the fault. `worker.js` exports `HEAP_FIX` ('fixed', 'ok' or 'missing').
+  - `node_modules` is untouched.
+  - Test: `tests/review-pathfinder-heap.test.js`.
+
+**Tests:** 923 -> 935 pass with resources.test.js left out; rung table ok. Each fix was mutation-checked: its test fails without it.
+
+**Next candidates:**
+- An unarmed bag run into a 40+ crowd right after a respawn.
+- The ledge-guard stop under skeleton fire; armour or a shield before the surplus sword.
+- Smelt what the fuel held covers before going for coal.
+- Chronic hard hunger; general noPath stranding; stand-and-fight spacing; mineflayer #4068.
