@@ -9,6 +9,7 @@ import {EventEmitter} from 'node:events';
 import {jobSchema,validateBlueprint} from './schema.js';
 import {Ledger,StorageIndex,storePlan,storageSpots,categoryOf,spareTool} from './storage.js';
 import {installMovementFix,installWeatherFix} from './compat.js';
+import {installHeapFix} from './pathfinder-heap.js';
 import {eatMeal,guardEquip,afterInject} from './eating.js';
 import {creeperSwell} from './creeper.js';
 import {yawToward} from './heading.js';
@@ -40,6 +41,8 @@ import {MORNING_SAFE,darkNow,stillNight,leaveRefuge,shelterShell,shellGaps,holda
 import {bestWeapon,attackCooldown,leaveAlone,armorValue} from './chains/combatPolicy.js';
 const {pathfinder,Movements,goals}=pathfinderPackage;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+// The pathfinder's open set, put right before any search runs (pathfinder-heap.js).
+export const HEAP_FIX=installHeapFix();
 const pos=p=>new Vec3(p.x,p.y,p.z);
 const empty=b=>b && ['air','cave_air','void_air'].includes(b.name);
 const PfMove=createRequire(import.meta.url)('mineflayer-pathfinder/lib/move.js');
