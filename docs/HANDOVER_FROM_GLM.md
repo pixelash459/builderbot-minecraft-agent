@@ -4282,3 +4282,32 @@ The bot went from y=44 to y=22 instead of up, and three zombies and a creeper ki
 - The ledge-guard stop under skeleton fire; armour or a shield before the surplus sword.
 - Smelt what the fuel held covers before going for coal.
 - Chronic hard hunger; general noPath stranding; stand-and-fight spacing; mineflayer #4068.
+
+## Round 123
+
+**Round-122 soak (report 1845662):**
+- 16 deaths (0/0/0/2/14/0); iron pick 4 of 6, hard2 the miss.
+- The normals all wore 2 armour pieces. hard3 slept in a bed, the first sleep job since round 85.
+- hard2's 14 deaths were a spawn-river loop: 13 `impaled by Drowned` and 1 zombie. Each respawn went: `Bag run: skipped` → `Autopilot [wood] gather log` → the gather's legs down the bank → a 20-40 mob flee → trident. Three of them came in 12 s.
+- hard1 had 1 trident death from outside 8 blocks, and 1 skeleton.
+- The round-122 fixes:
+  - Smelt plan line: 0 fires; one normal2 smelt still ran out of fuel.
+  - Pillar wall-block line: see the report.
+  - Heap: unlogged.
+
+**Fix (one change: drowned bank):** a player who dies to a trident by a river doesn't walk back down that bank. They get out of trident range and chop trees elsewhere.
+- `worker.js` `drownedDeath`: a death with a drowned or a flying trident within 32 marks the spot for 10 min (`DROWNED_BANK_MS`). A death within 8 renews the mark; up to 8 marks are kept.
+  - Line: `Drowned bank: marked (x, y, z) for 10 min (drowned|trident N away at the death, death K here); ...`
+- `offBank` and the search legs: no log within 24 of a live mark, or of a drowned holding a trident, is a gather target.
+  - Line: `Gather: drowned bank - N of M logs within 24 of the mark|a drowned with a trident at (x, y, z) set aside`
+- `autopilot.js` `leaveDrownedBank` / `bankExit`: within 40 of a live mark, the first job after the bag run is an explore leg straight away from the marks. It runs at most 3 times per death, never while Mob Defense is on, and not when the shelter is due.
+  - Lines: `Autopilot: drowned bank at (...) D away, marked N s ago; walking M <dir> out of trident range before any other job` and `Autopilot: 3 walks off the drowned bank at (...) did not get the bot 40 clear; back to the ladder`
+
+**Tests:** `tests/round123.test.js` (7). 935 -> 942 pass; rung table ok. Mutation-checked five ways.
+
+**Risks and next candidates:**
+- The flee itself can still run along the bank.
+- The exit leg is one compass heading and isn't checked for water.
+- The bag run still goes first and can walk back to a marked bank.
+- A normal run near a trident drowned loses nearby trees.
+- Also open: the unarmed post-respawn bag run into a crowd; the ledge stop under skeleton fire; chronic hard hunger.
