@@ -1,5 +1,5 @@
 {
- "at": "2026-11-15T16:02:27",
+ "at": "2026-11-15T20:58:40",
  "results": [
   {
    "scenario": "cobble_wall",
@@ -44,15 +44,19 @@
      "z": 0
     }
    },
-   "status": "complete",
-   "message": "Completed and verified",
-   "seconds": 14.1,
+   "status": "failed",
+   "message": "No path to the goal! (empty path at (2102, -60, 0), last path: partial, 0 steps, 453 nodes)",
+   "seconds": 2.0,
    "end_pos": [
-    2108,
+    2101,
     -60,
-    1
+    0
    ],
-   "lines": [],
+   "lines": [
+    "15:22:18.435 Navigation: no path with mob avoidance at (2102, -60, 0); trying without it",
+    "15:22:18.498 Job: No path to the goal! (empty path at (2102, -60, 0), last path: partial, 0 steps, 453 nodes)",
+    "15:22:18.499 Job: no path for goto from (2102, -60, 0); last goal GoalNear 2108,-60,0 within 1 (0 s ago)"
+   ],
    "repeated_errors": {}
   },
   {
@@ -77,7 +81,7 @@
    "end_pos": [
     2208,
     -60,
-    1
+    -1
    ],
    "lines": [],
    "repeated_errors": {}
@@ -100,15 +104,15 @@
    },
    "status": "complete",
    "message": "Completed and verified",
-   "seconds": 8.0,
+   "seconds": 6.1,
    "end_pos": [
     2309,
     -60,
     0
    ],
    "lines": [
-    "10:26:31.177 Navigation: no path with mob avoidance at (2300, -60, 0); trying without it",
-    "10:26:35.744 Boxed in at (2300, -60, 0): dug 1 steps up east to (2301, -59, 0)"
+    "15:22:50.733 Navigation: no path with mob avoidance at (2300, -60, 0); trying without it",
+    "15:22:54.374 Boxed in at (2300, -60, 0): dug 1 steps up east to (2301, -59, 0)"
    ],
    "repeated_errors": {}
   },
@@ -130,16 +134,16 @@
    },
    "status": "complete",
    "message": "Completed and verified",
-   "seconds": 34.2,
+   "seconds": 34.3,
    "end_pos": [
     2409,
     -60,
     0
    ],
    "lines": [
-    "10:26:47.394 Navigation: no path with mob avoidance at (2400, -60, 0); trying without it",
-    "10:26:47.457 Boxed in: no tool for cobblestone at (2400, -58, 0); digging it by hand (it drops nothing)",
-    "10:27:19.238 Boxed in at (2400, -60, 0): dug 1 steps up east to (2401, -59, 0)"
+    "15:23:05.132 Navigation: no path with mob avoidance at (2400, -60, 0); trying without it",
+    "15:23:05.202 Boxed in: no tool for cobblestone at (2400, -58, 0); digging it by hand (it drops nothing)",
+    "15:23:37.021 Boxed in at (2400, -60, 0): dug 1 steps up east to (2401, -59, 0)"
    ],
    "repeated_errors": {}
   },
@@ -168,8 +172,8 @@
     0
    ],
    "lines": [
-    "10:27:29.889 Navigation: no path with mob avoidance at (2500, -60, 0); trying without it",
-    "10:27:34.089 Boxed in at (2500, -60, 0): dug 1 steps up east to (2501, -59, 0)"
+    "15:23:47.836 Navigation: no path with mob avoidance at (2500, -60, 0); trying without it",
+    "15:23:52.081 Boxed in at (2500, -60, 0): dug 1 steps up east to (2501, -59, 0)"
    ],
    "repeated_errors": {}
   },
@@ -198,8 +202,8 @@
     0
    ],
    "lines": [
-    "10:27:44.214 Navigation: no path with mob avoidance at (2600, -60, 0); trying without it",
-    "10:27:47.476 Boxed in at (2600, -60, 0): dug 1 steps up east to (2601, -59, 0)"
+    "15:24:02.262 Navigation: no path with mob avoidance at (2600, -60, 0); trying without it",
+    "15:24:05.474 Boxed in at (2600, -60, 0): dug 1 steps up east to (2601, -59, 0)"
    ],
    "repeated_errors": {}
   },
@@ -228,8 +232,8 @@
     0
    ],
    "lines": [
-    "10:28:00.613 Navigation: no path with mob avoidance at (2700, -63, 0); trying without it",
-    "10:28:08.598 Boxed in at (2700, -63, 0): dug 3 steps up east to (2703, -60, 0)"
+    "15:24:18.686 Navigation: no path with mob avoidance at (2700, -63, 0); trying without it",
+    "15:24:26.681 Boxed in at (2700, -63, 0): dug 3 steps up east to (2703, -60, 0)"
    ],
    "repeated_errors": {}
   },
@@ -259,7 +263,7 @@
     0
    ],
    "lines": [
-    "10:28:18.928 Job: Cannot place at (2802, -60, 0): occupied by cobblestone"
+    "15:24:37.070 Job: Cannot place at (2802, -60, 0): occupied by cobblestone"
    ],
    "repeated_errors": {}
   },
@@ -290,7 +294,7 @@
     0
    ],
    "lines": [
-    "10:28:29.266 Place: broke the poppy at (2902, -60, 0) first"
+    "15:24:47.346 Place: broke the poppy at (2902, -60, 0) first"
    ],
    "repeated_errors": {}
   },
@@ -302,7 +306,7 @@
     -60,
     0
    ],
-   "sealed_after": 58.2,
+   "sealed_after": 58.1,
    "hole": [
     3001,
     -60,
@@ -313,19 +317,19 @@
    "message": "Completed and verified",
    "opened_after": 44.4,
    "end_pos": [
-    3000,
+    2997,
     -60,
     2
    ],
    "lines": [
-    "10:28:39.160 Reflex: Mob Defense engaging",
-    "10:28:58.162 Shelter: sealed at (3000, -60, 0) (25 blocks placed)",
-    "10:29:10.334 Navigation: no path with mob avoidance at (3000, -62, 0); trying without it",
-    "10:29:18.974 Tunnel climb: step 3001,-63,0 failed (No path to the goal!); digging through natural fill",
-    "10:29:34.621 Shelter: re-sealing 2 open cell(s)",
-    "10:29:42.460 Shelter: re-sealing 1 open cell(s)",
-    "10:29:46.475 Shelter: dawn (tod 1000); staying sealed until the morning is light and clear",
-    "10:29:46.475 Shelter: morning (tod 1000, nearest hostile none); opening up"
+    "15:24:57.302 Reflex: Mob Defense engaging",
+    "15:25:16.198 Shelter: sealed at (3000, -60, 0) (25 blocks placed)",
+    "15:25:27.636 Navigation: no path with mob avoidance at (3000, -62, 0); trying without it",
+    "15:25:36.277 Tunnel climb: step 3001,-63,0 failed (No path to the goal!); digging through natural fill",
+    "15:25:52.083 Shelter: re-sealing 2 open cell(s)",
+    "15:26:00.635 Shelter: re-sealing 1 open cell(s)",
+    "15:26:04.715 Shelter: dawn (tod 1000); staying sealed until the morning is light and clear",
+    "15:26:04.715 Shelter: morning (tod 1000, nearest hostile none); opening up"
    ],
    "repeated_errors": {}
   },
@@ -355,14 +359,14 @@
     -1
    ],
    "lines": [
-    "10:30:39.115 Bag run: walking 30 back to the death at (3130, -60, 0) (; 270 s left on the drops)",
-    "10:30:39.200 Navigation: no path with mob avoidance at (3100, -60, 0); trying without it",
-    "10:30:39.260 Bag run: no path on the line from (3100, -60, 0); turning",
-    "10:30:39.450 Bag run: no path 45 off the line from (3101, -60, 0); turning",
-    "10:30:39.622 Bag run: no path -45 off the line from (3101, -60, 0); turning",
-    "10:30:39.808 Bag run: no path 90 off the line from (3101, -60, 0); turning",
-    "10:30:39.975 Job: No path to the goal!",
-    "10:30:39.976 Job: no path for bagrun from (3101, -60, -1); last goal GoalXZ (0 s ago)"
+    "15:26:57.262 Bag run: walking 30 back to the death at (3130, -60, 0) (; 269 s left on the drops)",
+    "15:26:57.395 Navigation: no path with mob avoidance at (3100, -60, 0); trying without it",
+    "15:26:57.460 Bag run: no path on the line from (3100, -60, 0); turning",
+    "15:26:57.626 Bag run: no path 45 off the line from (3101, -60, 0); turning",
+    "15:26:57.807 Bag run: no path -45 off the line from (3101, -60, 0); turning",
+    "15:26:57.974 Bag run: no path 90 off the line from (3101, -60, 0); turning",
+    "15:26:58.161 Job: No path to the goal!",
+    "15:26:58.161 Job: no path for bagrun from (3101, -60, 0); last goal GoalXZ (0 s ago)"
    ],
    "repeated_errors": {}
   },
@@ -374,7 +378,7 @@
     -60,
     0
    ],
-   "sealed_after": 58.6,
+   "sealed_after": 56.0,
    "cell": [
     3206,
     -63,
@@ -383,31 +387,30 @@
    "zombie": true,
    "held": true,
    "pinned": true,
-   "climbed": true,
-   "status": "complete",
-   "message": "Completed and verified",
-   "seconds": 34.3,
+   "climbed": false,
+   "status": "running",
+   "message": "Dawn: waiting for a safe morning (sealed)",
+   "seconds": 32.5,
    "end_pos": [
-    3195,
-    -60,
+    3200,
+    -57,
     0
    ],
    "lines": [
-    "10:30:48.522 Reflex: Mob Defense engaging",
-    "10:31:06.976 Shelter: sealed at (3200, -60, 0) (25 blocks placed)",
-    "10:31:18.460 Navigation: no path with mob avoidance at (3200, -62, 0); trying without it",
-    "10:31:27.006 Tunnel climb: step 3201,-63,0 failed (No path to the goal!); digging through natural fill",
-    "10:31:43.115 Shelter: re-sealing 2 open cell(s)",
-    "10:31:52.799 Shelter: dawn (tod 1000); staying sealed until the morning is light and clear",
-    "10:31:52.800 Shelter: held past dawn by zombie 6.7 dy -3 sky 0",
-    "10:32:23.049 Shelter: pinned 30 s past dawn by zombie 6.7 dy -3 sky 0; climbing out through the roof",
-    "10:32:23.052 Ascend: no path up from y=-60; pillaring",
-    "10:32:25.502 Ascend: head sky 15 at y=-57; health 20 -> 20 on the climb",
-    "10:32:25.502 Ascend: y=-60 -> -57 (surface 64)",
-    "10:32:25.550 Reflex: fleeing zombie (daylight - they burn)",
-    "10:32:25.551 Reflex: Mob Defense engaging",
-    "10:32:26.217 Reflex: fleeing zombie (daylight - they burn)",
-    "10:32:26.217 Reflex: Mob Defense engaging"
+    "15:27:06.668 Reflex: Mob Defense engaging",
+    "15:27:25.002 Shelter: sealed at (3200, -60, 0) (25 blocks placed)",
+    "15:27:37.148 Navigation: no path with mob avoidance at (3200, -62, 0); trying without it",
+    "15:27:45.856 Tunnel climb: step 3201,-63,0 failed (No path to the goal!); digging through natural fill",
+    "15:27:59.476 Shelter: re-sealing 2 open cell(s)",
+    "15:28:08.393 Shelter: dawn (tod 1000); staying sealed until the morning is light and clear",
+    "15:28:08.394 Shelter: held past dawn by zombie 6.7 dy -3 sky 0",
+    "15:28:38.466 Shelter: pinned 30 s past dawn by zombie 6.7 dy -3 sky 0; climbing out through the roof",
+    "15:28:38.469 Ascend: no path up from y=-60; pillaring",
+    "15:28:40.740 Job: Current job cancelled",
+    "15:28:40.751 Reflex: fleeing zombie (daylight - they burn)",
+    "15:28:40.751 Reflex: Mob Defense engaging",
+    "15:28:40.897 Ascend: head sky 15 at y=-57; health 20 -> 20 on the climb",
+    "15:28:40.897 Ascend: y=-60 -> -57 (surface 64)"
    ],
    "repeated_errors": {}
   }
