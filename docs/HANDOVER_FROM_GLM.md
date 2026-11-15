@@ -4336,3 +4336,31 @@ The bot went from y=44 to y=22 instead of up, and three zombies and a creeper ki
 - The non-digging pillar stopping with no blocks (hard3, after its deaths).
 - normal1's wood no-path pocket at (853, 64, -439), third soak running.
 - The unarmed post-respawn bag run; the ledge stop under skeleton fire.
+
+## Round 125
+
+**Round-124 soak (report cc51866):**
+- 3 deaths (0/0/0/1/0/2); iron pick 5 of 6; normal3 wore full iron armour at 994. 0 `impaled by Drowned` (round 123: 5; round 122: 14).
+- First fires:
+  - The round-122 smelt plan: `the 6 cherry_log burn 9 of the 10 beef`.
+  - The round-122 pillar wall-dig: 3 fires.
+  - The round-118 day-perch exit: 2 fires.
+- The round-124 hit mark is unexercised: no bot lived through a trident hit.
+- hard1 (the iron miss): wood at 2079 s.
+  - `the wood explore heads south (the least water)` came seven times in a row from the same far-west river islands, every leg blocked by water.
+  - Then 11 `wood failed 3 times`, 4 `Boxed in ... no way to stair out`, 5 head-unders, and a drowned killed it (melee, 1.3).
+- hard3: two zombie deaths in dawn crowds, one after two `cornered` lines and one 3 s after a stand at health 11 while burning, with a wooden sword.
+
+**Fix (one change: a blocked wood heading is set aside):** a player who can't get through one way tries another.
+- `autopilot.js` `blockedExplore` records each wood leg's heading and start.
+- At the next wood explore, `woodLegAvoid`: if the bot is under `WOOD_LEG_GAIN`=16 blocks (flat) from that start, the heading is set aside for 10 min.
+- `woodHeading(bot,rand,avoid)` takes 10 off a set-aside heading's score, so another heading wins. When every heading is aside it still picks one.
+- New line: `Autopilot: the last wood explore <dir> got the bot N blocks from (x, z); heading another way for 10 min`
+
+**Tests:** `tests/round125.test.js` (2). 944 -> 946 pass; rung table ok. Mutation: with the penalty off, both fail.
+
+**Next candidates:**
+- hard3's stand at health 11 while on fire, with a wooden sword while a stone sword was crafted earlier: check which sword the stand equips.
+- The cornered fight under a reflex storm (90+ claim-bumps in 60 s).
+- Silverfish inside a sealed box.
+- normal1's wood no-path pocket.

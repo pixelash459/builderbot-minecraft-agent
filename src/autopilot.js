@@ -81,7 +81,13 @@ export function grazeDirection(bot){
 const TREE=new Set(['forest','flower_forest','birch_forest','old_growth_birch_forest','dark_forest','pale_garden','taiga','old_growth_pine_taiga','old_growth_spruce_taiga','snowy_taiga','jungle','sparse_jungle','bamboo_jungle','cherry_grove','savanna','savanna_plateau','windswept_forest','windswept_savanna','mangrove_swamp','swamp','wooded_badlands','grove']);
 const WET=new Set(['ocean','deep_ocean','warm_ocean','lukewarm_ocean','deep_lukewarm_ocean','cold_ocean','deep_cold_ocean','frozen_ocean','deep_frozen_ocean','river','frozen_river','beach','snowy_beach','stony_shore']);
 export const WOOD_SAMPLES=[16,48,96,128];
-export function woodHeading(bot,rand=Math.random){
+// Round 125 (round-124 hard1: wood at 2079 s - `the wood explore heads south (the least water)`
+// seven times in a row from the same river islands, every leg blocked by the water, `Boxed in ...
+// no way to stair out` four times, then a drowned killed it): a heading whose last leg got the bot
+// under WOOD_LEG_GAIN blocks from where it started is set aside for WOOD_LEG_AVOID_MS, the way a
+// player who can't get through one way tries another. `avoid` holds the set-aside headings.
+export const WOOD_LEG_GAIN=16,WOOD_LEG_AVOID_MS=10*60000,WOOD_AVOID_PENALTY=10;
+export function woodHeading(bot,rand=Math.random,avoid=new Set()){
  const me=bot&&bot.entity&&bot.entity.position;
  if(!me)return {direction:'random',tree:null};
  const y=Math.floor(me.y),scored=[];let loaded=false;
@@ -94,6 +100,7 @@ export function woodHeading(bot,rand=Math.random){
    if(TREE.has(biome)){score+=dist>=96?3:2;if(!tree)tree={biome,dist};}
    else if(WET.has(biome))score-=dist<=48?2:1;
   }
+  if(avoid.has(direction))score-=WOOD_AVOID_PENALTY;
   scored.push({direction,score,tree});
  }
  if(!loaded)return {direction:'random',tree:null};
@@ -1351,10 +1358,26 @@ export class Autopilot{
  blockedExplore(step,surface={}){
   let direction='random';
   if(step==='wood'){
-   const h=woodHeading(this.worker.bot);direction=h.direction;
+   const h=woodHeading(this.worker.bot,Math.random,this.woodLegAvoid());direction=h.direction;
+   const me=this.worker.bot?.entity?.position;
+   if(direction!=='random'&&me)this.woodLeg={direction,x:me.x,z:me.z,at:Date.now()};
    if(direction!=='random')this.log('Autopilot: the wood explore heads '+direction+(h.tree?' ('+h.tree.biome+' at '+h.tree.dist+')':' (the least water)'));
   }
   return {type:'explore',direction,distance:step==='wood'?48:64,...surface};
+ }
+ // Round 125: the headings set aside, after checking how far the last wood leg got.
+ woodLegAvoid(){
+  const now=Date.now(),me=this.worker.bot?.entity?.position,leg=this.woodLeg;
+  this.woodAvoid=(this.woodAvoid||[]).filter(a=>a.until>now);
+  if(leg&&me&&now-leg.at<WOOD_LEG_AVOID_MS){
+   const gain=Math.hypot(me.x-leg.x,me.z-leg.z);
+   if(gain<WOOD_LEG_GAIN){
+    this.woodAvoid=this.woodAvoid.filter(a=>a.direction!==leg.direction).concat([{direction:leg.direction,until:now+WOOD_LEG_AVOID_MS}]);
+    this.log('Autopilot: the last wood explore '+leg.direction+' got the bot '+Math.round(gain)+' blocks from ('+Math.floor(leg.x)+', '+Math.floor(leg.z)+'); heading another way for '+WOOD_LEG_AVOID_MS/60000+' min');
+   }
+  }
+  this.woodLeg=null;
+  return new Set(this.woodAvoid.map(a=>a.direction));
  }
  deepUnderground(){
   const b=this.worker.bot,p=b?.entity?.position,y=p?.y,top=this.lastSurfaceY??this.foodAnchorY;
