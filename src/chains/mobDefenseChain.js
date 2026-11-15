@@ -32,6 +32,18 @@ export const CREEPER_CHASE_S=3,CREEPER_CHASED_KEEP=20;
 // one that has not come CREEPER_CLOSE_STEP nearer in CREEPER_STALL_S is left while it stays beyond
 // CREEPER_STALL_NEAR; inside that it is fled again from the start. A fuse is answered either way.
 export const CREEPER_STALL_S=30,CREEPER_STALL_NEAR=6,CREEPER_CLOSE_STEP=1;
+// Round 126 (round-125 hard1: out of its dawn box at (815, 87, -530), a pocket under the cherry
+// canopy with stone and dirt on every side, a creeper 3.2-6 away 4 above it for 1001 s - the
+// keep-away and the pillar fight took turns, `Flee: no headway` east, south-east and north-east
+// over and over, 0.37 blocks/s, health 20 the whole time, the night shelter job queued at
+// 08:17:56 never ran, and the run's last 19 minutes went with no ladder job and no iron): the
+// round-79 hover rule only let go of a creeper beyond 6, and this one hovered inside 6. A creeper
+// that came within 6 and then has not come nearer in CREEPER_STALL_S, while the bot has not moved
+// FLEE_STALL_BLOCKS and has lost no health in that time, cannot reach the bot - a creeper that can
+// walks in and fuses inside 3 in a few seconds, and without a line of sight it never fuses. A
+// skilled player stops running in place and gets on with the job, so it is left while it stays
+// beyond CREEPER_PIT_NEAR (its fuse range); a fuse is answered either way.
+export const CREEPER_PIT_NEAR=3;
 // Round 83: a meal goes ahead through a creeper keep-away with no creeper fusing or nearer than
 // CREEPER_MEAL_NEAR and no other hostile within MEAL_CLEAR.
 export const CREEPER_MEAL_NEAR=5,MEAL_CLEAR=8;
@@ -269,11 +281,20 @@ export class MobDefenseChain extends SingleTaskChain{
   {const c=ch&&!ch.stalled&&this.now()-ch.last<=5&&hostiles.find(e=>e.id===ch.id&&e.name==='creeper');
    if(c){const d=distanceTo(c,bot),t=this.now();
     if(ch.closest==null||d<ch.closest-CREEPER_CLOSE_STEP){ch.closest=d;ch.closedAt=t;}
-    else if(t-ch.closedAt>=CREEPER_STALL_S&&d>CREEPER_STALL_NEAR&&withinRange(c,bot,CREEPER_CHASED_KEEP)){
-     ch.stalled=true;this._fleeTag=null;
-     if(ctx.worker&&ctx.worker.log)try{ctx.worker.log('Reflex: the creeper '+d.toFixed(1)+' away has not come nearer than '+ch.closest.toFixed(1)+' in '+Math.round(t-ch.closedAt)+' s; back to the job (fleeing it again inside '+CREEPER_STALL_NEAR+')');}catch{}
+    // round 126: the bot pinned in place with no health lost, for the pit rule above
+    const me=bot.entity.position,hp=bot.health,pin=ch.pin;
+    if(!pin||Math.hypot(me.x-pin.x,me.z-pin.z)>FLEE_STALL_BLOCKS||hp<pin.hp)ch.pin={x:me.x,y:me.y,z:me.z,at:t,hp};
+    else if(hp>pin.hp)pin.hp=hp;
+    const pit=ch.closest<=CREEPER_STALL_NEAR&&t-ch.pin.at>=CREEPER_STALL_S;
+    const near=pit?CREEPER_PIT_NEAR:CREEPER_STALL_NEAR;
+    if(t-ch.closedAt>=CREEPER_STALL_S&&d>near&&withinRange(c,bot,CREEPER_CHASED_KEEP)){
+     ch.stalled=true;ch.near=near;this._fleeTag=null;
+     const at='('+Math.floor(ch.pin.x)+', '+Math.floor(ch.pin.y)+', '+Math.floor(ch.pin.z)+')';
+     if(ctx.worker&&ctx.worker.log)try{ctx.worker.log(pit
+      ?'Reflex: the creeper '+d.toFixed(1)+' away has not come nearer than '+ch.closest.toFixed(1)+' in '+Math.round(t-ch.closedAt)+' s and the bot has not moved off '+at+' in '+Math.round(t-ch.pin.at)+' s (health '+Math.round(hp*10)/10+', no hit); it cannot reach the bot - back to the job (fleeing it again inside '+CREEPER_PIT_NEAR+')'
+      :'Reflex: the creeper '+d.toFixed(1)+' away has not come nearer than '+ch.closest.toFixed(1)+' in '+Math.round(t-ch.closedAt)+' s; back to the job (fleeing it again inside '+CREEPER_STALL_NEAR+')');}catch{}
     }}}
-  const stalled=e=>!!ch&&ch.id===e.id&&ch.stalled&&distanceTo(e,bot)>CREEPER_STALL_NEAR;
+  const stalled=e=>!!ch&&ch.id===e.id&&ch.stalled&&distanceTo(e,bot)>(ch.near??CREEPER_STALL_NEAR);
   // the rest of the ladder (the unarmed flee, the annoying-mob timers) leaves it too
   if(ch&&ch.stalled)hostiles=hostiles.filter(e=>!stalled(e));
   const creeper=hostiles.filter(e=>e.name==='creeper'&&!stalled(e)&&withinRange(e,bot,chasing(e)?CREEPER_CHASED_KEEP:CREEPER_KEEP_DISTANCE))

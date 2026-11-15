@@ -4364,3 +4364,32 @@ The bot went from y=44 to y=22 instead of up, and three zombies and a creeper ki
 - The cornered fight under a reflex storm (90+ claim-bumps in 60 s).
 - Silverfish inside a sealed box.
 - normal1's wood no-path pocket.
+
+## Round 126
+
+**Round-125 soak (report 83e6ed5):**
+- 2 deaths (0/0/0/0/1/1), both `shot by Skeleton`; iron pick 5 of 6; wood rungs all under 400 s; 0 creeper, trident and drowning deaths.
+  - hard2: shot on the open iron ground holding a stone shovel, with the stone and iron swords in the bag.
+  - hard3: shot off a day perch 11 s after a pinned roof climb, by a skeleton 3.0 away under cover.
+- The round-125 wood set-aside is unexercised: 0 lines. normal1's river-island tail failed through `Job: no path` and stair-outs before `wood failed 3 times` could count.
+- hard1 (the iron miss): out of its dawn box at 08:11 into a pocket under the cherry canopy at (815, 87, -530), stone and dirt on every side.
+  - A creeper stayed 3.2-6 away, about 4 above it, for 1001 s.
+  - The keep-away and the pillar fight took turns, `Flee: no headway` east, south-east and north-east, 0.37 blocks/s, health 20 throughout.
+  - The night shelter job queued at 08:17:56 never ran, and there was no ladder job from then to the run's end, 1144 s later.
+
+**Fix (one change: a creeper that cannot reach a pinned bot is left):** a skilled player in a pocket whose creeper never gets in stops running in place and gets on with the job.
+- `mobDefenseChain.js`: the round-79 hover rule left a creeper that had not come nearer in 30 s only while it stayed beyond 6. hard1's hovered inside 6.
+- New `CREEPER_PIT_NEAR`=3, and each chase tracks `ch.pin`: where the bot stands and its health.
+  - The pin restarts when the bot moves `FLEE_STALL_BLOCKS` (3) or loses health.
+- When the creeper has come within 6, has not come 1 nearer in `CREEPER_STALL_S` (30 s), and the bot has been pinned and unhurt for 30 s, the creeper is left while it stays beyond 3 (its fuse range) instead of 6.
+  - Inside 3 it is fled again from the start; a fuse is answered either way.
+- New line: `Reflex: the creeper D away has not come nearer than C in N s and the bot has not moved off (x, y, z) in M s (health H, no hit); it cannot reach the bot - back to the job (fleeing it again inside 3)`
+- The round-79 line is unchanged for a creeper that never came within 6.
+
+**Tests:** `tests/round126.test.js` (2): the pit stall and re-flee inside 3; a hit or a moving flee keeps it fled. 946 -> 948 pass; rung table ok. Mutation: with the pit rule off, the first fails.
+
+**Next candidates:**
+- The skeleton deaths: hard2 held a shovel with swords in the bag; hard3's perch was shot from under cover 3 away.
+- normal1's river-island no-path tail, where `wood failed 3 times` never counts.
+- normal3's iron pick broke with no re-tool.
+- hard3's stand weapon choice (round 124).
