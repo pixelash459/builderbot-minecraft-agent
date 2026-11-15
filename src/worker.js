@@ -37,7 +37,7 @@ import {solidSupport,placementCells,softBreakCell,hitsBot,HARD_BREAK,SOFT_BREAK,
 import {createMoveTasks} from './tasks/movement/factories.js';
 import {createLoopWatch} from './loop-watch.js';
 import {installToolWear,watchToolLoss} from './toolWear.js';
-import {MORNING_SAFE,darkNow,stillNight,leaveRefuge,shelterShell,shellGaps,holdableShell,placementPlan,shelterTarget,deepWaterCost,fleeHeading,nightMineWanted,tunnelBreach,REFUGE_CLEAR,SUNSET,DUSK_PREP,NIGHT_MINE_MS,NIGHT_MINE_STOP,NIGHT_MINE_DEPTH,NIGHT_MINE_STRIP} from './night.js';
+import {FLEE_DROP_SCAN,FLEE_DROP_DEADLY,MORNING_SAFE,darkNow,stillNight,leaveRefuge,shelterShell,shellGaps,holdableShell,placementPlan,shelterTarget,deepWaterCost,fleeHeading,nightMineWanted,tunnelBreach,REFUGE_CLEAR,SUNSET,DUSK_PREP,NIGHT_MINE_MS,NIGHT_MINE_STOP,NIGHT_MINE_DEPTH,NIGHT_MINE_STRIP} from './night.js';
 import {bestWeapon,attackCooldown,leaveAlone,armorValue} from './chains/combatPolicy.js';
 const {pathfinder,Movements,goals}=pathfinderPackage;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -431,12 +431,49 @@ export function ledgeGuard(bot){
  }
  const keys=['forward','back','left','right'].filter(k=>bot.getControlState(k));if(!keys.length)return false;
  if(dropAhead(bot)<LEDGE_DROP)return false;
+ // Round 127: a flee that chose this drop goes over it (fleeDrop, below).
+ const n=fleeDrop(bot);
+ if(n){
+  if(typeof bot._ledgeLog==='function'&&Date.now()-(bot._fleeDropLogAt||0)>5000){bot._fleeDropLogAt=Date.now();
+   try{bot._ledgeLog('Ledge guard: the flee goes over the '+n+'-block drop at '+e.position.floored()+' (health '+Math.round(bot.health*10)/10+', about '+Math.max(0,n-3)+' to lose on landing; standing on the edge is worse)');}catch{}}
+  return false;
+ }
  for(const k of ['forward','back','left','right','sprint','jump'])bot.setControlState(k,false);
  const away=LEDGE_AWAY[keys[0]];
  if(away){bot._ledgeBack={key:away,until:Date.now()+LEDGE_BACK_MS};bot.setControlState(away,true);}
  return true;
 }
 export const LEDGE_BACK_MS=400,LEDGE_AWAY={forward:'back',back:'forward',left:'right',right:'left'};
+// Round 127 (the round-126 soak's hard2: out of a cave-morning box at health 12.7 into a 48-mob dawn
+// crowd, two `Flee: no headway` lines, then `Ledge guard: stopped at (777, 82, -566) (a 5+ drop
+// ahead)` 0.7 s before skeleton arrows took it 12.7 -> 0; 66 s after the respawn, the bag run's flee
+// `Ledge guard: stopped at (774, 76, -570)` at the same cliff, a zombie closing 29.8 -> 3.0, cornered,
+// a pillar-up that left its column, slain): the flee's own heading (night.js fleeHeading) had already
+// read that drop FLEE_DROP_SCAN deep and kept it - every other way was walls, water or the crowd -
+// and the guard, which looks only LEDGE_DROP down, froze it on the edge. A skilled player under fire
+// with mobs on them jumps a survivable drop rather than stand on the edge. While the flee steers
+// (fallbackTasks.js fleeStep marks its heading for FLEE_DROP_MARK_MS) and the bot moves along that
+// heading (within FLEE_DROP_ALIGN), a drop that lands on solid ground - no water, lava or unknown
+// cell under it, under FLEE_DROP_DEADLY - and leaves at least FLEE_DROP_LAND health after its fall
+// damage (the drop less 3) is let through; anything else stops as before.
+export const FLEE_DROP_MARK_MS=300,FLEE_DROP_ALIGN=0.7,FLEE_DROP_LAND=6;
+export function fleeDrop(bot){
+ const f=bot&&bot._fleeDrop,e=bot&&bot.entity;
+ if(!f||!e||!e.velocity||!e.position||Date.now()>f.until)return 0;
+ const vx=e.velocity.x,vz=e.velocity.z,sp=Math.hypot(vx,vz);if(sp<0.04)return 0;
+ if((vx*f.x+vz*f.z)/sp<FLEE_DROP_ALIGN)return 0;
+ const ahead=e.position.offset(vx/sp*LEDGE_LOOK,0,vz/sp*LEDGE_LOOK).floored();
+ let drop=0,landed=false;
+ for(let dy=1;dy<=FLEE_DROP_SCAN;dy++){
+  const bl=bot.blockAt(ahead.offset(0,-dy,0));
+  if(!bl||/water|lava|bubble_column/.test(bl.name||''))return 0;
+  if(bl.boundingBox==='block'){landed=true;break;}
+  drop=dy;
+ }
+ if(!landed||drop>=FLEE_DROP_DEADLY)return 0;
+ if((Number.isFinite(bot.health)?bot.health:20)-Math.max(0,drop-3)<FLEE_DROP_LAND)return 0;
+ return drop;
+}
 // Round 77 (round-76 hard2: `Lava guard: stopped at (837, 87, -539)`, then `in lava; escaping at
 // (838, 85, -539)` 0.33 s later and `tried to swim in lava` - the guard clears the keys after the
 // physics step, and the flee pressed them again before the next one): for LAVA_HOLD_MS after a
@@ -1405,7 +1442,7 @@ export class Worker extends EventEmitter {
   const bot=this.bot=mineflayer.createBot({...this.config.server,hideErrors:true});
   installMovementFix(bot);installWeatherFix(bot);this.trackMeals(bot);guardEquip(bot);guardPlace(bot);guardDig(bot,m=>this.log(m),()=>(this.jobs||[]).find(j=>j.status==='running')?.spec);installDigWatch(bot,m=>this.log(m),()=>(this.jobs||[]).find(j=>j.status==='running')?.spec?.type);installProvoked(bot,m=>this.log(m));installEndermanWatch(bot,m=>this.log(m));bot.__windowLog=m=>this.log(m);
   bot.loadPlugin(pathfinder);bot.loadPlugin(toolPackage.plugin);
-  bot.once('spawn',()=>{this.ready=true;installToolWear(bot);if(!bot._earnHook){bot._earnHook=true;bot.on('playerCollect',(collector,collected)=>{try{if(collector!==bot.entity)return;const it=collected?.getDroppedItem?.();if(it)this.earn(it.name,it.count);}catch{}});}if(!bot.inventory._lossWatch){bot.inventory._lossWatch=true;watchToolLoss(bot,m=>this.log(m));}const movement=this.movements=this.normalMovements(bot);bot.pathfinder.setMovements(movement);bot.pathfinder.searchRadius=128;if(!bot._ledgeGuard){bot._ledgeGuard=true;let last=0,lastLava=0;const fall={};const gait=newGait(),speed=newSpeed();installSprintHold(bot);const sink={};bot.on('physicsTick',()=>{bot.__pathTick=false;try{const sk=sinkGuard(bot,sink,Date.now());if(sk)this.log(sk+' (job '+((this.jobs||[]).find(j=>j.status==='running')?.spec?.type||'none')+', chain '+(this.taskRunner?.active?.name||this.taskRunner?.current?.name||'?')+')');}catch{}try{sprintAssist(bot);const g=gaitTick(bot,gait,Date.now());if(g)this.log(g);const sp=speedTick(bot,speed,Date.now());if(sp)this.log(sp);{const lv=lavaGuard(bot);if(lv&&Date.now()-lastLava>5000){lastLava=Date.now();this.log('Lava guard: stopped at '+bot.entity.position.floored()+' (lava ahead at '+lv+'; job '+((this.jobs||[]).find(j=>j.status==='running')?.spec?.type||'none')+')');}}if(ledgeGuard(bot)&&Date.now()-last>5000){last=Date.now();this.log('Ledge guard: stopped at '+bot.entity.position.floored()+' (a '+LEDGE_DROP+'+ drop ahead)');}const f=fallWatch(bot,fall);if(f)this.log('Fall: dropping from '+new Vec3(f.from.x,f.from.y,f.from.z).floored()+' (job '+((this.jobs||[]).find(j=>j.status==='running')?.spec?.type||'none')+', pathing '+!!bot.pathfinder?.isMoving?.()+', sprint '+!!bot.getControlState?.('sprint')+')');}catch{}});}bot.pathfinder.LOSWhenPlacingBlocks=false;bot.pathfinder.thinkTimeout=10000;/* round 27: 5 s timed out every night-mine climb home (`Took to long to decide path to goal!`) *//* round 25: its returningPos is never cleared by a reset and wedged all pathing */// in blocks: bounds searches for unreachable goals; legit paths may still cost up to goal distance + 128
+  bot.once('spawn',()=>{this.ready=true;installToolWear(bot);if(!bot._earnHook){bot._earnHook=true;bot.on('playerCollect',(collector,collected)=>{try{if(collector!==bot.entity)return;const it=collected?.getDroppedItem?.();if(it)this.earn(it.name,it.count);}catch{}});}if(!bot.inventory._lossWatch){bot.inventory._lossWatch=true;watchToolLoss(bot,m=>this.log(m));}const movement=this.movements=this.normalMovements(bot);bot.pathfinder.setMovements(movement);bot.pathfinder.searchRadius=128;if(!bot._ledgeGuard){bot._ledgeGuard=true;let last=0,lastLava=0;const fall={};const gait=newGait(),speed=newSpeed();installSprintHold(bot);const sink={};bot.on('physicsTick',()=>{bot.__pathTick=false;try{const sk=sinkGuard(bot,sink,Date.now());if(sk)this.log(sk+' (job '+((this.jobs||[]).find(j=>j.status==='running')?.spec?.type||'none')+', chain '+(this.taskRunner?.active?.name||this.taskRunner?.current?.name||'?')+')');}catch{}try{sprintAssist(bot);const g=gaitTick(bot,gait,Date.now());if(g)this.log(g);const sp=speedTick(bot,speed,Date.now());if(sp)this.log(sp);{const lv=lavaGuard(bot);if(lv&&Date.now()-lastLava>5000){lastLava=Date.now();this.log('Lava guard: stopped at '+bot.entity.position.floored()+' (lava ahead at '+lv+'; job '+((this.jobs||[]).find(j=>j.status==='running')?.spec?.type||'none')+')');}}if(!bot._ledgeLog)bot._ledgeLog=m=>this.log(m);if(ledgeGuard(bot)&&Date.now()-last>5000){last=Date.now();this.log('Ledge guard: stopped at '+bot.entity.position.floored()+' (a '+LEDGE_DROP+'+ drop ahead)');}const f=fallWatch(bot,fall);if(f)this.log('Fall: dropping from '+new Vec3(f.from.x,f.from.y,f.from.z).floored()+' (job '+((this.jobs||[]).find(j=>j.status==='running')?.spec?.type||'none')+', pathing '+!!bot.pathfinder?.isMoving?.()+', sprint '+!!bot.getControlState?.('sprint')+')');}catch{}});}bot.pathfinder.LOSWhenPlacingBlocks=false;bot.pathfinder.thinkTimeout=10000;/* round 27: 5 s timed out every night-mine climb home (`Took to long to decide path to goal!`) *//* round 25: its returningPos is never cleared by a reset and wedged all pathing */// in blocks: bounds searches for unreachable goals; legit paths may still cost up to goal distance + 128
   if(!this.trackersTimer){ // tracker refresh + preemption resume + idle armour, port of the reflex cadence
    this.loopWatch.start();
    this.trackersTimer=setInterval(()=>this.loopWatch.timeTick('cadence',()=>{

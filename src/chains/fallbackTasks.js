@@ -106,6 +106,8 @@ function fleeStep(task,bot,ctx,list){
  look(bot,yawToward(h.x,h.z),0); // along the chosen away vector (heading.js convention)
  // Every heading is a hazard (cornered against a lake or a cliff): stand, do not walk in.
  const go=task._go=!h.blocked,sprint=go&&(bot.food||20)>6; // 7f: sprint needs food > 6
+ // round 127: the ledge guard lets this heading over a survivable drop (worker.js fleeDrop)
+ bot._fleeDrop=go?{x:h.x,z:h.z,until:Date.now()+300}:null;
  setControl(bot,'forward',go);
  setControl(bot,'sprint',sprint);
  setControl(bot,'jump',(go||wet)&&fleeJump(at,me,h,{sprint,inWater:wet})); // round 119: swim at the surface

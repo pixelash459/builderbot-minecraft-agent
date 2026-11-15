@@ -4393,3 +4393,31 @@ The bot went from y=44 to y=22 instead of up, and three zombies and a creeper ki
 - normal1's river-island no-path tail, where `wood failed 3 times` never counts.
 - normal3's iron pick broke with no re-tool.
 - hard3's stand weapon choice (round 124).
+
+## Round 127
+
+**Round-126 soak (report 44c9ddc):**
+- 3 deaths (0/0/0/1/2/0); **iron pick 6 of 6**, the first of the 2400-s era; every wood under 400 s, every hard rung faster than round 107's.
+- The round-126 creeper pit rule is unexercised: no creeper ever came within 6 (0 `closed to` lines). The round-125 wood set-aside is unexercised again.
+- The deaths:
+  - hard1: shot while eating, 155 s after a 71-s pinned box whose roof climb cost health 20 -> 11.
+  - hard2 death 1: out of a cave-morning box at health 12.7 into a 48-mob dawn crowd, two `Flee: no headway`, then `Ledge guard: stopped at (777, 82, -566) (a 5+ drop ahead)` 0.7 s before the arrows took it to 0.
+  - hard2 death 2: 66 s after the respawn, the bag run's flee was stopped by the ledge guard at the same cliff, (774, 76, -570). Then cornered at health 4.7, a pillar-up that left its column, and slain by a zombie.
+
+**Fix (one change: a flee goes over a survivable drop it chose):** a skilled player under fire jumps a drop they can survive rather than stand on the edge.
+- `night.js` `fleeHeading` already reads a drop 16 deep and keeps one only when every other way is walls, water or the crowd. But `worker.js` `ledgeGuard`, which looks only 5 down, froze the flee on the edge.
+- `fallbackTasks.js` `fleeStep` marks its heading on `bot._fleeDrop` for 300 ms while it walks.
+- `worker.js` `fleeDrop(bot)` lets the guard pass when:
+  - the bot moves along that heading (cos 0.7 or more);
+  - the drop lands on solid ground, with no water, lava or unknown cell under it, and is under `FLEE_DROP_DEADLY` (12);
+  - at least `FLEE_DROP_LAND`=6 health is left after the fall damage (the drop less 3).
+- Anything else stops as before: a fight, a food chase, a stale mark, a sideways move, too little health.
+- New line, at most once per 5 s: `Ledge guard: the flee goes over the N-block drop at (x, y, z) (health H, about D to lose on landing; standing on the edge is worse)`
+
+**Tests:** `tests/round127.test.js` (2). 948 -> 950 pass; rung table ok. Mutation: with the pass off, the first fails.
+
+**Next candidates:**
+- The roof climb out of a pinned box costing 7-9 health (hard1, hard2).
+- Eating in the open under skeleton fire (hard1).
+- hard3's shelter that could not seal (1 open cell) and held in the open for a night.
+- The death-2 bag run into the same crowd.
